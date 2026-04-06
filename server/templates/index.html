@@ -1174,6 +1174,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
      ═══════════════════════════════════════ */
   ;(function() {
     var FRAME_COUNT = 121;
+    var FRAME_START = 15;  // Skip first 15 white frames (bottle cap only)
     var isMobile    = window.innerWidth < 768;
     var FRAME_PATH  = isMobile ? '/static/assets/video-frames/mobile/frame-' : '/static/assets/video-frames/frame-';
     var FRAME_EXT   = '.webp';
@@ -1238,7 +1239,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
           loaderBar.style.width = ((loaded / TOTAL) * 100) + '%';
           if (loaded === TOTAL) {
             loader.classList.add('scroll-video__loader--hidden');
-            drawFrame(0);
+            drawFrame(FRAME_START);
             // Create the scrub ScrollTrigger after all frames loaded
             ScrollTrigger.create({
               trigger: section,
@@ -1247,7 +1248,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
               pin: sticky,
               scrub: 1,
               onUpdate: function(self) {
-                var idx = Math.min(Math.floor(self.progress * TOTAL), TOTAL - 1);
+                var idx = Math.min(FRAME_START + Math.floor(self.progress * (TOTAL - FRAME_START)), TOTAL - 1);
                 if (idx !== currentFrame) drawFrame(idx);
               }
             });

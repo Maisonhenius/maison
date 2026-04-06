@@ -42,9 +42,7 @@ assets/pictures/Jordan Landscape/Texture and color of the box.jpg
 
 # Deploy artifacts
 Dockerfile
-Procfile
 .railwayignore
-requirements.txt
 fragrances-after-click.png
 
 # Tooling
@@ -61,6 +59,7 @@ BRAND.md
 server/tests/
 server/pytest.ini
 server/TESTING.md
+server/requirements.txt
 
 # Claude Code — override global ignore to keep project memory in repo
 !.claude/

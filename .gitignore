@@ -25,20 +25,15 @@ assets/video-frames/
 AMOUAGE-CINEMATIC-RESEARCH.md
 showreel.mp4
 
-# Heavy images — serve from CDN, not repo
+# Heavy images — originals stay local, only WebP in repo
 assets/pictures/ingredients/
 assets/pictures/Olfactory Pyramids/
-assets/pictures/Collection & Fragrances/Beyond Boarders Collection.png
-assets/pictures/Collection & Fragrances/Bottle - White BG No Reflection.png
-assets/pictures/Collection & Fragrances/bottle - ingredient map*
-assets/pictures/Collection & Fragrances/bottle - ingredients*
-assets/pictures/Collection & Fragrances/bottle close*
-assets/pictures/Collection & Fragrances/bottle open*
-assets/pictures/Collection & Fragrances/mood-*
-assets/pictures/Collection & Fragrances/WhatsApp*
+assets/pictures/Collection & Fragrances/*.png
 assets/pictures/Collection & Fragrances/for the second video/
-assets/pictures/Jordan Landscape/old-western-canyon-landscape.jpg
-assets/pictures/Jordan Landscape/Texture and color of the box.jpg
+assets/pictures/Collection & Fragrances/WhatsApp*
+assets/pictures/Jordan Landscape/*.png
+assets/pictures/Jordan Landscape/*.jpg
+assets/pictures/Jordan Landscape/*.jpeg
 
 # Deploy artifacts
 Dockerfile

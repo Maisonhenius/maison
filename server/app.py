@@ -110,8 +110,8 @@ PRODUCTS = {
             "heart": {"label": "Heart - Middle Notes", "names": "Fig - Coconut - Freesia", "desc": "The heart reveals a creamy and slightly fruity facet built around fig, coconut and freesia - an unexpected softness.", "images": ["fig", "coconut", "freesia"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Patchouli - Fruity Musk - Sandalwood", "desc": "The base blends patchouli, sandalwood and fruity musk to create a sensual, elegant and addictive trail.", "images": ["patchouli", "sandalwood", "musk"]}
         },
-        "card_image": "card-out-of-control.png",
-        "bottle_image": "Out of Control.png",
+        "card_image": "card-out-of-control.webp",
+        "bottle_image": "Out of Control.webp",
         "video": "1.mp4"
     },
     "parisian": {
@@ -132,8 +132,8 @@ PRODUCTS = {
             "heart": {"label": "Heart - Middle Notes", "names": "Rose - Peony - Jasmine", "desc": "The heart reveals a refined floral bouquet composed of rose, peony and jasmine, bringing softness and romance.", "images": ["rose", "peony", "jasmine"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Croissant - Almond - Musk", "desc": "The base unfolds into a comforting gourmand accord of croissant, almond and musk, creating a soft and creamy signature.", "images": ["croissant", "almond", "musk"]}
         },
-        "card_image": "card-parisian.png",
-        "bottle_image": "Parisian.png",
+        "card_image": "card-parisian.webp",
+        "bottle_image": "Parisian.webp",
         "video": "2.mp4"
     },
     "velvet-waterfall": {
@@ -154,8 +154,8 @@ PRODUCTS = {
             "heart": {"label": "Heart - Middle Notes", "names": "Rose - Violet - Lily of the Valley", "desc": "The floral heart combines rose, violet and lily of the valley, bringing a luminous and refined dimension to the composition.", "images": ["rose", "violet", "lily-of-the-valley"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Musk - Cedarwood - Vetiver", "desc": "The base settles on a woody and musky foundation composed of cedarwood, moss and vetiver, leaving a warm, elegant and enveloping trail.", "images": ["musk", "cedarwood", "vetiver"]}
         },
-        "card_image": "card-velvet-waterfall.png",
-        "bottle_image": "Velvet Waterfall .png",
+        "card_image": "card-velvet-waterfall.webp",
+        "bottle_image": "Velvet Waterfall .webp",
         "video": "3.mp4"
     },
     "oh-my-dear": {
@@ -176,8 +176,8 @@ PRODUCTS = {
             "heart": {"label": "Heart - Middle Notes", "names": "Rose - Leather - Cypriol", "desc": "The heart reveals a refined accord of rose and leather, structured by cypriol which reinforces the woody and elegant character of the fragrance.", "images": ["rose", "leather", "cypriol"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Amber - Vetiver - Vanilla", "desc": "The base combines amber, vetiver, cedarwood and vanilla to create a deep, warm and sophisticated trail.", "images": ["amber", "vetiver", "vanilla"]}
         },
-        "card_image": "card-oh-my-dear.png",
-        "bottle_image": "Oh My Dear.png",
+        "card_image": "card-oh-my-dear.webp",
+        "bottle_image": "Oh My Dear.webp",
         "video": "1.mp4"
     },
     "oud-passion": {
@@ -198,8 +198,8 @@ PRODUCTS = {
             "heart": {"label": "Heart - Middle Notes", "names": "Moldavian Rose - Patchouli - Vetiver", "desc": "The heart revolves around Moldavian rose absolute, combined with patchouli and vetiver, reinforcing the woody and earthy structure of the composition.", "images": ["rose", "patchouli", "vetiver"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Sandalwood - Oud - Leather", "desc": "The base reveals a noble and long-lasting accord of sandalwood, oud, leather and Orcanox, leaving a warm, enveloping and elegant trail.", "images": ["sandalwood", "oud", "leather"]}
         },
-        "card_image": "card-oud-passion.png",
-        "bottle_image": "Oud Passion .png",
+        "card_image": "card-oud-passion.webp",
+        "bottle_image": "Oud Passion .webp",
         "video": "2.mp4"
     }
 }

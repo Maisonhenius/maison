@@ -21,7 +21,8 @@ npm-debug.log*
 
 # Large/source assets
 assets/videos/*.mp4
-assets/video-frames/
+assets/video-frames/*.jpg
+assets/video-frames/mobile/*.jpg
 AMOUAGE-CINEMATIC-RESEARCH.md
 showreel.mp4
 

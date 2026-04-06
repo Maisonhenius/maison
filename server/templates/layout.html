@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Maison Henius{% endblock %}</title>
+  {% block meta %}{% endblock %}
+
+  <link rel="icon" href="/static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/static/favicon-32x32.png" type="image/png">
+  <link rel="icon" href="/static/assets/images/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/css/style.css">
+  {% block styles %}{% endblock %}
+
+  <script type="importmap">
+  {
+    "imports": {
+      "@hotwired/turbo": "https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.23/dist/turbo.es2017-esm.js",
+      "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2.2/dist/stimulus.js"
+    }
+  }
+  </script>
+  <script type="module" src="/static/js/application.js?v=8"></script>
+</head>
+<body>
+  {% block nav %}
+  <header class="{% block nav_class %}header{% endblock %}" {% block nav_attrs %}{% endblock %}>
+    <nav class="nav">
+      <button class="nav__hamburger" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav__links nav__left">
+        <li><a href="/#fragrances">Fragrances</a></li>
+        <li><a href="/story">Universe</a></li>
+      </ul>
+      <div class="logo">
+        <a href="/">
+          <img src="/static/assets/images/logo.svg" alt="Maison Henius" class="logo__img">
+        </a>
+      </div>
+      <ul class="nav__links nav__right">
+        <li class="nav__hide-mobile"><a href="/#contact">Contact</a></li>
+        <li><a href="/cart" class="nav__cart">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+          <span class="cart-badge" style="display:none">0</span>
+        </a></li>
+        <li>
+          <a href="/login" class="nav__auth" id="navAuthLink" data-turbo="false" aria-label="Account">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+              <circle cx="12" cy="7" r="4"/>
+            </svg>
+          </a>
+        </li>
+      </ul>
+    </nav>
+  </header>
+  {% endblock %}
+
+  <!-- Scroll to top button -->
+  <button class="scroll-top" id="scrollTop" aria-label="Scroll to top">
+    <svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+  </button>
+
+  <!-- Mobile nav overlay -->
+  <div class="mobile-nav" id="mobileNav" aria-hidden="true">
+    <button class="mobile-nav__close" id="mobileNavClose" aria-label="Close menu">&times;</button>
+    <a href="/" class="mobile-nav__logo">
+      <img src="/static/assets/images/logo.svg" alt="Maison Henius">
+    </a>
+    <ul class="mobile-nav__links">
+      <li><a href="/#fragrances">Fragrances</a></li>
+      <li><a href="/story">Universe</a></li>
+      <li><a href="/#contact">Contact</a></li>
+      <li><a href="/cart">Cart</a></li>
+      <li><a href="/login" class="mobile-nav__auth-link" data-turbo="false">Account</a></li>
+    </ul>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  {% block footer %}
+  <footer class="footer">
+    <hr class="footer__divider">
+    <img src="/static/assets/images/logo.svg" alt="Maison Henius" class="footer__logo">
+    <p class="footer__tagline">Essences Beyond Time.</p>
+    <div class="footer__social">
+      <a href="https://www.instagram.com/maisonhenius" target="_blank" rel="noopener">Instagram</a>
+      <a href="https://www.tiktok.com/@maison.henius" target="_blank" rel="noopener">TikTok</a>
+    </div>
+    <p class="footer__markets">Jordan - UAE</p>
+    <p class="footer__legal">&copy; 2026 Marisal Goods wholesalers -FZE. All rights reserved.</p>
+  </footer>
+  {% endblock %}
+
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js"></script>
+  <script src="/static/js/cart.js"></script>
+  <script>
+  (function() {
+    var auth = localStorage.getItem('maison_auth');
+    var link = document.getElementById('navAuthLink');
+    if (auth && link) {
+      link.href = '/profile';
+      link.removeAttribute('data-turbo');
+    }
+  })();
+  </script>
+  <!-- Mobile nav toggle -->
+  <script>
+  (function() {
+    function initMobileNav() {
+      var overlay = document.getElementById('mobileNav');
+      if (!overlay) return;
+
+      var hamburgers = document.querySelectorAll('.nav__hamburger');
+      var closeBtn = document.getElementById('mobileNavClose');
+
+      function openNav() {
+        overlay.classList.add('is-open');
+        overlay.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        hamburgers.forEach(function(h) { h.classList.add('is-active'); });
+      }
+
+      function closeNav() {
+        overlay.classList.remove('is-open');
+        overlay.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+        hamburgers.forEach(function(h) { h.classList.remove('is-active'); });
+      }
+
+      /* Guard: skip buttons that already have the listener (prevents double-init from
+         turbo:load + immediate call both attaching handlers to the same button) */
+      hamburgers.forEach(function(btn) {
+        if (btn.dataset.mobileNavInit) return;
+        btn.dataset.mobileNavInit = '1';
+        btn.addEventListener('click', function() {
+          overlay.classList.contains('is-open') ? closeNav() : openNav();
+        });
+      });
+
+      if (closeBtn && !closeBtn.dataset.mobileNavInit) {
+        closeBtn.dataset.mobileNavInit = '1';
+        closeBtn.addEventListener('click', closeNav);
+      }
+
+      overlay.querySelectorAll('a').forEach(function(link) {
+        if (link.dataset.mobileNavInit) return;
+        link.dataset.mobileNavInit = '1';
+        link.addEventListener('click', closeNav);
+      });
+
+      /* Update auth link based on login state */
+      var auth = localStorage.getItem('maison_auth');
+      overlay.querySelectorAll('.mobile-nav__auth-link').forEach(function(link) {
+        if (auth) { link.href = '/profile'; link.textContent = 'My Account'; }
+      });
+    }
+
+    document.addEventListener('turbo:load', initMobileNav);
+    initMobileNav();
+
+    document.addEventListener('turbo:before-render', function() {
+      var overlay = document.getElementById('mobileNav');
+      if (overlay) { overlay.classList.remove('is-open'); document.body.style.overflow = ''; }
+    });
+  })();
+
+  /* ── Scroll to top button ── */
+  (function() {
+    if (window._scrollTopBound) return;
+    window._scrollTopBound = true;
+
+    function initScrollTop() {
+      var btn = document.getElementById('scrollTop');
+      if (!btn) return;
+
+      /* Show/hide based on scroll position */
+      var threshold = 400;
+      function checkScroll() {
+        var y = window.scrollY || window.pageYOffset;
+        btn.classList.toggle('is-visible', y > threshold);
+      }
+
+      window.addEventListener('scroll', checkScroll, { passive: true });
+      checkScroll();
+
+      /* Click: use Lenis if available, else native */
+      btn.addEventListener('click', function() {
+        if (window.lenis) {
+          window.lenis.scrollTo(0, { duration: 1.2 });
+        } else {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+      });
+    }
+
+    document.addEventListener('turbo:load', initScrollTop);
+    initScrollTop();
+  })();
+  </script>
+
+  {% block scripts %}{% endblock %}
+</body>
+</html>

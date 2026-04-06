@@ -1,0 +1,307 @@
+{% extends "layout.html" %}
+{% block title %}Order Confirmed - Maison Henius{% endblock %}
+{% block meta %}<meta name="description" content="Thank you for your Maison Henius order.">{% endblock %}
+
+{% block nav_attrs %}style="position: fixed; background: rgba(10, 10, 8, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);"{% endblock %}
+
+{% block styles %}
+<style>
+  .success-page {
+    background: #faf9f6;
+    min-height: 100vh;
+    padding-top: clamp(10rem, 14vw, 13rem);
+    padding-bottom: clamp(4rem, 8vw, 7rem);
+  }
+
+  .success-page__inner {
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 0 clamp(1.5rem, 5vw, 4rem);
+    text-align: center;
+  }
+
+  .success-page__icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 2rem;
+    color: #b8a44e;
+  }
+
+  .success-page__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    margin-bottom: 1rem;
+  }
+
+  .success-page__order-id {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.5);
+    margin-bottom: 1.5rem;
+  }
+
+  .success-page__message {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.8rem;
+    color: rgba(10, 10, 8, 0.5);
+    letter-spacing: 0.02em;
+    margin-bottom: 2.5rem;
+    line-height: 1.8;
+  }
+
+  /* -- Order Details -- */
+  .success-order {
+    text-align: left;
+    background: rgba(10, 10, 8, 0.02);
+    border: 1px solid rgba(10, 10, 8, 0.06);
+    padding: 2rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .success-order__heading {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-bottom: 1.5rem;
+  }
+
+  .success-order__item {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.06);
+  }
+
+  .success-order__item:last-child {
+    border-bottom: none;
+  }
+
+  .success-order__item-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: 0.95rem;
+    color: #0a0a08;
+  }
+
+  .success-order__item-qty {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.65rem;
+    color: rgba(10, 10, 8, 0.4);
+    margin-left: 0.5rem;
+  }
+
+  .success-order__item-price {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+  }
+
+  .success-order__totals {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(10, 10, 8, 0.08);
+  }
+
+  .success-order__row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .success-order__label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.5);
+  }
+
+  .success-order__value {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+  }
+
+  .success-order__row--total {
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(10, 10, 8, 0.08);
+    margin-bottom: 0;
+  }
+
+  .success-order__row--total .success-order__label {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .success-order__row--total .success-order__value {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  /* -- Action Links -- */
+  .success-page__actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .success-page__link {
+    display: inline-block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    text-decoration: none;
+    background: #e9db90;
+    border: 1px solid #e9db90;
+    padding: 1rem 2.5rem;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .success-page__link:hover {
+    background: #b8a44e;
+    border-color: #b8a44e;
+  }
+
+  .success-page__link--ghost {
+    background: transparent;
+    color: rgba(10, 10, 8, 0.5);
+    border-color: rgba(10, 10, 8, 0.2);
+  }
+
+  .success-page__link--ghost:hover {
+    background: #0a0a08;
+    color: #faf9f6;
+    border-color: #0a0a08;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+  <section class="success-page">
+    <div class="success-page__inner">
+
+      <svg class="success-page__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+
+      <h1 class="success-page__heading">Thank You</h1>
+
+      {% if order %}
+      <p class="success-page__order-id">Order {{ order.id }}</p>
+      <p class="success-page__message">
+        Your order has been confirmed. A receipt has been sent to your email.
+      </p>
+
+      <div class="success-order">
+        <h2 class="success-order__heading">Order Details</h2>
+
+        {% for item in order['items'] %}
+        <div class="success-order__item">
+          <div>
+            <span class="success-order__item-name">{{ item.name }}</span>
+            <span class="success-order__item-qty">x{{ item.quantity }}</span>
+          </div>
+          <span class="success-order__item-price">${{ item.price * item.quantity }}</span>
+        </div>
+        {% endfor %}
+
+        <div class="success-order__totals">
+          <div class="success-order__row">
+            <span class="success-order__label">Subtotal</span>
+            <span class="success-order__value">${{ order.subtotal }}</span>
+          </div>
+          <div class="success-order__row">
+            <span class="success-order__label">Shipping</span>
+            <span class="success-order__value">${{ order.shipping }}</span>
+          </div>
+          <div class="success-order__row success-order__row--total">
+            <span class="success-order__label">Total</span>
+            <span class="success-order__value">${{ order.total }}</span>
+          </div>
+        </div>
+      </div>
+
+      {% else %}
+      <p class="success-page__message">
+        Your payment was successful. You will receive a confirmation email shortly.<br>
+        Your order is being processed.
+      </p>
+      {% endif %}
+
+      <div class="success-page__actions">
+        <a href="/#fragrances" class="success-page__link">Continue Shopping</a>
+        <a href="/profile" class="success-page__link success-page__link--ghost">View My Orders</a>
+      </div>
+
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  /* Clear localStorage cart — server cart already cleared by webhook */
+  if (typeof MaisonCart !== 'undefined') {
+    try {
+      localStorage.removeItem('maison_cart');
+      var badges = document.querySelectorAll('.cart-badge');
+      badges.forEach(function(b) { b.textContent = '0'; b.style.display = 'none'; });
+    } catch (e) {}
+  }
+
+  /* Entrance animations */
+  if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+    gsap.fromTo('.success-page__icon', {
+      opacity: 0, scale: 0.5
+    }, {
+      opacity: 1, scale: 1, duration: 0.5, delay: 0.1, ease: 'back.out(1.7)'
+    });
+    gsap.fromTo('.success-page__heading', {
+      opacity: 0, y: 15
+    }, {
+      opacity: 1, y: 0, duration: 0.5, delay: 0.25, ease: 'power2.out'
+    });
+    gsap.fromTo('.success-page__order-id, .success-page__message', {
+      opacity: 0
+    }, {
+      opacity: 1, duration: 0.5, delay: 0.4, ease: 'power2.out'
+    });
+    gsap.fromTo('.success-order', {
+      opacity: 0, y: 20
+    }, {
+      opacity: 1, y: 0, duration: 0.5, delay: 0.55, ease: 'power2.out'
+    });
+    gsap.fromTo('.success-page__link', {
+      opacity: 0, y: 10
+    }, {
+      opacity: 1, y: 0, duration: 0.4, stagger: 0.1, delay: 0.7, ease: 'power2.out'
+    });
+  }
+})();
+</script>
+{% endblock %}

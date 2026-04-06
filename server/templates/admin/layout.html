@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Admin - Maison Henius{% endblock %}</title>
+  <link rel="icon" href="/static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/static/favicon-32x32.png" type="image/png">
+  <link rel="icon" href="/static/assets/images/logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/admin/admin.css">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "@hotwired/turbo": "https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.23/dist/turbo.es2017-esm.js",
+      "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2.2/dist/stimulus.js"
+    }
+  }
+  </script>
+  <script type="module" src="/static/js/application.js"></script>
+  {% block styles %}{% endblock %}
+</head>
+<body>
+  <script>
+  (function() {
+    var auth = localStorage.getItem('maison_admin_auth');
+    if (!auth) { window.location.href = '/admin/login'; return; }
+  })();
+  </script>
+  <button class="admin__hamburger" onclick="toggleSidebar()">&#9776;</button>
+  <div class="admin__backdrop" onclick="toggleSidebar()"></div>
+
+  <div class="admin">
+    <aside class="admin__sidebar">
+      <div class="admin__logo">
+        <img src="/static/assets/images/logo.svg" alt="Maison Henius" height="40">
+        <span>Admin</span>
+      </div>
+      <nav class="admin__nav">
+        <a href="/admin" class="admin__nav-item {% block nav_dashboard %}{% endblock %}">Dashboard</a>
+        <a href="/admin/orders" class="admin__nav-item {% block nav_orders %}{% endblock %}">Orders</a>
+        <a href="/admin/messages" class="admin__nav-item {% block nav_messages %}{% endblock %}">Messages</a>
+      </nav>
+      <a href="/" class="admin__nav-item admin__nav-back">&larr; Back to Site</a>
+      <a href="#" class="admin__nav-item admin__nav-signout" onclick="localStorage.removeItem('maison_admin_auth'); window.location.href='/admin/login'; return false;">Sign Out</a>
+    </aside>
+
+    <main class="admin__main">
+      <header class="admin__header">
+        <h1>{% block heading %}Admin{% endblock %}</h1>
+      </header>
+
+      <div class="admin__content">
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+
+  <script>
+    function toggleSidebar() {
+      document.querySelector('.admin__sidebar').classList.toggle('admin__sidebar--open');
+      document.querySelector('.admin__backdrop').classList.toggle('admin__backdrop--visible');
+    }
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en" data-turbo="false">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Signing In... - Maison Henius</title>
+
+  <!-- Favicons -->
+  <link rel="icon" href="/static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/static/favicon-32x32.png" type="image/png">
+  <link rel="icon" href="/static/assets/images/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Montserrat:wght@300;400&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      background: #0a0a08;
+      font-family: 'Montserrat', sans-serif;
+    }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+    }
+    .callback {
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+    .callback__logo {
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+    .callback__logo img {
+      height: 60px;
+      width: auto;
+      display: block;
+    }
+    .callback__label {
+      font-weight: 400;
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(233, 219, 144, 0.5);
+      margin-bottom: 3rem;
+    }
+    .callback__heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.6rem, 2.5vw, 2rem);
+      color: #f5f0e8;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .callback__sub {
+      font-weight: 300;
+      font-size: 0.75rem;
+      color: rgba(245, 240, 232, 0.35);
+      letter-spacing: 0.03em;
+      margin-bottom: 2.5rem;
+    }
+    .callback__error {
+      font-weight: 300;
+      font-size: 0.7rem;
+      color: #d4614b;
+      letter-spacing: 0.02em;
+      margin-top: 1rem;
+      display: none;
+    }
+    .callback__error.visible { display: block; }
+    .callback__link {
+      display: inline-block;
+      margin-top: 1.5rem;
+      font-weight: 300;
+      font-size: 0.65rem;
+      color: #e9db90;
+      text-decoration: none;
+      letter-spacing: 0.03em;
+      transition: opacity 0.3s ease;
+    }
+    .callback__link:hover { opacity: 0.7; }
+  </style>
+</head>
+<body>
+
+  <div class="callback">
+    <a href="/" class="callback__logo" data-turbo="false">
+      <img src="/static/assets/images/logo.svg" alt="Maison Henius">
+    </a>
+    <p class="callback__label">Admin</p>
+
+    <h1 class="callback__heading" id="heading">Signing you in...</h1>
+    <p class="callback__sub" id="sub">Please wait a moment</p>
+
+    <p class="callback__error" id="error"></p>
+    <a href="/admin/login" class="callback__link" id="retryLink" style="display:none;" data-turbo="false">Try again</a>
+  </div>
+
+  <script>
+    (function() {
+      var heading = document.getElementById('heading');
+      var sub = document.getElementById('sub');
+      var error = document.getElementById('error');
+      var retryLink = document.getElementById('retryLink');
+
+      function showError(msg) {
+        heading.textContent = 'Login Failed';
+        sub.textContent = '';
+        error.textContent = msg;
+        error.classList.add('visible');
+        retryLink.style.display = 'inline-block';
+      }
+
+      // Parse hash fragment: #access_token=...&refresh_token=...&...
+      var hash = window.location.hash.substring(1);
+      var params = new URLSearchParams(hash);
+      var accessToken = params.get('access_token');
+
+      if (!accessToken) {
+        showError('No authentication token found. The link may have expired.');
+        return;
+      }
+
+      // Store admin session and redirect to dashboard
+      localStorage.setItem('maison_admin_auth', JSON.stringify({
+        access_token: accessToken
+      }));
+
+      window.location.href = '/admin';
+    })();
+  </script>
+
+</body>
+</html>

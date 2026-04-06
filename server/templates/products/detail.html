@@ -1,0 +1,610 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ product.name }} - Maison Henius{% endblock %}
+
+{% block meta %}
+<meta name="description" content="{{ product.mood }}. {{ product.character }} {{ product.family }} Eau de Parfum, 100ml.">
+<meta property="og:type" content="product">
+<meta property="og:title" content="{{ product.name }} - Maison Henius">
+<meta property="og:description" content="{{ product.character }}">
+<meta property="og:image" content="https://maisonhenius.com/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}">
+<meta property="og:url" content="https://maisonhenius.com/products/{{ product.slug }}">
+<meta property="og:site_name" content="Maison Henius">
+{% endblock %}
+
+{% block nav_class %}header header--product{% endblock %}
+
+{% block styles %}
+<style>
+  /* ── Product Nav (solid → transparent on scroll) ── */
+  .header--product {
+    background: #0a0a08;
+    transition: background 0.4s ease;
+  }
+  .header--product.header--transparent {
+    background: transparent;
+  }
+
+  /* ── Hero: Full-screen video + bottom bar ── */
+  .product-hero {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+    background: #0a0a08;
+  }
+  .product-hero__video {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    z-index: 0;
+  }
+  .product-hero__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.2);
+    z-index: 1;
+  }
+  .product-hero__bar {
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    z-index: 2;
+    background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0.3) 60%, transparent 100%);
+    padding: 4rem clamp(1.5rem, 4vw, 4rem) 2.5rem;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 2rem;
+  }
+  .product-hero__family {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 0.4rem;
+  }
+  .product-hero__name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+  }
+  .product-hero__actions {
+    display: flex; align-items: center; gap: 1.2rem;
+    flex-shrink: 0;
+  }
+  .product-hero__price {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.85rem;
+    color: #f5f0e8;
+    letter-spacing: 0.05em;
+  }
+  .product-hero__cart-btn {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    background: #e9db90;
+    border: none;
+    padding: 0.8rem 2rem;
+    cursor: pointer;
+    transition: background 0.3s ease, opacity 0.3s ease;
+  }
+  .product-hero__cart-btn:hover {
+    background: #d4c87a;
+  }
+
+  /* ── The Essence ── */
+  .product-essence {
+    background: #faf9f6;
+    padding: 6rem clamp(1.5rem, 5vw, 4rem);
+    text-align: center;
+  }
+  .product-essence__divider {
+    display: block; width: 30px; height: 1px;
+    background: #b8a44e; margin: 0 auto 1.5rem; border: none;
+  }
+  .product-essence__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #b8a44e; margin-bottom: 1.2rem;
+  }
+  .product-essence__character {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(1.3rem, 2.5vw, 1.8rem);
+    line-height: 1.6; color: #1a1a1a;
+    max-width: 560px; margin: 0 auto 1.5rem; letter-spacing: 0.02em;
+  }
+  .product-essence__intro {
+    font-family: 'Montserrat', sans-serif; font-weight: 300;
+    font-size: clamp(0.8rem, 1vw, 0.88rem); line-height: 1.9;
+    color: rgba(26,26,26,0.45); max-width: 500px; margin: 0 auto;
+    letter-spacing: 0.03em;
+  }
+
+  /* ── The Mood (full-bleed image) ── */
+  .product-mood {
+    position: relative;
+    overflow: hidden;
+  }
+  .product-mood__img {
+    width: 100%; height: auto; display: block;
+    min-height: 50vh; object-fit: cover;
+  }
+  .product-mood__quote {
+    position: absolute; bottom: 2rem; left: 50%;
+    transform: translateX(-50%); text-align: center;
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(1rem, 1.8vw, 1.3rem);
+    color: rgba(255,255,255,0.6);
+    text-shadow: 0 1px 12px rgba(0,0,0,0.5);
+    white-space: nowrap;
+  }
+
+  /* ── The Wearer ── */
+  .product-wearer {
+    background: #faf9f6;
+    padding: 5rem clamp(1.5rem, 5vw, 4rem);
+  }
+  .product-wearer__header {
+    text-align: center; margin-bottom: 3rem;
+  }
+  .product-wearer__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #b8a44e; margin-bottom: 0.8rem;
+  }
+  .product-wearer__heading {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+    color: #1a1a1a; letter-spacing: 0.02em; line-height: 1.4;
+  }
+  .product-wearer__grid {
+    display: flex; gap: 2.5rem; justify-content: center;
+    max-width: 700px; margin: 0 auto;
+  }
+  .product-wearer__trait {
+    text-align: center; flex: 1; max-width: 180px;
+  }
+  .product-wearer__icon {
+    width: 50px; height: 50px;
+    border: 1px solid rgba(184,164,78,0.25); border-radius: 50%;
+    margin: 0 auto 1rem;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; color: #b8a44e;
+  }
+  .product-wearer__trait-name {
+    font-family: 'Cormorant Garamond', serif; font-weight: 400;
+    font-style: italic; font-size: 1.1rem; color: #1a1a1a;
+    margin-bottom: 0.4rem;
+  }
+  .product-wearer__trait-desc {
+    font-family: 'Montserrat', sans-serif; font-weight: 300;
+    font-size: 0.75rem; line-height: 1.6;
+    color: rgba(26,26,26,0.4);
+  }
+
+  /* ── The Composition ── */
+  .product-comp {
+    background: #0a0a08; color: #f5f0e8;
+    padding: 6rem clamp(1.5rem, 5vw, 4rem);
+  }
+  .product-comp__header {
+    text-align: center; margin-bottom: 4rem;
+  }
+  .product-comp__divider {
+    display: block; width: 30px; height: 1px;
+    background: #e9db90; margin: 0 auto 1.5rem; border: none;
+  }
+  .product-comp__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #e9db90; margin-bottom: 0.8rem;
+  }
+  .product-comp__heading {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+    letter-spacing: 0.02em;
+  }
+  .product-comp__group {
+    max-width: 900px; margin: 0 auto 4rem;
+  }
+  .product-comp__group:last-child { margin-bottom: 0; }
+  .product-comp__group-label {
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.6rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: #e9db90; margin-bottom: 1.5rem;
+    padding-left: 0.5rem;
+    border-left: 2px solid rgba(233,219,144,0.3);
+  }
+  .product-comp__group-desc {
+    font-family: 'Montserrat', sans-serif; font-weight: 300;
+    font-size: clamp(0.8rem, 1vw, 0.88rem); line-height: 1.8;
+    color: rgba(245,240,232,0.45); margin-bottom: 2rem;
+    max-width: 500px; padding-left: 0.5rem;
+  }
+  .product-comp__notes {
+    display: flex; gap: 1.5rem;
+  }
+  .product-comp__note {
+    flex: 1; text-align: center;
+  }
+  .product-comp__note-img {
+    width: 100%; aspect-ratio: 1;
+    object-fit: cover; border-radius: 12px;
+    margin-bottom: 0.8rem;
+  }
+  .product-comp__note-name {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(0.9rem, 1.2vw, 1.05rem);
+    color: #f5f0e8; letter-spacing: 0.02em;
+  }
+
+  /* ── The Bottle ── */
+  .product-bottle {
+    background: #faf9f6;
+    padding: 6rem clamp(1.5rem, 5vw, 4rem);
+    text-align: center;
+  }
+  .product-bottle__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #b8a44e; margin-bottom: 2rem;
+  }
+  .product-bottle__img {
+    width: clamp(180px, 25vw, 280px); height: auto;
+    margin: 0 auto 2rem; display: block;
+    filter: drop-shadow(0 12px 32px rgba(0,0,0,0.15));
+  }
+  .product-bottle__details {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: 1.05rem; color: #1a1a1a;
+    margin-bottom: 0.6rem;
+  }
+  .product-bottle__craft {
+    font-family: 'Montserrat', sans-serif; font-weight: 300;
+    font-size: 0.78rem; line-height: 1.7;
+    color: rgba(26,26,26,0.4); max-width: 360px; margin: 0 auto 2rem;
+  }
+  .product-bottle__cta {
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #b8a44e; background: transparent;
+    border: 1px solid #b8a44e; padding: 0.8rem 2rem;
+    cursor: pointer; transition: background 0.3s ease, color 0.3s ease;
+  }
+  .product-bottle__cta:hover {
+    background: #b8a44e; color: #0a0a08;
+  }
+
+  /* ── Explore Collection ── */
+  .product-explore {
+    background: #0a0a08;
+    padding: 5rem clamp(1.5rem, 5vw, 4rem);
+  }
+  .product-explore__header {
+    text-align: center; margin-bottom: 3rem;
+  }
+  .product-explore__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #e9db90; margin-bottom: 0.8rem;
+  }
+  .product-explore__heading {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(1.3rem, 2.2vw, 1.7rem);
+    color: #f5f0e8; letter-spacing: 0.02em;
+  }
+  .product-explore__grid {
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1.2rem; max-width: 900px; margin: 0 auto;
+  }
+  .product-explore__card {
+    aspect-ratio: 1; border-radius: 12px; overflow: hidden;
+    position: relative; display: block; text-decoration: none;
+  }
+  .product-explore__card img {
+    width: 100%; height: 100%; object-fit: cover;
+    transition: transform 0.6s ease;
+  }
+  .product-explore__card:hover img {
+    transform: scale(1.05);
+  }
+  .product-explore__card-name {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+    padding: 1.5rem 0.8rem 0.8rem;
+    font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: 0.95rem;
+    color: rgba(245,240,232,0.8); text-align: center;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .product-hero__bar {
+      flex-direction: column; align-items: flex-start; gap: 1.2rem;
+      padding: 3rem 1.5rem 2rem;
+    }
+    .product-hero__actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .product-hero__cart-btn {
+      padding: 1rem 2rem;
+      min-height: 48px;
+    }
+    .product-wearer__grid {
+      flex-direction: column; align-items: center; gap: 2rem;
+    }
+    .product-wearer__trait {
+      max-width: 260px;
+    }
+    .product-comp__notes {
+      flex-direction: column; gap: 1.2rem;
+      max-width: 280px; margin: 0 auto;
+    }
+    .product-explore__grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+    .product-bottle__cta {
+      padding: 1rem 2rem;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+  @media (max-width: 480px) {
+    .product-mood__quote { white-space: normal; padding: 0 1.5rem; }
+    .product-hero__name {
+      font-size: clamp(1.6rem, 7vw, 2.4rem);
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+  <!-- ═══ HERO: Full-screen video + bottom bar ═══ -->
+  <section class="product-hero">
+    <video class="product-hero__video" autoplay muted loop playsinline>
+      <source src="/static/assets/videos/web/{{ product.video }}" type="video/mp4">
+    </video>
+    <div class="product-hero__overlay"></div>
+    <div class="product-hero__bar">
+      <div>
+        <div class="product-hero__family">{{ product.family }} · Eau de Parfum · 100ml</div>
+        <h1 class="product-hero__name">{{ product.name }}</h1>
+      </div>
+      <div class="product-hero__actions">
+        <span class="product-hero__price">${{ product.price }}</span>
+        <button class="product-hero__cart-btn" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ THE ESSENCE ═══ -->
+  <section class="product-essence">
+    <hr class="product-essence__divider">
+    <span class="product-essence__label">The Essence</span>
+    <p class="product-essence__character">
+      {{ product.character }}
+    </p>
+    <p class="product-essence__intro">
+      {{ product.description }}
+    </p>
+  </section>
+
+  <!-- ═══ THE MOOD (full-bleed photoshoot) ═══ -->
+  <section class="product-mood">
+    <img class="product-mood__img"
+         src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}"
+         alt="{{ product.name }} - ingredients and bottle on travertine" loading="lazy">
+    <p class="product-mood__quote">Mood: {{ product.mood }}.</p>
+  </section>
+
+  <!-- ═══ THE WEARER ═══ -->
+  <section class="product-wearer">
+    <div class="product-wearer__header">
+      <span class="product-wearer__label">The Wearer</span>
+      <h2 class="product-wearer__heading">{{ product.character | truncate(60, True, '...') }}</h2>
+    </div>
+    <div class="product-wearer__grid">
+      {% for trait in product.wearer %}
+      <div class="product-wearer__trait">
+        <div class="product-wearer__icon">✦</div>
+        <div class="product-wearer__trait-name">{{ trait.name }}</div>
+        <p class="product-wearer__trait-desc">{{ trait.desc }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ═══ THE COMPOSITION ═══ -->
+  <section class="product-comp">
+    <div class="product-comp__header">
+      <hr class="product-comp__divider">
+      <span class="product-comp__label">The Composition</span>
+      <h2 class="product-comp__heading">A journey in three acts</h2>
+    </div>
+
+    {% for key in ['top', 'heart', 'base'] %}
+    {% set group = product.notes[key] %}
+    <div class="product-comp__group">
+      <div class="product-comp__group-label">{{ group.label }}</div>
+      <p class="product-comp__group-desc">{{ group.desc }}</p>
+      <div class="product-comp__notes">
+        {% for img in group.images %}
+        <div class="product-comp__note">
+          <img class="product-comp__note-img" src="/static/assets/pictures/ingredients/{{ img }}.png" alt="{{ img | capitalize }}" loading="lazy">
+          <div class="product-comp__note-name">{{ img | replace('-', ' ') | title }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </section>
+
+  <!-- ═══ THE BOTTLE ═══ -->
+  <section class="product-bottle">
+    <span class="product-bottle__label">The Bottle</span>
+    <img class="product-bottle__img"
+         src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.bottle_image | replace(' ', '%20') }}"
+         alt="{{ product.name }} - Maison Henius bottle" loading="lazy">
+    <div class="product-bottle__details">Eau de Parfum · 100ml</div>
+    <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
+    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart - ${{ product.price }}</button>
+  </section>
+
+  <!-- ═══ EXPLORE COLLECTION ═══ -->
+  <section class="product-explore">
+    <div class="product-explore__header">
+      <span class="product-explore__label">Explore More</span>
+      <h2 class="product-explore__heading">The Beyond Borders Collection</h2>
+    </div>
+    <div class="product-explore__grid">
+      {% for slug, other in others.items() %}
+      <a href="/products/{{ slug }}" class="product-explore__card">
+        <img src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ other.card_image }}" alt="{{ other.name }}" loading="lazy">
+        <span class="product-explore__card-name">{{ other.name }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._productInitBound) return;
+  window._productInitBound = true;
+
+  document.addEventListener('turbo:load', function initProductAnimations() {
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    /* Defer one frame so Lenis + DOM layout are fully settled after Turbo swap */
+    requestAnimationFrame(function() {
+      gsap.registerPlugin(ScrollTrigger);
+
+      /* Nav: solid → transparent after scrolling past hero */
+      var navHeader = document.querySelector('.header--product');
+      var heroEl = document.querySelector('.product-hero');
+      if (navHeader && heroEl) {
+        ScrollTrigger.create({
+          trigger: heroEl,
+          start: 'top top',
+          end: 'bottom top',
+          onEnter: function() { navHeader.classList.add('header--transparent'); },
+          onLeaveBack: function() { navHeader.classList.remove('header--transparent'); },
+          onLeave: function() { navHeader.classList.remove('header--transparent'); },
+          onEnterBack: function() { navHeader.classList.add('header--transparent'); }
+        });
+      }
+
+      /* Hero: fade in bar */
+      gsap.fromTo('.product-hero__bar',
+        { opacity: 0, y: 30 },
+        { opacity: 1, y: 0, duration: 1.0, delay: 0.5 }
+      );
+
+      /* Essence: stagger reveal */
+      if (document.querySelector('.product-essence')) {
+        var essenceTl = gsap.timeline({
+          scrollTrigger: { trigger: '.product-essence', start: 'top 75%', once: true }
+        });
+        essenceTl
+          .fromTo('.product-essence__divider', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'power2.inOut' })
+          .fromTo('.product-essence__label', { opacity: 0, letterSpacing: '0.6em' }, { opacity: 1, letterSpacing: '0.35em', duration: 0.7 }, '-=0.3')
+          .fromTo('.product-essence__character', { opacity: 0, y: 25, clipPath: 'inset(0 0 100% 0)' }, { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.9 }, '-=0.3')
+          .fromTo('.product-essence__intro', { opacity: 0 }, { opacity: 1, duration: 0.7 }, '-=0.3');
+      }
+
+      /* Mood: image parallax */
+      if (document.querySelector('.product-mood') && document.querySelector('.product-mood__img')) {
+        gsap.fromTo('.product-mood__img',
+          { yPercent: -8 },
+          { yPercent: 8, ease: 'none',
+            scrollTrigger: { trigger: '.product-mood', start: 'top bottom', end: 'bottom top', scrub: 1 }
+          }
+        );
+        gsap.fromTo('.product-mood__quote',
+          { opacity: 0 }, { opacity: 1, duration: 0.8,
+            scrollTrigger: { trigger: '.product-mood', start: 'top 40%', once: true }
+          }
+        );
+      }
+
+      /* Wearer: stagger traits */
+      if (document.querySelector('.product-wearer__grid')) {
+        gsap.fromTo('.product-wearer__trait',
+          { opacity: 0, y: 30 },
+          { opacity: 1, y: 0, duration: 0.8, stagger: 0.15,
+            scrollTrigger: { trigger: '.product-wearer__grid', start: 'top 75%', once: true }
+          }
+        );
+      }
+
+      /* Composition: each group staggers */
+      document.querySelectorAll('.product-comp__group').forEach(function(group) {
+        var label = group.querySelector('.product-comp__group-label');
+        var desc = group.querySelector('.product-comp__group-desc');
+        var notes = group.querySelectorAll('.product-comp__note');
+        var tl = gsap.timeline({
+          scrollTrigger: { trigger: group, start: 'top 75%', once: true }
+        });
+        if (label) tl.fromTo(label, { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.6 });
+        if (desc) tl.fromTo(desc, { opacity: 0 }, { opacity: 1, duration: 0.6 }, '-=0.3');
+        if (notes.length) tl.fromTo(notes,
+          { opacity: 0, y: 20, scale: 0.95 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.12 }, '-=0.3');
+      });
+
+      /* Bottle: scale reveal */
+      if (document.querySelector('.product-bottle')) {
+        gsap.fromTo('.product-bottle__img',
+          { opacity: 0, scale: 0.9 },
+          { opacity: 1, scale: 1, duration: 1.0,
+            scrollTrigger: { trigger: '.product-bottle', start: 'top 70%', once: true }
+          }
+        );
+      }
+
+      /* Explore: stagger cards */
+      if (document.querySelector('.product-explore__grid')) {
+        gsap.fromTo('.product-explore__card',
+          { opacity: 0, y: 20 },
+          { opacity: 1, y: 0, duration: 0.7, stagger: 0.1,
+            scrollTrigger: { trigger: '.product-explore__grid', start: 'top 80%', once: true }
+          }
+        );
+      }
+
+      ScrollTrigger.refresh();
+    });
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+
+<script>
+  setTimeout(function() {
+    document.querySelectorAll('.header--product').forEach(function(el) {
+      if (getComputedStyle(el).visibility === 'hidden') {
+        el.style.visibility = 'visible'; el.style.opacity = '1';
+      }
+    });
+  }, 5000);
+</script>
+{% endblock %}

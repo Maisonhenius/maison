@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en" data-turbo="false">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Access - Maison Henius</title>
+
+  <!-- Favicons -->
+  <link rel="icon" href="/static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/static/favicon-32x32.png" type="image/png">
+  <link rel="icon" href="/static/assets/images/logo.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+
+  <script type="importmap">
+  {
+    "imports": {
+      "@hotwired/turbo": "https://cdn.jsdelivr.net/npm/@hotwired/turbo@8.0.23/dist/turbo.es2017-esm.js",
+      "@hotwired/stimulus": "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3.2.2/dist/stimulus.js"
+    }
+  }
+  </script>
+  <script type="module" src="/static/js/application.js"></script>
+
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      background: #0a0a08;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem;
+    }
+
+    .auth {
+      width: 100%;
+      max-width: 380px;
+      text-align: center;
+    }
+
+    .auth__logo {
+      display: inline-block;
+      margin-bottom: 0.5rem;
+    }
+
+    .auth__logo img {
+      height: 60px;
+      width: auto;
+      display: block;
+    }
+
+    .auth__label {
+      font-weight: 400;
+      font-size: 0.6rem;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: rgba(233, 219, 144, 0.5);
+      margin-bottom: 3rem;
+    }
+
+    .auth__heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.6rem, 2.5vw, 2rem);
+      color: #f5f0e8;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.5rem;
+    }
+
+    .auth__sub {
+      font-weight: 300;
+      font-size: 0.75rem;
+      color: rgba(245, 240, 232, 0.35);
+      letter-spacing: 0.03em;
+      margin-bottom: 2.5rem;
+    }
+
+    .auth__form {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      text-align: left;
+    }
+
+    .auth__input {
+      background: transparent;
+      border: 1px solid rgba(233, 219, 144, 0.25);
+      padding: 0.9rem 1.2rem;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      font-size: 0.75rem;
+      letter-spacing: 0.05em;
+      color: #f5f0e8;
+      outline: none;
+      transition: border-color 0.3s ease;
+    }
+
+    .auth__input::placeholder {
+      color: rgba(245, 240, 232, 0.3);
+    }
+
+    .auth__input:focus {
+      border-color: rgba(233, 219, 144, 0.5);
+    }
+
+    .auth__btn {
+      width: 100%;
+      margin-top: 1.8rem;
+      background: #e9db90;
+      border: 1px solid #e9db90;
+      padding: 1rem 1.8rem;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 0.65rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: #0a0a08;
+      cursor: pointer;
+      transition: background 0.3s ease, color 0.3s ease, opacity 0.3s ease;
+    }
+
+    .auth__btn:hover {
+      background: transparent;
+      color: #e9db90;
+    }
+
+    .auth__btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .auth__note {
+      font-weight: 300;
+      font-size: 0.6rem;
+      color: rgba(245, 240, 232, 0.25);
+      letter-spacing: 0.03em;
+      margin-top: 1.5rem;
+    }
+
+    .auth__error {
+      font-weight: 300;
+      font-size: 0.7rem;
+      color: #d4614b;
+      letter-spacing: 0.02em;
+      margin-top: 1rem;
+      display: none;
+    }
+
+    .auth__error.visible {
+      display: block;
+    }
+
+    .auth__sent-icon {
+      display: inline-block;
+      width: 48px;
+      height: 48px;
+      border: 1px solid rgba(233, 219, 144, 0.3);
+      border-radius: 50%;
+      line-height: 48px;
+      font-size: 20px;
+      color: #e9db90;
+      margin-bottom: 1.5rem;
+    }
+
+    .auth__actions {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+
+    .auth__action {
+      font-weight: 300;
+      font-size: 0.65rem;
+      color: #e9db90;
+      text-decoration: none;
+      letter-spacing: 0.03em;
+      transition: opacity 0.3s ease;
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: 'Montserrat', sans-serif;
+    }
+
+    .auth__action:hover {
+      opacity: 0.7;
+    }
+
+    .auth__step {
+      display: none;
+    }
+
+    .auth__step.active {
+      display: block;
+    }
+
+    .auth { visibility: hidden; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .auth { visibility: visible !important; opacity: 1 !important; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="auth">
+    <a href="/" class="auth__logo">
+      <img src="/static/assets/images/logo.svg" alt="Maison Henius">
+    </a>
+    <p class="auth__label">Admin</p>
+
+    <!-- Step 1: Enter email -->
+    <div class="auth__step active" id="stepEmail">
+      <h1 class="auth__heading">Admin Access</h1>
+      <p class="auth__sub">Enter your email to receive a login link</p>
+
+      <form class="auth__form" id="emailForm" onsubmit="return false">
+        <input class="auth__input" type="email" id="emailInput" name="email" placeholder="Email address" required autocomplete="email">
+        <button type="submit" class="auth__btn" id="sendLinkBtn">Send Login Link</button>
+      </form>
+
+      <p class="auth__error" id="emailError"></p>
+      <p class="auth__note">Only authorized administrators can sign in</p>
+    </div>
+
+    <!-- Step 2: Check your email -->
+    <div class="auth__step" id="stepSent">
+      <div class="auth__sent-icon">&#9993;</div>
+      <h1 class="auth__heading">Check Your Email</h1>
+      <p class="auth__sub" id="sentSub">We sent a login link to your email</p>
+
+      <p class="auth__note">Click the link in the email to sign in. It expires in 10 minutes.</p>
+
+      <p class="auth__error" id="sentError"></p>
+
+      <div class="auth__actions">
+        <button class="auth__action" id="resendLink">Resend link</button>
+        <button class="auth__action" id="changeEmailLink">Use different email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GSAP -->
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+  <script>
+    (function() {
+      var currentEmail = '';
+      var stepEmail = document.getElementById('stepEmail');
+      var stepSent = document.getElementById('stepSent');
+      var emailInput = document.getElementById('emailInput');
+      var emailForm = document.getElementById('emailForm');
+      var sendLinkBtn = document.getElementById('sendLinkBtn');
+      var emailError = document.getElementById('emailError');
+      var sentError = document.getElementById('sentError');
+      var sentSub = document.getElementById('sentSub');
+      var resendLink = document.getElementById('resendLink');
+      var changeEmailLink = document.getElementById('changeEmailLink');
+
+      function showError(el, msg) {
+        el.textContent = msg;
+        el.classList.add('visible');
+      }
+
+      function hideError(el) {
+        el.textContent = '';
+        el.classList.remove('visible');
+      }
+
+      function showStep(step) {
+        stepEmail.classList.remove('active');
+        stepSent.classList.remove('active');
+        step.classList.add('active');
+
+        if (typeof gsap !== 'undefined' && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+          gsap.fromTo(step, { opacity: 0, y: 12 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power2.out' });
+        }
+      }
+
+      async function sendLink(email) {
+        hideError(emailError);
+        hideError(sentError);
+        sendLinkBtn.disabled = true;
+        sendLinkBtn.textContent = 'SENDING...';
+
+        try {
+          var res = await fetch('/api/admin/auth/send-link', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'email=' + encodeURIComponent(email)
+          });
+          var data = await res.json();
+
+          if (data.success) {
+            currentEmail = email;
+            sentSub.textContent = 'We sent a login link to ' + email;
+            showStep(stepSent);
+          } else {
+            showError(emailError, data.error || data.detail || 'Something went wrong');
+          }
+        } catch (err) {
+          showError(emailError, 'Something went wrong. Please try again.');
+        }
+
+        sendLinkBtn.disabled = false;
+        sendLinkBtn.textContent = 'SEND LOGIN LINK';
+      }
+
+      emailForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var email = emailInput.value.trim();
+        if (email) sendLink(email);
+      });
+
+      resendLink.addEventListener('click', function() {
+        if (currentEmail) {
+          hideError(sentError);
+          sendLink(currentEmail);
+        }
+      });
+
+      changeEmailLink.addEventListener('click', function() {
+        hideError(sentError);
+        showStep(stepEmail);
+        emailInput.focus();
+      });
+
+      // GSAP entrance
+      if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && typeof gsap !== 'undefined') {
+        var auth = document.querySelector('.auth');
+        gsap.set(auth, { visibility: 'visible', opacity: 0, y: 20 });
+        gsap.to(auth, { opacity: 1, y: 0, duration: 0.9, ease: 'power2.out', delay: 0.15 });
+      } else {
+        document.querySelector('.auth').style.visibility = 'visible';
+      }
+    })();
+  </script>
+
+</body>
+</html>

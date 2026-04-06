@@ -1,0 +1,1 @@
+- [Brand Reference](reference_brand_docs.md) — BRAND.md has full brand bible: strategy, tone, visual identity, packaging, collection, assets

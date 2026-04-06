@@ -1,0 +1,70 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+
+# Build
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Large/source assets
+assets/videos/*.mp4
+assets/video-frames/
+AMOUAGE-CINEMATIC-RESEARCH.md
+showreel.mp4
+
+# Heavy images — serve from CDN, not repo
+assets/pictures/ingredients/
+assets/pictures/Olfactory Pyramids/
+assets/pictures/Collection & Fragrances/Beyond Boarders Collection.png
+assets/pictures/Collection & Fragrances/Bottle - White BG No Reflection.png
+assets/pictures/Collection & Fragrances/bottle - ingredient map*
+assets/pictures/Collection & Fragrances/bottle - ingredients*
+assets/pictures/Collection & Fragrances/bottle close*
+assets/pictures/Collection & Fragrances/bottle open*
+assets/pictures/Collection & Fragrances/mood-*
+assets/pictures/Collection & Fragrances/WhatsApp*
+assets/pictures/Collection & Fragrances/for the second video/
+assets/pictures/Jordan Landscape/old-western-canyon-landscape.jpg
+assets/pictures/Jordan Landscape/Texture and color of the box.jpg
+
+# Deploy artifacts
+Dockerfile
+Procfile
+.railwayignore
+requirements.txt
+fragrances-after-click.png
+
+# Tooling
+.playwright-mcp/
+.superpowers/
+.gstack/
+.agents/
+.kiro/
+skills
+skills-lock.json
+
+# Docs & tests (keep locally, not in deploy)
+BRAND.md
+server/tests/
+server/pytest.ini
+server/TESTING.md
+
+# Claude Code — override global ignore to keep project memory in repo
+!.claude/
+.claude/*
+!.claude/memory/
+!.claude/memory/**
+!.claude/CLAUDE.md

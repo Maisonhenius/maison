@@ -1,0 +1,1488 @@
+{% extends "layout.html" %}
+
+{% block title %}Maison Henius - Luxury Fragrances Inspired by Jordan{% endblock %}
+
+{% block meta %}
+  <meta name="description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
+  <link rel="canonical" href="https://maisonhenius.com/">
+
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Maison Henius - Luxury Fragrances Inspired by Jordan">
+  <meta property="og:description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
+  <meta property="og:image" content="https://maisonhenius.com/apple-touch-icon.png">
+  <meta property="og:url" content="https://maisonhenius.com/">
+  <meta property="og:site_name" content="Maison Henius">
+  <meta name="twitter:card" content="summary">
+
+{% endblock %}
+
+{% block styles %}
+  <style>
+    /* ── Full-screen video ── */
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      z-index: 1;
+    }
+
+    .hero__video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: 0;
+    }
+
+    /* Subtle dark overlay for text legibility */
+    .hero__overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      z-index: 1;
+    }
+
+    /* ── Center tagline ── */
+    .hero__tagline {
+      position: absolute;
+      bottom: 4rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      text-align: center;
+    }
+
+    .hero__tagline p {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: 1.1rem;
+      letter-spacing: 0.15em;
+      color: rgba(255, 255, 255, 0.75);
+    }
+
+    /* ── Landscape phones (wide but short) ── */
+    @media (max-height: 500px) {
+      .header {
+        padding: 1rem clamp(1.5rem, 4vw, 4rem);
+      }
+
+      .hero__tagline {
+        bottom: 2.5rem;
+      }
+
+      .scroll-indicator {
+        bottom: 0.5rem;
+      }
+    }
+
+    /* ── Mobile: hamburger nav ── */
+    @media (max-width: 768px) {
+      .header {
+        padding: 1.5rem;
+      }
+
+      .logo__img {
+        height: 50px;
+      }
+
+      .hero__tagline {
+        bottom: 4.5rem;
+      }
+
+      .hero__tagline p {
+        font-size: 0.85rem;
+      }
+
+      .scroll-indicator {
+        bottom: 2rem;
+      }
+    }
+
+    /* ── Small phones ── */
+    @media (max-width: 375px) {
+      .header {
+        padding: 1.2rem 1rem;
+      }
+
+      .logo__img {
+        height: 42px;
+      }
+
+      .hero__tagline {
+        bottom: 4rem;
+      }
+
+      .hero__tagline p {
+        font-size: 0.8rem;
+      }
+    }
+
+    /* ── Landscape phone override ── */
+    @media (max-width: 768px) and (max-height: 500px) {
+      .hero__tagline {
+        bottom: 2rem;
+      }
+
+      .hero__tagline p {
+        font-size: 0.75rem;
+      }
+
+      .scroll-indicator {
+        display: none;
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       ABOUT SECTION
+       ═══════════════════════════════════════ */
+
+    .about {
+      position: relative;
+      background: #faf9f6;
+      color: #1a1a1a;
+      overflow: hidden;
+    }
+
+    .about__block {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 7rem clamp(2rem, 5vw, 4rem);
+    }
+
+    .about__divider {
+      display: block;
+      width: 40px;
+      height: 1px;
+      background: #b8a44e;
+      margin: 0 auto 2rem;
+      border: none;
+    }
+
+    .about__label {
+      display: block;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 0.6rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #b8a44e;
+      margin-bottom: 2rem;
+    }
+
+    /* ── Philosophy block ── */
+    .about__philosophy {
+      text-align: center;
+      padding: 9rem clamp(2rem, 5vw, 4rem) 7rem;
+    }
+
+    .about__philosophy .about__label {
+      text-align: center;
+    }
+
+    .about__quote {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+      line-height: 1.4;
+      color: #1a1a1a;
+      max-width: 700px;
+      margin: 0 auto 2.5rem;
+      letter-spacing: 0.02em;
+    }
+
+    .about__manifesto {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      font-size: clamp(0.85rem, 1.1vw, 0.95rem);
+      line-height: 1.9;
+      color: rgba(26, 26, 26, 0.55);
+      max-width: 560px;
+      margin: 0 auto;
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Origin block ── */
+    .about__origin {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: clamp(3rem, 5vw, 5rem);
+      align-items: center;
+    }
+
+    .about__origin-text {
+      padding-right: 1rem;
+    }
+
+    .about__origin-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+      line-height: 1.3;
+      color: #1a1a1a;
+      margin-bottom: 1.8rem;
+      letter-spacing: 0.02em;
+    }
+
+    .about__origin-body {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      font-size: clamp(0.82rem, 1vw, 0.9rem);
+      line-height: 1.9;
+      color: rgba(26, 26, 26, 0.55);
+      letter-spacing: 0.03em;
+    }
+
+    .about__origin-body p + p {
+      margin-top: 1.2rem;
+    }
+
+    .about__origin-image {
+      position: relative;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .about__origin-image img {
+      width: 100%;
+      height: auto;
+      display: block;
+      filter: brightness(0.9) contrast(1.05);
+    }
+
+    /* ── Values block ── */
+    .about__values {
+      text-align: center;
+      padding: 9rem clamp(2rem, 5vw, 4rem);
+    }
+
+    .about__values .about__label {
+      text-align: center;
+    }
+
+    .about__values-heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+      line-height: 1.3;
+      color: #f5f0e8;
+      margin-bottom: 4rem;
+      letter-spacing: 0.02em;
+    }
+
+    .about__values-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 2rem;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .about__value {
+      text-align: center;
+      padding: 0 0.5rem;
+    }
+
+    .about__value-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 400;
+      font-size: clamp(1rem, 1.3vw, 1.15rem);
+      color: #e9db90;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.8rem;
+    }
+
+    .about__value-line {
+      width: 20px;
+      height: 1px;
+      background: rgba(233, 219, 144, 0.3);
+      margin: 0 auto 0.8rem;
+    }
+
+    .about__value-desc {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      font-size: 0.7rem;
+      line-height: 1.7;
+      color: rgba(245, 240, 232, 0.5);
+      letter-spacing: 0.03em;
+    }
+
+    /* ── Brand experience closing ── */
+    .about__closing {
+      text-align: center;
+      padding: 5rem clamp(2rem, 5vw, 4rem) 9rem;
+    }
+
+    .about__closing-quote {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.2rem, 2vw, 1.6rem);
+      color: rgba(26, 26, 26, 0.35);
+      letter-spacing: 0.05em;
+    }
+
+    /* ── About responsive ── */
+    @media (max-width: 768px) {
+      .about__origin {
+        grid-template-columns: 1fr;
+        gap: 3rem;
+      }
+
+      .about__origin-text {
+        padding-right: 0;
+        order: 2;
+      }
+
+      .about__origin-image {
+        order: 1;
+      }
+
+      .about__values-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2.5rem 2rem;
+      }
+
+      .about__value:last-child {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .about__values-grid {
+        grid-template-columns: 1fr;
+        gap: 2.5rem;
+      }
+
+      .about__value:last-child {
+        grid-column: auto;
+      }
+
+      .about__block {
+        padding: 5rem clamp(1.5rem, 5vw, 4rem);
+      }
+
+      .about__philosophy {
+        padding: 6rem clamp(1.5rem, 5vw, 4rem) 5rem;
+      }
+
+      .about__values {
+        padding: 5rem clamp(1.5rem, 5vw, 4rem);
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       COLLECTION SECTION
+       ═══════════════════════════════════════ */
+
+    .collection {
+      background: #faf9f6;
+      padding: 7rem clamp(1.5rem, 5vw, 4rem) 8rem;
+    }
+
+    .collection__header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .collection__divider {
+      display: block;
+      width: 40px;
+      height: 1px;
+      background: #b8a44e;
+      margin: 0 auto 2rem;
+      border: none;
+      transform: scaleX(0);
+      transform-origin: center;
+    }
+
+    .collection__label {
+      display: block;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 0.6rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #b8a44e;
+      margin-bottom: 1rem;
+    }
+
+    .collection__heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+      color: #1a1a1a;
+      letter-spacing: 0.02em;
+    }
+
+    .collection__list {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .collection__card {
+      display: flex;
+      gap: 2.5rem;
+      align-items: center;
+      padding: 2.5rem 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    }
+
+    .collection__card:last-child {
+      border-bottom: none;
+    }
+
+    .collection__card-mood {
+      width: clamp(200px, 26vw, 288px);
+      height: clamp(200px, 26vw, 288px);
+      object-fit: cover;
+      border-radius: 12px;
+      flex-shrink: 0;
+    }
+
+    .collection__card-image {
+      display: none;
+    }
+
+    .collection__card-text {
+      flex: 1;
+    }
+
+    .collection__card-family {
+      display: block;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 0.6rem;
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      color: #b8a44e;
+      margin-bottom: 0.6rem;
+    }
+
+    .collection__card-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+      color: #1a1a1a;
+      margin-bottom: 0.8rem;
+      letter-spacing: 0.02em;
+    }
+
+    .collection__card-desc {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      font-size: clamp(0.8rem, 1vw, 0.88rem);
+      line-height: 1.8;
+      color: rgba(26, 26, 26, 0.5);
+      letter-spacing: 0.02em;
+      max-width: 420px;
+    }
+
+    .collection__card-meta {
+      margin-top: 1rem;
+    }
+
+    .collection__card-cta {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 0.7rem;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #b8a44e;
+      text-decoration: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .collection__card-cta:hover {
+      opacity: 0.7;
+    }
+
+    @media (max-width: 768px) {
+      .collection__card {
+        flex-direction: column;
+        text-align: center;
+        gap: 1.5rem;
+      }
+
+      .collection__card-mood {
+        width: 70%;
+        height: auto;
+        aspect-ratio: 1;
+        max-width: 250px;
+        margin: 0 auto;
+      }
+
+      .collection__card-desc {
+        max-width: none;
+      }
+
+      .collection__card-meta {
+        justify-content: center;
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       STORY SECTION
+       ═══════════════════════════════════════ */
+
+    .story {
+      background: #0a0a08;
+      color: #f5f0e8;
+      padding: 8rem clamp(1.5rem, 5vw, 4rem) 5rem;
+    }
+
+    .story__header {
+      text-align: center;
+      margin-bottom: 4rem;
+    }
+
+    .story__divider {
+      display: block;
+      width: 40px;
+      height: 1px;
+      background: #e9db90;
+      margin: 0 auto 2rem;
+      border: none;
+      transform: scaleX(0);
+      transform-origin: center;
+    }
+
+    .story__label {
+      display: block;
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 400;
+      font-size: 0.6rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: #e9db90;
+      margin-bottom: 1rem;
+    }
+
+    .story__heading {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: clamp(1.6rem, 2.5vw, 2.2rem);
+      letter-spacing: 0.02em;
+    }
+
+    .story__triptych {
+      max-width: 1100px;
+      margin: 0 auto 4rem;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .story__triptych img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .story__narrative {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3rem;
+      max-width: 900px;
+      margin: 0 auto 4rem;
+    }
+
+    .story__col p {
+      font-family: 'Montserrat', sans-serif;
+      font-weight: 300;
+      font-size: clamp(0.82rem, 1vw, 0.88rem);
+      line-height: 1.9;
+      color: rgba(245, 240, 232, 0.55);
+      letter-spacing: 0.03em;
+    }
+
+    .story__atelier {
+      max-width: 800px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+
+    .story__atelier img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    @media (max-width: 768px) {
+      .story__narrative {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+    }
+
+    /* ═══════════════════════════════════════
+       SCROLL VIDEO SECTION
+       ═══════════════════════════════════════ */
+
+    .scroll-video {
+      position: relative;
+      height: 400vh;
+      background: #fff;
+    }
+
+    .scroll-video__sticky {
+      position: relative;
+      width: 100%;
+      height: 100dvh;
+      overflow: hidden;
+    }
+
+    .scroll-video__canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* No gradient needed - About and scroll-video share same bg (#faf9f6) */
+
+    /* Thin gold loader bar */
+    .scroll-video__loader {
+      position: absolute;
+      bottom: 3rem;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 1px;
+      background: rgba(184, 164, 78, 0.15);
+      z-index: 5;
+      transition: opacity 0.6s ease;
+    }
+
+    .scroll-video__loader--hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .scroll-video__loader-bar {
+      height: 100%;
+      width: 0%;
+      background: #b8a44e;
+      transition: width 0.1s linear;
+    }
+
+    /* Reduced motion: collapse and show poster */
+    @media (prefers-reduced-motion: reduce) {
+      .scroll-video {
+        height: auto;
+      }
+
+      .scroll-video__sticky {
+        position: relative;
+        height: auto;
+        aspect-ratio: 1440 / 800;
+      }
+
+    }
+
+    @media (max-width: 768px) {
+      .scroll-video {
+        height: 300vh;
+      }
+
+      .scroll-video__loader {
+        bottom: 2rem;
+        width: 80px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .scroll-video {
+        height: 250vh;
+      }
+    }
+  </style>
+{% endblock %}
+
+{% block nav %}
+  {# Hero has its own header inside the section, so we suppress the layout nav #}
+{% endblock %}
+
+{% block content %}
+  <h1 class="sr-only">Maison Henius - Luxury Perfume House</h1>
+
+  <section class="hero">
+    <video class="hero__video" autoplay muted playsinline>
+      <source src="/static/assets/videos/web/1.mp4" type="video/mp4">
+    </video>
+
+    <div class="hero__overlay"></div>
+
+    <header class="header" data-nav>
+      <nav class="nav">
+        <button class="nav__hamburger" aria-label="Open menu">
+          <span></span><span></span><span></span>
+        </button>
+        <ul class="nav__links nav__left">
+          <li><a href="/#fragrances">Fragrances</a></li>
+          <li><a href="/story">Universe</a></li>
+        </ul>
+        <div class="logo">
+          <a href="/">
+            <img src="/static/assets/images/logo.svg" alt="Maison Henius" class="logo__img">
+          </a>
+        </div>
+        <ul class="nav__links nav__right">
+          <li class="nav__hide-mobile"><a href="/#contact">Contact</a></li>
+          <li><a href="/cart" class="nav__cart">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+            <span class="cart-badge" style="display:none">0</span>
+          </a></li>
+          <li>
+            <a href="/login" class="nav__auth" id="navAuthLink" data-turbo="false" aria-label="Account">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </header>
+
+    <div class="hero__tagline">
+      <p>Fragrance is not worn. It is lived.</p>
+    </div>
+
+    <div class="scroll-indicator">
+      <div class="scroll-indicator__line"></div>
+    </div>
+
+    <audio id="bgMusic" loop preload="auto">
+      <source src="/static/assets/music/music.mp3" type="audio/mpeg">
+    </audio>
+
+    <button class="sound-toggle" id="soundToggle" aria-label="Toggle sound">
+      <svg id="iconMuted" viewBox="0 0 24 24">
+        <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+        <line x1="23" y1="9" x2="17" y2="15"/>
+        <line x1="17" y1="9" x2="23" y2="15"/>
+      </svg>
+      <svg id="iconPlaying" viewBox="0 0 24 24" style="display:none">
+        <path d="M11 5L6 9H2v6h4l5 4V5z"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      </svg>
+    </button>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       ABOUT / UNIVERSE
+       ═══════════════════════════════════════ -->
+  <section id="universe" class="about">
+
+    <!-- Philosophy -->
+    <div class="about__philosophy">
+      <hr class="about__divider">
+      <span class="about__label">The House</span>
+      <h2 class="about__quote">
+        "Memory over product.<br>Emotion over visibility."
+      </h2>
+      <p class="about__manifesto">
+        Maison Henius transforms scent into memory. Each creation is an emotional
+        identity rooted in craftsmanship and storytelling - not simply worn, but lived.
+        The house exists between contrasts: garden and desert, life and silence.
+        This duality defines every creation.
+      </p>
+    </div>
+
+    <!-- Origin -->
+    <div class="about__block">
+      <div class="about__origin">
+        <div class="about__origin-text">
+          <span class="about__label">Our Origin</span>
+          <h3 class="about__origin-heading">
+            Where fragrant gardens meet<br>the mineral vastness of the desert
+          </h3>
+          <div class="about__origin-body">
+            <p>
+              Inspired by the landscapes of Jordan - where roses bloom beside
+              ancient stone and amber sands stretch to the horizon - each composition
+              reveals a subtle balance of freshness, depth, and character.
+            </p>
+            <p>
+              Shaped by nature, memory, and exceptional raw materials, our fragrances
+              unfold gradually, leaving an impression as unique as the land that
+              inspired them.
+            </p>
+          </div>
+        </div>
+        <div class="about__origin-image">
+          <img src="/static/assets/pictures/Jordan Landscape/Wadi Rum.png"
+               alt="Wadi Rum desert - the Jordanian landscape that inspires Maison Henius"
+               loading="lazy">
+        </div>
+      </div>
+    </div>
+
+    <!-- Closing -->
+    <div class="about__closing">
+      <p class="about__closing-quote">
+        "You do not buy a fragrance. You enter a story."
+      </p>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       SCROLL VIDEO - CINEMATIC REVEAL
+       ═══════════════════════════════════════ -->
+  <section id="cinematic" class="scroll-video">
+    <div class="scroll-video__sticky">
+      <canvas class="scroll-video__canvas" aria-hidden="true"></canvas>
+      <div class="scroll-video__loader">
+        <div class="scroll-video__loader-bar"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       COLLECTION
+       ═══════════════════════════════════════ -->
+  <section id="fragrances" class="collection">
+    <div class="collection__header">
+      <hr class="collection__divider">
+      <span class="collection__label">The Collection</span>
+      <h2 class="collection__heading">Beyond Borders</h2>
+    </div>
+
+    <div class="collection__list">
+      <article class="collection__card">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-out-of-control.png" alt="" loading="lazy">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Out of Control.png" alt="Out of Control - Fruity-Floral Eau de Parfum" loading="lazy">
+        <div class="collection__card-text">
+          <span class="collection__card-family">Fruity-Floral</span>
+          <h3 class="collection__card-name">Out of Control</h3>
+          <p class="collection__card-desc">For those who turn every moment into a declaration of freedom.</p>
+          <div class="collection__card-meta">
+            <a href="/products/out-of-control" class="collection__card-cta">Discover &rarr;</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="collection__card">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-parisian.png" alt="" loading="lazy">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Parisian.png" alt="Parisian - Floral-Gourmand Eau de Parfum" loading="lazy">
+        <div class="collection__card-text">
+          <span class="collection__card-family">Floral-Gourmand</span>
+          <h3 class="collection__card-name">Parisian</h3>
+          <p class="collection__card-desc">For those who embody elegance in every step, and savor life like a Parisian.</p>
+          <div class="collection__card-meta">
+            <a href="/products/parisian" class="collection__card-cta">Discover &rarr;</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="collection__card">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-velvet-waterfall.png" alt="" loading="lazy">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Velvet Waterfall .png" alt="Velvet Waterfall - Floral-Woody Eau de Parfum" loading="lazy">
+        <div class="collection__card-text">
+          <span class="collection__card-family">Floral-Woody</span>
+          <h3 class="collection__card-name">Velvet Waterfall</h3>
+          <p class="collection__card-desc">For those who discover beauty in balance, and elegance in every motion.</p>
+          <div class="collection__card-meta">
+            <a href="/products/velvet-waterfall" class="collection__card-cta">Discover &rarr;</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="collection__card">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oh-my-dear.png" alt="" loading="lazy">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oh My Dear.png" alt="Oh My Dear! - Woody-Amber Eau de Parfum" loading="lazy">
+        <div class="collection__card-text">
+          <span class="collection__card-family">Woody-Amber</span>
+          <h3 class="collection__card-name">Oh My Dear!</h3>
+          <p class="collection__card-desc">For those who treasure elegance in the everyday and carry their memories like jewels of the soul.</p>
+          <div class="collection__card-meta">
+            <a href="/products/oh-my-dear" class="collection__card-cta">Discover &rarr;</a>
+          </div>
+        </div>
+      </article>
+
+      <article class="collection__card">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oud-passion.png" alt="" loading="lazy">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oud Passion .png" alt="Oud Passion - Woody-Amber Oud Eau de Parfum" loading="lazy">
+        <div class="collection__card-text">
+          <span class="collection__card-family">Woody-Amber &middot; Oud</span>
+          <h3 class="collection__card-name">Oud Passion</h3>
+          <p class="collection__card-desc">For those who wear confidence like a second skin.</p>
+          <div class="collection__card-meta">
+            <a href="/products/oud-passion" class="collection__card-cta">Discover &rarr;</a>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       BRAND STORY
+       ═══════════════════════════════════════ -->
+  <section id="story" class="story">
+    <div class="story__header">
+      <hr class="story__divider">
+      <span class="story__label">Our World</span>
+      <h2 class="story__heading">Between Garden and Desert</h2>
+    </div>
+
+    <div class="story__triptych">
+      <img src="/static/assets/pictures/Jordan Landscape/Maison Henius.png"
+           alt="The world of Maison Henius - garden, heritage, and atelier"
+           loading="lazy">
+    </div>
+
+    <div class="story__narrative">
+      <div class="story__col">
+        <p>Where roses bloom beside ancient stone and amber sands stretch to the horizon - this is where Maison Henius begins. Each creation draws from the duality of Jordan: the lush fragrant gardens and the mineral vastness of the desert.</p>
+      </div>
+      <div class="story__col">
+        <p>From these contrasts - life and silence, freshness and depth - emerges a language of scent that speaks to memory and emotion. Each composition unfolds gradually, leaving an impression as enduring as the land itself.</p>
+      </div>
+    </div>
+
+    <div class="story__atelier">
+      <img src="/static/assets/pictures/Jordan Landscape/Story.jpeg"
+           alt="The perfumer's atelier - oils, figs, and raw materials"
+           loading="lazy">
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════
+       CONTACT
+       ═══════════════════════════════════════ -->
+  <section id="contact" class="contact">
+    <hr class="contact__divider">
+    <span class="contact__label">Get in Touch</span>
+    <h2 class="contact__heading">We would love to hear from you</h2>
+    <p class="contact__sub">For inquiries, partnerships, or simply to share a memory.</p>
+    <form class="contact__form">
+      <input type="text" class="contact__input" placeholder="Your name" required>
+      <input type="email" class="contact__input" placeholder="Your email" required>
+      <textarea class="contact__textarea" placeholder="Your message" required></textarea>
+      <button type="submit" class="contact__btn">Send Message</button>
+    </form>
+  </section>
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Maison Henius",
+    "url": "https://maisonhenius.com",
+    "logo": "https://maisonhenius.com/assets/images/logo.svg",
+    "description": "A house of memory, emotion, and timeless craftsmanship. Luxury fragrances inspired by the landscapes of Jordan.",
+    "foundingLocation": {
+      "@type": "Place",
+      "name": "Jordan"
+    },
+    "sameAs": [
+      "https://www.instagram.com/maisonhenius",
+      "https://www.tiktok.com/@maison.henius"
+    ]
+  }
+  </script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Guard: register turbo:load listener only once (survives Turbo snapshot restoration on back nav) */
+(function() {
+if (window._landingInitBound) return;
+window._landingInitBound = true;
+
+document.addEventListener("turbo:load", function initLandingAnimations() {
+  var heroVideo = document.querySelector('.hero__video');
+  if (!heroVideo) return;
+
+  /* ═══════════════════════════════════════
+     0. HERO VIDEO CYCLE + SOUND TOGGLE
+     ═══════════════════════════════════════ */
+
+  var heroVideos = ['/static/assets/videos/web/1.mp4', '/static/assets/videos/web/2.mp4', '/static/assets/videos/web/3.mp4'];
+  var videoIndex = 0;
+  heroVideo.addEventListener('ended', function() {
+    videoIndex = (videoIndex + 1) % heroVideos.length;
+    heroVideo.src = heroVideos[videoIndex];
+    heroVideo.play().catch(function() {});
+  });
+
+  var bgMusic = document.getElementById('bgMusic');
+  var soundToggle = document.getElementById('soundToggle');
+  var iconMuted = document.getElementById('iconMuted');
+  var iconPlaying = document.getElementById('iconPlaying');
+  if (soundToggle) {
+    soundToggle.addEventListener('click', function() {
+      if (bgMusic.paused) {
+        bgMusic.play();
+        iconMuted.style.display = 'none';
+        iconPlaying.style.display = 'block';
+      } else {
+        bgMusic.pause();
+        iconMuted.style.display = 'block';
+        iconPlaying.style.display = 'none';
+      }
+    });
+  }
+
+  if (typeof gsap === "undefined") return;
+
+  /* Defer GSAP animations one frame so Lenis + DOM layout settle after Turbo swap */
+  requestAnimationFrame(function() {
+  gsap.registerPlugin(ScrollTrigger);
+
+  /* ═══════════════════════════════════════
+     1. HERO ENTRANCE TIMELINE (~2.5s)
+     ═══════════════════════════════════════ */
+  var heroTl = gsap.timeline({
+    defaults: { ease: 'power2.out' },
+    delay: 0.3,
+    onStart: function() {
+      gsap.set(['.hero .header', '.hero__tagline', '.scroll-indicator', '.sound-toggle'], {
+        visibility: 'visible'
+      });
+    }
+  });
+
+  // Logo: fade + subtle scale
+  heroTl.fromTo('.logo__img',
+    { opacity: 0, scale: 0.92 },
+    { opacity: 1, scale: 1, duration: 0.8 }
+  );
+
+  // Nav left links: slide from left
+  heroTl.fromTo('.nav__left a',
+    { opacity: 0, x: -30 },
+    { opacity: 1, x: 0, duration: 0.7, stagger: 0.1 },
+    '-=0.5'
+  );
+
+  // Nav right links: slide from right (simultaneous)
+  heroTl.fromTo('.nav__right a',
+    { opacity: 0, x: 30 },
+    { opacity: 1, x: 0, duration: 0.7, stagger: 0.1 },
+    '<'
+  );
+
+  // Tagline: clipPath mask reveal
+  heroTl.fromTo('.hero__tagline p',
+    { opacity: 0, y: 20, clipPath: 'inset(0 0 100% 0)' },
+    { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.8 },
+    '-=0.2'
+  );
+
+  // Scroll indicator + sound toggle
+  heroTl.fromTo('.scroll-indicator',
+    { opacity: 0 }, { opacity: 1, duration: 0.6 }, '-=0.3'
+  );
+  heroTl.fromTo('.sound-toggle',
+    { opacity: 0 }, { opacity: 1, duration: 0.6 }, '<'
+  );
+
+  // Infinite scroll pulse
+  heroTl.call(function() {
+    gsap.to('.scroll-indicator__line', {
+      opacity: 1, scaleY: 1.3, duration: 1,
+      ease: 'power1.inOut', yoyo: true, repeat: -1
+    });
+  });
+
+  /* ═══════════════════════════════════════
+     2. ABOUT SECTION - SCROLLTRIGGER
+     ═══════════════════════════════════════ */
+
+  // 2A. Philosophy: gold divider grows from center
+  gsap.to('.about__divider', {
+    scaleX: 1, duration: 0.6,
+    scrollTrigger: { trigger: '.about__divider', start: 'top 92%', once: true }
+  });
+
+  // 2B. "THE HOUSE" label
+  gsap.fromTo('.about__philosophy .about__label',
+    { opacity: 0, y: 10 },
+    { opacity: 1, y: 0, duration: 0.4,
+      scrollTrigger: { trigger: '.about__philosophy .about__label', start: 'top 92%', once: true }
+    }
+  );
+
+  // 2C. Quote: clipPath mask reveal (no SplitText needed)
+  gsap.fromTo('.about__quote',
+    { opacity: 0, y: 20, clipPath: 'inset(0 0 100% 0)' },
+    { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.7, ease: 'power2.out',
+      scrollTrigger: { trigger: '.about__quote', start: 'top 90%', once: true }
+    }
+  );
+
+  // 2D. Manifesto
+  gsap.fromTo('.about__manifesto',
+    { opacity: 0, y: 15 },
+    { opacity: 1, y: 0, duration: 0.6,
+      scrollTrigger: { trigger: '.about__manifesto', start: 'top 90%', once: true }
+    }
+  );
+
+  // 2E. Origin: text stagger from left
+  gsap.fromTo('.about__origin-text > *',
+    { opacity: 0, x: -20 },
+    { opacity: 1, x: 0, duration: 0.55, stagger: 0.08,
+      scrollTrigger: { trigger: '.about__origin-text', start: 'top 88%', once: true }
+    }
+  );
+
+  // 2F. Origin: image clip-path wipe from right
+  gsap.fromTo('.about__origin-image',
+    { clipPath: 'inset(0 100% 0 0)' },
+    { clipPath: 'inset(0 0% 0 0)', duration: 0.7, ease: 'power2.inOut',
+      scrollTrigger: { trigger: '.about__origin-image', start: 'top 88%', once: true }
+    }
+  );
+
+  // 2G. Origin image: subtle parallax
+  gsap.fromTo('.about__origin-image img',
+    { yPercent: -8 },
+    { yPercent: 8, ease: 'none',
+      scrollTrigger: { trigger: '.about__origin', start: 'top bottom', end: 'bottom top', scrub: 1 }
+    }
+  );
+
+  // 2H. Closing quote: fade + subtle scale
+  gsap.fromTo('.about__closing-quote',
+    { opacity: 0, scale: 0.98 },
+    { opacity: 1, scale: 1, duration: 0.6,
+      scrollTrigger: { trigger: '.about__closing-quote', start: 'top 90%', once: true }
+    }
+  );
+
+  /* ═══════════════════════════════════════
+     3. SCROLL VIDEO - CANVAS + SCROLLTRIGGER
+     ═══════════════════════════════════════ */
+  ;(function() {
+    var FRAME_COUNT = 121;
+    var isMobile    = window.innerWidth < 768;
+    var FRAME_PATH  = isMobile ? '/static/assets/video-frames/mobile/frame-' : '/static/assets/video-frames/frame-';
+    var FRAME_EXT   = '.webp';
+    var STEP        = 1;
+    var TOTAL       = FRAME_COUNT;
+
+    var section   = document.querySelector('.scroll-video');
+    if (!section) return;
+
+    var sticky    = section.querySelector('.scroll-video__sticky');
+    var canvas    = section.querySelector('.scroll-video__canvas');
+    var ctx       = canvas.getContext('2d');
+    var loader    = section.querySelector('.scroll-video__loader');
+    var loaderBar = section.querySelector('.scroll-video__loader-bar');
+
+    var frames       = new Array(TOTAL);
+    var loaded       = 0;
+    var currentFrame = -1;
+
+    function frameUrl(i) {
+      var num = String((i * STEP) + 1).padStart(4, '0');
+      return FRAME_PATH + num + FRAME_EXT;
+    }
+
+    function sizeCanvas() {
+      var dpr = Math.min(window.devicePixelRatio || 1, 3);
+      canvas.width  = sticky.clientWidth  * dpr;
+      canvas.height = sticky.clientHeight * dpr;
+      canvas.style.width  = sticky.clientWidth  + 'px';
+      canvas.style.height = sticky.clientHeight + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (currentFrame >= 0) drawFrame(currentFrame);
+    }
+
+    function drawFrame(idx) {
+      if (idx < 0 || idx >= TOTAL) return;
+      var img = frames[idx];
+      if (!img || !img.complete || !img.naturalWidth) return;
+      currentFrame = idx;
+
+      var cw = sticky.clientWidth;
+      var ch = sticky.clientHeight;
+      var iw = img.naturalWidth;
+      var ih = img.naturalHeight;
+
+      var scale = Math.min(cw / iw, ch / ih);
+      var dw = iw * scale;
+      var dh = ih * scale;
+      var dx = (cw - dw) / 2;
+      var dy = (ch - dh) / 2;
+
+      ctx.clearRect(0, 0, cw, ch);
+      ctx.drawImage(img, dx, dy, dw, dh);
+    }
+
+    function preload() {
+      for (var i = 0; i < TOTAL; i++) {
+        var img = new Image();
+        img.src = frameUrl(i);
+        img.onload = img.onerror = function() {
+          loaded++;
+          loaderBar.style.width = ((loaded / TOTAL) * 100) + '%';
+          if (loaded === TOTAL) {
+            loader.classList.add('scroll-video__loader--hidden');
+            drawFrame(0);
+            // Create the scrub ScrollTrigger after all frames loaded
+            ScrollTrigger.create({
+              trigger: section,
+              start: 'top top',
+              end: 'bottom bottom',
+              pin: sticky,
+              scrub: 1,
+              onUpdate: function(self) {
+                var idx = Math.min(Math.floor(self.progress * TOTAL), TOTAL - 1);
+                if (idx !== currentFrame) drawFrame(idx);
+              }
+            });
+          }
+        };
+        frames[i] = img;
+      }
+    }
+
+    // Lazy init: preload when section approaches
+    ScrollTrigger.create({
+      trigger: section,
+      start: 'top bottom+=200',
+      once: true,
+      onEnter: function() {
+        preload();
+        sizeCanvas();
+        window.addEventListener('resize', sizeCanvas);
+      }
+    });
+  })();
+
+  /* ═══════════════════════════════════════
+     4. COLLECTION - CINEMATIC ENTRANCE
+     ═══════════════════════════════════════ */
+
+  // Collection header: sequenced timeline
+  var collHeaderTl = gsap.timeline({
+    scrollTrigger: { trigger: '.collection__header', start: 'top 92%', once: true }
+  });
+  collHeaderTl
+    .to('.collection__divider', { scaleX: 1, duration: 0.6, ease: 'power2.inOut' })
+    .fromTo('.collection__label',
+      { opacity: 0, y: 12, clipPath: 'inset(0 0 100% 0)' },
+      { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.5 }, '-=0.3')
+    .fromTo('.collection__heading',
+      { opacity: 0, y: 20, clipPath: 'inset(0 0 100% 0)' },
+      { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.6 }, '-=0.2');
+
+  // Each card: individual scroll-triggered entrance with stagger
+  document.querySelectorAll('.collection__card').forEach(function(card, i) {
+    var mood = card.querySelector('.collection__card-mood');
+    var text = card.querySelector('.collection__card-text');
+
+    var cardTl = gsap.timeline({
+      scrollTrigger: { trigger: card, start: 'top 90%', once: true }
+    });
+
+    // Image: scale up from center with clip-path reveal
+    if (mood) {
+      cardTl.fromTo(mood,
+        { scale: 1.08, clipPath: 'inset(4% 4% 4% 4%)' },
+        { scale: 1, clipPath: 'inset(0% 0% 0% 0%)', duration: 0.7, ease: 'power2.out' }
+      );
+    }
+
+    // Text: slide from right with stagger per child
+    if (text) {
+      cardTl.fromTo(text.children,
+        { opacity: 0, x: 25 },
+        { opacity: 1, x: 0, duration: 0.5, stagger: 0.06, ease: 'power2.out' },
+        '-=0.5'
+      );
+    }
+  });
+
+  // Card images: subtle parallax on scroll
+  document.querySelectorAll('.collection__card-mood').forEach(function(img) {
+    gsap.fromTo(img,
+      { yPercent: -5 },
+      { yPercent: 5, ease: 'none',
+        scrollTrigger: { trigger: img.parentElement, start: 'top bottom', end: 'bottom top', scrub: 1 }
+      }
+    );
+  });
+
+  /* ═══════════════════════════════════════
+     5. BRAND STORY - CINEMATIC REVEAL
+     ═══════════════════════════════════════ */
+
+  // Story header: sequenced timeline
+  var storyHeaderTl = gsap.timeline({
+    scrollTrigger: { trigger: '.story__header', start: 'top 92%', once: true }
+  });
+  storyHeaderTl
+    .to('.story__divider', { scaleX: 1, duration: 0.6, ease: 'power2.inOut' })
+    .fromTo('.story__label',
+      { opacity: 0, letterSpacing: '0.5em' },
+      { opacity: 1, letterSpacing: '0.35em', duration: 0.5, ease: 'power2.out' }, '-=0.3')
+    .fromTo('.story__heading',
+      { opacity: 0, y: 20, clipPath: 'inset(0 0 100% 0)' },
+      { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.6 }, '-=0.2');
+
+  // Triptych: dramatic horizontal wipe with scale
+  var triptychTl = gsap.timeline({
+    scrollTrigger: { trigger: '.story__triptych', start: 'top 88%', once: true }
+  });
+  triptychTl
+    .fromTo('.story__triptych',
+      { clipPath: 'inset(0 100% 0 0)' },
+      { clipPath: 'inset(0 0% 0 0)', duration: 0.9, ease: 'power3.inOut' })
+    .fromTo('.story__triptych img',
+      { scale: 1.08 },
+      { scale: 1, duration: 1.0, ease: 'power2.out' }, '-=0.9');
+
+  // Triptych parallax (continuous)
+  gsap.fromTo('.story__triptych img',
+    { yPercent: -8 },
+    { yPercent: 8, ease: 'none',
+      scrollTrigger: { trigger: '.story__triptych', start: 'top bottom', end: 'bottom top', scrub: 1 }
+    }
+  );
+
+  // Narrative: columns slide in from opposite sides
+  var narrativeTl = gsap.timeline({
+    scrollTrigger: { trigger: '.story__narrative', start: 'top 88%', once: true }
+  });
+  narrativeTl
+    .fromTo('.story__col:first-child',
+      { opacity: 0, x: -30 },
+      { opacity: 1, x: 0, duration: 0.6, ease: 'power2.out' })
+    .fromTo('.story__col:last-child',
+      { opacity: 0, x: 30 },
+      { opacity: 1, x: 0, duration: 0.6, ease: 'power2.out' }, '-=0.4');
+
+  // Atelier image: vertical wipe + scale + parallax
+  var atelierTl = gsap.timeline({
+    scrollTrigger: { trigger: '.story__atelier', start: 'top 88%', once: true }
+  });
+  atelierTl
+    .fromTo('.story__atelier',
+      { clipPath: 'inset(100% 0 0 0)' },
+      { clipPath: 'inset(0% 0 0 0)', duration: 0.8, ease: 'power2.inOut' })
+    .fromTo('.story__atelier img',
+      { scale: 1.06 },
+      { scale: 1, duration: 0.9, ease: 'power2.out' }, '-=0.8');
+
+  // Atelier parallax (continuous)
+  gsap.fromTo('.story__atelier img',
+    { yPercent: -6 },
+    { yPercent: 6, ease: 'none',
+      scrollTrigger: { trigger: '.story__atelier', start: 'top bottom', end: 'bottom top', scrub: 1 }
+    }
+  );
+
+  /* ═══════════════════════════════════════
+     6. CONTACT - CINEMATIC ENTRANCE
+     ═══════════════════════════════════════ */
+
+  var contactTl = gsap.timeline({
+    scrollTrigger: { trigger: '.contact', start: 'top 92%', once: true }
+  });
+  contactTl
+    .to('.contact__divider', { scaleX: 1, duration: 0.5, ease: 'power2.inOut' })
+    .fromTo('.contact__label',
+      { opacity: 0, letterSpacing: '0.5em' },
+      { opacity: 1, letterSpacing: '0.35em', duration: 0.4 }, '-=0.2')
+    .fromTo('.contact__heading',
+      { opacity: 0, y: 15, clipPath: 'inset(0 0 100% 0)' },
+      { opacity: 1, y: 0, clipPath: 'inset(0 0 0% 0)', duration: 0.6 }, '-=0.2')
+    .fromTo('.contact__sub',
+      { opacity: 0 },
+      { opacity: 1, duration: 0.4 }, '-=0.2')
+    .fromTo('.contact__form',
+      { opacity: 0, y: 15 },
+      { opacity: 1, y: 0, duration: 0.5 }, '-=0.15');
+
+  /* ═══════════════════════════════════════
+     CONTACT FORM -> localStorage
+     ═══════════════════════════════════════ */
+  (function() {
+    var form = document.querySelector('.contact__form');
+    if (!form) return;
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      var inputs = form.querySelectorAll('.contact__input');
+      var textarea = form.querySelector('.contact__textarea');
+      var name = inputs[0].value.trim();
+      var email = inputs[1].value.trim();
+      var message = textarea.value.trim();
+
+      if (!name || !email || !message) return;
+
+      var parent = form.parentNode;
+
+      function showMessage(text, isError) {
+        var msg = document.createElement('p');
+        msg.className = 'contact__sub';
+        msg.style.opacity = '0';
+        if (isError) msg.style.color = '#d4614b';
+        msg.textContent = text;
+        parent.replaceChild(msg, form);
+        if (window.gsap) { gsap.to(msg, { opacity: 1, duration: 0.6 }); } else { msg.style.opacity = '1'; }
+        setTimeout(function() {
+          if (window.gsap) {
+            gsap.to(msg, { opacity: 0, duration: 0.4, onComplete: function() { form.reset(); parent.replaceChild(form, msg); if (window.gsap) gsap.fromTo(form, { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.5 }); } });
+          } else { form.reset(); parent.replaceChild(form, msg); }
+        }, 3000);
+      }
+
+      fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'name=' + encodeURIComponent(name) + '&email=' + encodeURIComponent(email) + '&message=' + encodeURIComponent(message)
+      }).then(function(res) {
+        if (!res.ok) throw new Error('Failed');
+        return res.json();
+      }).then(function() {
+        showMessage('Thank you! We\u2019ll be in touch.', false);
+      }).catch(function() {
+        showMessage('Something went wrong. Please try again.', true);
+      });
+    });
+  })();
+
+  ScrollTrigger.refresh();
+  }); /* end requestAnimationFrame */
+}); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+
+<!-- Separate script: CDN fallback - survives any crash in main block -->
+<script>
+  setTimeout(function() {
+    var els = document.querySelectorAll('.hero .header, .hero__tagline, .scroll-indicator, .sound-toggle');
+    els.forEach(function(el) {
+      if (getComputedStyle(el).visibility === 'hidden') {
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+      }
+    });
+    var d = document.querySelector('.about__divider');
+    if (d && getComputedStyle(d).transform !== 'none') d.style.transform = 'scaleX(1)';
+  }, 5000);
+</script>
+{% endblock %}

@@ -1,0 +1,596 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - Orders - Maison Henius{% endblock %}
+{% block nav_orders %}admin__nav-item--active{% endblock %}
+{% block heading %}Orders{% endblock %}
+
+{% block styles %}
+<style>
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+  }
+
+  .filter-bar select,
+  .filter-bar input {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 400;
+    padding: 0.6rem 1rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: #333;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .filter-bar select:focus,
+  .filter-bar input:focus {
+    border-color: #e9db90;
+  }
+
+  .filter-bar__group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .filter-bar__label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .filter-bar__search {
+    flex: 1;
+    min-width: 180px;
+  }
+
+  /* Table */
+  .table-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .table-scroll {
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-weight: 300;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    color: #888;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e0dbd3;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 0.75rem 1rem;
+    color: #333;
+    white-space: nowrap;
+  }
+
+  /* Order rows */
+  .order-row {
+    cursor: pointer;
+    transition: background 0.15s;
+    border-bottom: 1px solid #f0ede8;
+  }
+
+  .order-row:hover {
+    background: #faf9f6;
+  }
+
+  .order-row--expanded {
+    background: #faf9f6;
+  }
+
+  /* Order detail panel */
+  .order-detail td {
+    padding: 0;
+    border-bottom: 2px solid #e9db90;
+  }
+
+  .order-detail__content {
+    padding: 1.5rem 2rem;
+    background: #faf9f6;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  .order-detail__section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .order-detail__label {
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.15rem;
+  }
+
+  .order-detail__text {
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: #333;
+    line-height: 1.5;
+  }
+
+  .order-detail__items-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .order-detail__item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.3rem 0;
+    font-size: 0.8rem;
+    font-weight: 300;
+    color: #333;
+    border-bottom: 1px solid #eee;
+  }
+
+  .order-detail__item:last-child {
+    border-bottom: none;
+  }
+
+  /* Results count */
+  .results-count {
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: #888;
+    margin-bottom: 0.75rem;
+  }
+
+  @media (max-width: 768px) {
+    .filter-bar {
+      flex-direction: column;
+    }
+
+    .order-detail__content {
+      grid-template-columns: 1fr;
+    }
+
+    table {
+      font-size: 0.7rem;
+    }
+
+    thead th, tbody td {
+      padding: 0.5rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="filter-bar">
+  <div class="filter-bar__group filter-bar__search">
+    <label class="filter-bar__label">Search</label>
+    <input type="text" id="orderSearch" placeholder="Order #, name, or email...">
+  </div>
+  <div class="filter-bar__group">
+    <label class="filter-bar__label">Status</label>
+    <select id="statusFilter">
+      <option value="all">All Statuses</option>
+      <option value="confirmed">Confirmed</option>
+      <option value="pending">Pending</option>
+      <option value="shipped">Shipped</option>
+      <option value="delivered">Delivered</option>
+      <option value="cancelled">Cancelled</option>
+    </select>
+  </div>
+  <div class="filter-bar__group">
+    <label class="filter-bar__label">From</label>
+    <input type="date" id="dateFrom">
+  </div>
+  <div class="filter-bar__group">
+    <label class="filter-bar__label">To</label>
+    <input type="date" id="dateTo">
+  </div>
+</div>
+
+<div class="results-count" id="resultsCount"></div>
+
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th>Order #</th>
+          <th>Customer</th>
+          <th>Date</th>
+          <th>Items</th>
+          <th>Total</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="ordersBody">
+      </tbody>
+    </table>
+  </div>
+  <div class="empty-state" id="ordersEmpty">No orders yet</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._ordersInitBound) return;
+  window._ordersInitBound = true;
+
+  var STATUSES = ['confirmed', 'pending', 'shipped', 'delivered', 'cancelled'];
+  var STATUS_COLORS = {
+    confirmed: '#7eda9a',
+    pending:   '#e9db90',
+    shipped:   '#7eb8da',
+    delivered: '#5cb85c',
+    cancelled: '#e07a7a'
+  };
+
+  document.addEventListener('turbo:load', function() {
+    var tbody     = document.getElementById('ordersBody');
+    var emptyEl   = document.getElementById('ordersEmpty');
+    var searchIn  = document.getElementById('orderSearch');
+    var statusSel = document.getElementById('statusFilter');
+    var dateFrom  = document.getElementById('dateFrom');
+    var dateTo    = document.getElementById('dateTo');
+    var countEl   = document.getElementById('resultsCount');
+
+    if (!tbody) return;
+
+    var auth = localStorage.getItem('maison_admin_auth');
+    if (!auth) return;
+    var token = JSON.parse(auth).access_token;
+    var authHeaders = { 'Authorization': 'Bearer ' + token };
+
+    var allOrders = [];
+
+    function fmt(iso) {
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function fmtFull(iso) {
+      var d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+        + ' at ' + d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function fmtAddr(a) {
+      if (!a) return 'No address provided';
+      var parts = [];
+      if (a.line1) parts.push(a.line1);
+      if (a.line2) parts.push(a.line2);
+      var city = [a.city, a.state, a.postal_code].filter(Boolean).join(', ');
+      if (city) parts.push(city);
+      if (a.country) parts.push(a.country);
+      return parts.join('\n') || 'No address provided';
+    }
+
+    function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+    /* ---- Filters ---- */
+    function getFiltered() {
+      var list = allOrders;
+
+      var st = statusSel.value;
+      if (st && st !== 'all') {
+        list = list.filter(function(o) { return o.status === st; });
+      }
+
+      var q = searchIn.value.trim().toLowerCase();
+      if (q) {
+        list = list.filter(function(o) {
+          return (o.id || '').toLowerCase().indexOf(q) !== -1 ||
+                 (o.customer_name || '').toLowerCase().indexOf(q) !== -1 ||
+                 (o.customer_email || '').toLowerCase().indexOf(q) !== -1;
+        });
+      }
+
+      if (dateFrom.value) {
+        var df = new Date(dateFrom.value); df.setHours(0, 0, 0, 0);
+        list = list.filter(function(o) { return new Date(o.created_at) >= df; });
+      }
+      if (dateTo.value) {
+        var dt = new Date(dateTo.value); dt.setHours(23, 59, 59, 999);
+        list = list.filter(function(o) { return new Date(o.created_at) <= dt; });
+      }
+
+      return list;
+    }
+
+    /* ---- Status dropdown per row ---- */
+    function makeStatusSelect(order) {
+      var sel = document.createElement('select');
+      sel.style.cssText = 'font-family:Montserrat,sans-serif;font-size:0.75rem;padding:0.25rem 0.5rem;border:1px solid #ddd;border-radius:4px;background:' + (STATUS_COLORS[order.status] || '#ddd') + ';color:#1a1a1a;cursor:pointer;outline:none;';
+
+      STATUSES.forEach(function(s) {
+        var opt = document.createElement('option');
+        opt.value = s;
+        opt.textContent = cap(s);
+        if (s === order.status) opt.selected = true;
+        sel.appendChild(opt);
+      });
+
+      sel.addEventListener('click', function(e) { e.stopPropagation(); });
+
+      sel.addEventListener('change', function(e) {
+        e.stopPropagation();
+        var newSt = sel.value;
+        var prev = order.status;
+        sel.disabled = true;
+        sel.style.opacity = '0.5';
+
+        fetch('/api/admin/orders/' + order.id, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ status: newSt })
+        }).then(function(r) {
+          if (!r.ok) throw new Error();
+          return r.json();
+        }).then(function(data) {
+          order.status = newSt;
+          sel.style.background = STATUS_COLORS[newSt] || '#ddd';
+          if (data.email_sent) {
+            sel.title = 'Customer notified via email';
+          }
+        }).catch(function() {
+          sel.value = prev;
+          sel.style.background = STATUS_COLORS[prev] || '#ddd';
+        }).finally(function() {
+          sel.disabled = false;
+          sel.style.opacity = '';
+        });
+      });
+
+      return sel;
+    }
+
+    /* ---- Detail row (expandable) ---- */
+    function makeDetail(order) {
+      var tr = document.createElement('tr');
+      tr.className = 'order-detail';
+      tr.style.display = 'none';
+      tr.setAttribute('data-detail', order.id);
+
+      var td = document.createElement('td');
+      td.colSpan = 6;
+
+      var wrap = document.createElement('div');
+      wrap.className = 'order-detail__content';
+
+      /* -- Left: address + contact -- */
+      var left = document.createElement('div');
+      left.className = 'order-detail__section';
+
+      function addField(parent, label, value, style) {
+        var lbl = document.createElement('div');
+        lbl.className = 'order-detail__label';
+        if (style) lbl.style.cssText = style;
+        lbl.textContent = label;
+        parent.appendChild(lbl);
+        var txt = document.createElement('div');
+        txt.className = 'order-detail__text';
+        txt.style.whiteSpace = 'pre-line';
+        txt.textContent = value;
+        parent.appendChild(txt);
+      }
+
+      addField(left, 'Shipping Address', fmtAddr(order.shipping_address));
+      if (order.customer_phone) addField(left, 'Phone', order.customer_phone, 'margin-top:1rem');
+      if (order.customer_email) addField(left, 'Email', order.customer_email, 'margin-top:1rem');
+      if (order.created_at)     addField(left, 'Ordered', fmtFull(order.created_at), 'margin-top:1rem');
+
+      wrap.appendChild(left);
+
+      /* -- Right: items breakdown + totals -- */
+      var right = document.createElement('div');
+      right.className = 'order-detail__section';
+
+      var ilbl = document.createElement('div');
+      ilbl.className = 'order-detail__label';
+      ilbl.textContent = 'Items Breakdown';
+      right.appendChild(ilbl);
+
+      var ul = document.createElement('ul');
+      ul.className = 'order-detail__items-list';
+
+      if (order.items && order.items.length) {
+        order.items.forEach(function(item) {
+          var li = document.createElement('li');
+          li.className = 'order-detail__item';
+          var name = document.createElement('span');
+          name.textContent = item.name + ' \u00d7 ' + item.quantity;
+          li.appendChild(name);
+          var price = document.createElement('span');
+          price.textContent = '$' + (item.price * item.quantity).toLocaleString('en-US');
+          price.style.fontWeight = '400';
+          li.appendChild(price);
+          ul.appendChild(li);
+        });
+
+        function totalLine(label, value, bold) {
+          var li = document.createElement('li');
+          li.className = 'order-detail__item';
+          if (bold) li.style.fontWeight = '500';
+          var l = document.createElement('span');
+          l.textContent = label;
+          if (!bold) l.style.color = '#888';
+          li.appendChild(l);
+          var v = document.createElement('span');
+          v.textContent = '$' + parseFloat(value || 0).toLocaleString('en-US');
+          li.appendChild(v);
+          return li;
+        }
+
+        var sep = totalLine('Subtotal', order.subtotal);
+        sep.style.borderTop = '1px solid #ddd';
+        sep.style.marginTop = '0.5rem';
+        sep.style.paddingTop = '0.5rem';
+        ul.appendChild(sep);
+        ul.appendChild(totalLine('Shipping', order.shipping));
+        ul.appendChild(totalLine('Total', order.total, true));
+      }
+
+      right.appendChild(ul);
+
+      if (order.stripe_session_id) {
+        var slbl = document.createElement('div');
+        slbl.className = 'order-detail__label';
+        slbl.style.marginTop = '1rem';
+        slbl.textContent = 'Stripe Session';
+        right.appendChild(slbl);
+        var stxt = document.createElement('div');
+        stxt.className = 'order-detail__text';
+        stxt.style.cssText = 'font-size:0.7rem;word-break:break-all;color:#999;';
+        stxt.textContent = order.stripe_session_id;
+        right.appendChild(stxt);
+      }
+
+      wrap.appendChild(right);
+      td.appendChild(wrap);
+      tr.appendChild(td);
+      return tr;
+    }
+
+    /* ---- Render ---- */
+    function render() {
+      var orders = getFiltered();
+
+      while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+      countEl.textContent = allOrders.length > 0
+        ? orders.length + ' of ' + allOrders.length + ' order' + (allOrders.length === 1 ? '' : 's')
+        : '';
+
+      if (orders.length === 0) {
+        emptyEl.style.display = '';
+        emptyEl.textContent = allOrders.length === 0 ? 'No orders yet' : 'No orders match your filters';
+        return;
+      }
+      emptyEl.style.display = 'none';
+
+      orders.forEach(function(order) {
+        var tr = document.createElement('tr');
+        tr.className = 'order-row';
+
+        function addTd(text, style) {
+          var td = document.createElement('td');
+          td.textContent = text;
+          if (style) td.style.cssText = style;
+          tr.appendChild(td);
+          return td;
+        }
+
+        addTd(order.id, 'font-weight:500');
+
+        /* Customer: name + email stacked */
+        var tdCust = document.createElement('td');
+        tdCust.style.whiteSpace = 'normal';
+        var nameDiv = document.createElement('div');
+        nameDiv.textContent = order.customer_name || '';
+        nameDiv.style.fontWeight = '400';
+        tdCust.appendChild(nameDiv);
+        var emailDiv = document.createElement('div');
+        emailDiv.textContent = order.customer_email || '';
+        emailDiv.style.cssText = 'font-size:0.7rem;color:#888;margin-top:0.15rem;';
+        tdCust.appendChild(emailDiv);
+        tr.appendChild(tdCust);
+
+        addTd(order.created_at ? fmt(order.created_at) : '');
+
+        /* Items as chips */
+        var tdItems = document.createElement('td');
+        tdItems.style.cssText = 'white-space:normal;max-width:220px;line-height:1.6;';
+        if (order.items && order.items.length) {
+          order.items.forEach(function(item) {
+            var chip = document.createElement('span');
+            chip.textContent = item.name + ' \u00d7' + item.quantity;
+            chip.style.cssText = 'display:inline-block;font-size:0.7rem;background:#faf9f6;border:1px solid #e0dbd3;border-radius:3px;padding:0.15rem 0.45rem;margin:0.1rem 0.2rem 0.1rem 0;';
+            tdItems.appendChild(chip);
+          });
+        } else {
+          tdItems.textContent = '\u2014';
+        }
+        tr.appendChild(tdItems);
+
+        addTd('$' + (parseFloat(order.total) || 0).toFixed(2), 'font-weight:400');
+
+        var tdSt = document.createElement('td');
+        tdSt.appendChild(makeStatusSelect(order));
+        tr.appendChild(tdSt);
+
+        /* Click to toggle detail */
+        var detail = makeDetail(order);
+
+        tr.addEventListener('click', function() {
+          var wasOpen = detail.style.display === 'table-row';
+          /* Collapse all */
+          tbody.querySelectorAll('.order-detail').forEach(function(d) { d.style.display = 'none'; });
+          tbody.querySelectorAll('.order-row--expanded').forEach(function(r) { r.classList.remove('order-row--expanded'); });
+          if (!wasOpen) {
+            detail.style.display = 'table-row';
+            tr.classList.add('order-row--expanded');
+          }
+        });
+
+        tbody.appendChild(tr);
+        tbody.appendChild(detail);
+      });
+    }
+
+    /* ---- Filter event listeners ---- */
+    statusSel.addEventListener('change', render);
+    dateFrom.addEventListener('change', render);
+    dateTo.addEventListener('change', render);
+
+    var searchTimer;
+    searchIn.addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(render, 200);
+    });
+
+    /* ---- Fetch ---- */
+    fetch('/api/admin/orders', { headers: authHeaders })
+      .then(function(r) {
+        if (r.status === 401) { localStorage.removeItem('maison_admin_auth'); window.location.href = '/admin/login'; throw { redirect: true }; }
+        if (!r.ok) throw new Error('API error');
+        return r.json();
+      })
+      .then(function(data) {
+        allOrders = data.orders || [];
+        render();
+      })
+      .catch(function(err) {
+        if (err && err.redirect) return;
+        if (emptyEl) { emptyEl.textContent = 'Failed to load orders. Please refresh.'; emptyEl.style.display = ''; }
+      });
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+{% endblock %}

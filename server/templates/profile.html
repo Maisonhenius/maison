@@ -1,0 +1,898 @@
+{% extends "layout.html" %}
+{% block title %}My Account - Maison Henius{% endblock %}
+{% block meta %}<meta name="description" content="Manage your Maison Henius account, addresses, and order history.">{% endblock %}
+
+{% block nav_class %}header{% endblock %}
+{% block nav_attrs %}style="position: relative; background: #0a0a08;"{% endblock %}
+
+{% block styles %}
+<style>
+  /* -- Profile page overrides -- */
+  body { background: #faf9f6; }
+
+  /* -- Page content -- */
+  .profile {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4rem clamp(1.5rem, 5vw, 3rem) 6rem;
+  }
+
+  .profile__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.8rem, 3vw, 2.4rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  /* -- Sections -- */
+  .profile__section {
+    margin-bottom: 2.5rem;
+  }
+
+  .profile__section-header {
+    background: #0a0a08;
+    padding: 0.8rem 1.4rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0;
+  }
+
+  .profile__section-title {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #e9db90;
+  }
+
+  .profile__section-action {
+    background: none;
+    border: none;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(245, 240, 232, 0.5);
+    cursor: pointer;
+    transition: color 0.3s ease;
+  }
+
+  .profile__section-action:hover {
+    color: #e9db90;
+  }
+
+  .profile__section-body {
+    border: 1px solid rgba(10, 10, 8, 0.08);
+    border-top: none;
+    padding: 1.5rem 1.4rem;
+    background: #fff;
+  }
+
+  /* -- Personal info -- */
+  .profile__info-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.8rem;
+  }
+
+  .profile__info-row:last-child { margin-bottom: 0; }
+
+  .profile__info-label {
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.4);
+    min-width: 60px;
+  }
+
+  .profile__info-value {
+    font-weight: 300;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+  }
+
+  /* -- Empty states -- */
+  .profile__empty {
+    text-align: center;
+    padding: 1.5rem 0;
+  }
+
+  .profile__empty-text {
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.35);
+    letter-spacing: 0.03em;
+    margin-bottom: 1rem;
+  }
+
+  .profile__empty-link {
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.2);
+    padding-bottom: 2px;
+    transition: border-color 0.3s ease;
+  }
+
+  .profile__empty-link:hover {
+    border-color: #0a0a08;
+  }
+
+  /* -- Address form (hidden by default) -- */
+  .profile__address-form {
+    display: none;
+    flex-direction: column;
+    gap: 0;
+    margin-top: 1rem;
+  }
+
+  .profile__address-form.is-visible {
+    display: flex;
+  }
+
+  .profile__address-row {
+    display: flex;
+    gap: 0;
+  }
+
+  .profile__address-input {
+    flex: 1;
+    background: #faf9f6;
+    border: 1px solid rgba(10, 10, 8, 0.12);
+    border-bottom: none;
+    padding: 0.8rem 1rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    color: #0a0a08;
+    outline: none;
+    transition: border-color 0.3s ease;
+  }
+
+  .profile__address-input::placeholder {
+    color: rgba(10, 10, 8, 0.3);
+  }
+
+  .profile__address-input:focus {
+    border-color: rgba(10, 10, 8, 0.3);
+  }
+
+  .profile__address-row .profile__address-input {
+    border-right: none;
+  }
+
+  .profile__address-row .profile__address-input:last-child {
+    border-right: 1px solid rgba(10, 10, 8, 0.12);
+  }
+
+  .profile__address-form .profile__address-input:last-of-type,
+  .profile__address-form .profile__address-row:last-of-type .profile__address-input {
+    border-bottom: 1px solid rgba(10, 10, 8, 0.12);
+  }
+
+  .profile__address-btn {
+    margin-top: 1rem;
+    align-self: flex-start;
+    background: #0a0a08;
+    border: none;
+    padding: 0.7rem 1.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #e9db90;
+    cursor: pointer;
+    transition: opacity 0.3s ease;
+  }
+
+  .profile__address-btn:hover {
+    opacity: 0.85;
+  }
+
+  /* -- Orders table -- */
+  .profile__orders-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .profile__orders-table th {
+    font-weight: 400;
+    font-size: 0.55rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.4);
+    text-align: left;
+    padding: 0 0 0.8rem;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.08);
+  }
+
+  .profile__orders-table td {
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: #0a0a08;
+    padding: 0.8rem 0.5rem 0.8rem 0;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.05);
+  }
+
+  /* -- Logout button -- */
+  .profile__logout {
+    display: block;
+    margin: 0 auto 2rem;
+    background: none;
+    border: 1px solid rgba(10, 10, 8, 0.15);
+    padding: 0.6rem 1.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.5);
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+
+  .profile__logout:hover {
+    color: #0a0a08;
+    border-color: #0a0a08;
+  }
+
+  /* -- Address card -- */
+  .profile__address-card {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.06);
+    font-weight: 300;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    line-height: 1.6;
+  }
+
+  .profile__address-card:last-child { border-bottom: none; }
+
+  .profile__address-default {
+    display: inline-block;
+    font-weight: 400;
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-left: 0.6rem;
+  }
+
+  .profile__address-name {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+  }
+
+  .profile__address-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.5rem;
+  }
+
+  .profile__address-action {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.55rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.35);
+    cursor: pointer;
+    transition: color 0.3s ease;
+  }
+
+  .profile__address-action:hover {
+    color: #0a0a08;
+  }
+
+  .profile__address-action--default:hover {
+    color: #b8a44e;
+  }
+
+  .profile__address-action--delete:hover {
+    color: #c0392b;
+  }
+
+  .profile__address-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.7rem;
+    color: rgba(10, 10, 8, 0.5);
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+
+  .profile__address-checkbox input[type="checkbox"] {
+    accent-color: #b8a44e;
+  }
+
+  /* -- Status badge -- */
+  .profile__status-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: 500;
+    color: #1a1a1a;
+  }
+
+  /* -- Footer override: dark bg on ivory page -- */
+  .footer { background: #0a0a08; }
+
+  /* -- GSAP initial state -- */
+  .profile__section { visibility: hidden; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .profile__section { visibility: visible !important; opacity: 1 !important; }
+  }
+
+  /* -- Mobile -- */
+  @media (max-width: 600px) {
+    .profile { padding: 3rem 1.2rem 4rem; }
+    .profile__info-row { flex-direction: column; gap: 0.2rem; }
+    .profile__address-row { flex-direction: column; }
+    .profile__address-row .profile__address-input { border-right: 1px solid rgba(10, 10, 8, 0.12); }
+    .profile__orders-table { font-size: 0.65rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- -- Profile Content -- -->
+<main class="profile">
+  <h1 class="profile__heading">My Account</h1>
+  <button class="profile__logout" onclick="localStorage.removeItem('maison_auth'); window.location.href='/login';">Sign Out</button>
+
+  <!-- Personal Info -->
+  <section class="profile__section" data-animate>
+    <div class="profile__section-header">
+      <span class="profile__section-title">Personal Information</span>
+      <button class="profile__section-action" type="button" id="editProfileBtn">Edit</button>
+    </div>
+    <div class="profile__section-body">
+      <!-- Display mode -->
+      <div id="profileDisplay">
+        <div class="profile__info-row">
+          <span class="profile__info-label">Name</span>
+          <span class="profile__info-value" id="profileName">Loading...</span>
+        </div>
+        <div class="profile__info-row">
+          <span class="profile__info-label">Email</span>
+          <span class="profile__info-value" id="profileEmail">Loading...</span>
+        </div>
+      </div>
+      <!-- Edit mode -->
+      <form id="profileEditForm" style="display:none;">
+        <div class="profile__info-row">
+          <span class="profile__info-label">Name</span>
+          <input class="profile__address-input" type="text" name="full_name" id="editName" style="flex:1;border:1px solid rgba(10,10,8,0.12);border-bottom:1px solid rgba(10,10,8,0.12);">
+        </div>
+        <div class="profile__info-row">
+          <span class="profile__info-label">Email</span>
+          <span class="profile__info-value" id="editEmail" style="opacity:0.4;"></span>
+        </div>
+        <div style="display:flex;gap:0.8rem;margin-top:1rem;">
+          <button type="submit" class="profile__address-btn">Save</button>
+          <button type="button" class="profile__section-action" id="cancelEditBtn" style="color:rgba(10,10,8,0.4);font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;cursor:pointer;">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Addresses -->
+  <section class="profile__section" data-animate>
+    <div class="profile__section-header">
+      <span class="profile__section-title">Addresses</span>
+      <button class="profile__section-action" type="button" id="addAddressBtn">Add Address</button>
+    </div>
+    <div class="profile__section-body">
+      <div id="addressList"></div>
+      <div class="profile__empty" id="addressEmpty">
+        <p class="profile__empty-text">No addresses saved</p>
+      </div>
+
+      <form class="profile__address-form" id="addressForm">
+        <input class="profile__address-input" type="text" name="full_name" placeholder="Full name" autocomplete="name">
+        <input class="profile__address-input" type="text" name="line1" placeholder="Address line 1" autocomplete="address-line1">
+        <input class="profile__address-input" type="text" name="line2" placeholder="Address line 2 (optional)" autocomplete="address-line2">
+        <div class="profile__address-row">
+          <input class="profile__address-input" type="text" name="city" placeholder="City" autocomplete="address-level2">
+          <input class="profile__address-input" type="text" name="state" placeholder="State / Region" autocomplete="address-level1">
+        </div>
+        <div class="profile__address-row">
+          <input class="profile__address-input" type="text" name="postal_code" placeholder="Postal code" autocomplete="postal-code">
+          <input class="profile__address-input" type="text" name="country" placeholder="Country" autocomplete="country-name">
+        </div>
+        <label class="profile__address-checkbox">
+          <input type="checkbox" name="is_default">
+          <span>Set as default address</span>
+        </label>
+        <button type="submit" class="profile__address-btn">Save Address</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- Order History -->
+  <section class="profile__section" data-animate>
+    <div class="profile__section-header">
+      <span class="profile__section-title">Order History</span>
+    </div>
+    <div class="profile__section-body">
+      <table class="profile__orders-table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Date</th>
+            <th>Items</th>
+            <th>Total</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody id="ordersTbody">
+        </tbody>
+      </table>
+      <div class="profile__empty" id="ordersEmpty">
+        <p class="profile__empty-text">No orders yet</p>
+        <a href="/#fragrances" class="profile__empty-link">Start Shopping</a>
+      </div>
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._profileInitBound) return;
+  window._profileInitBound = true;
+
+  document.addEventListener("turbo:load", function initProfilePage() {
+    /* -- Auth gate -- */
+    var auth = localStorage.getItem('maison_auth');
+    if (!auth) { window.location.href = '/login'; return; }
+
+    var token;
+    try { token = JSON.parse(auth).access_token; } catch(e) { token = auth; }
+
+    /* -- DOM refs -- */
+    var addBtn = document.getElementById('addAddressBtn');
+    var addressForm = document.getElementById('addressForm');
+    var addressList = document.getElementById('addressList');
+    var addressEmpty = document.getElementById('addressEmpty');
+
+    /* ═══════════════════════════════════════
+       EDIT PROFILE
+       ═══════════════════════════════════════ */
+    var editProfileBtn = document.getElementById('editProfileBtn');
+    var profileDisplay = document.getElementById('profileDisplay');
+    var profileEditForm = document.getElementById('profileEditForm');
+    var editNameInput = document.getElementById('editName');
+    var editEmailEl = document.getElementById('editEmail');
+    var cancelEditBtn = document.getElementById('cancelEditBtn');
+
+    if (editProfileBtn && profileEditForm) {
+      editProfileBtn.addEventListener('click', function() {
+        var nameEl = document.getElementById('profileName');
+        var emailEl = document.getElementById('profileEmail');
+        editNameInput.value = nameEl ? nameEl.textContent : '';
+        if (editEmailEl && emailEl) editEmailEl.textContent = emailEl.textContent;
+        profileDisplay.style.display = 'none';
+        profileEditForm.style.display = 'block';
+        editProfileBtn.textContent = 'Editing';
+        editProfileBtn.disabled = true;
+        editNameInput.focus();
+      });
+
+      cancelEditBtn.addEventListener('click', function() {
+        profileEditForm.style.display = 'none';
+        profileDisplay.style.display = 'block';
+        editProfileBtn.textContent = 'Edit';
+        editProfileBtn.disabled = false;
+      });
+
+      profileEditForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var newName = editNameInput.value.trim();
+        if (!newName) return;
+
+        fetch('/api/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token },
+          body: JSON.stringify({ full_name: newName })
+        }).then(function(r) {
+          if (r.status === 401) { localStorage.removeItem('maison_auth'); window.location.href = '/login'; return; }
+          return r.json();
+        }).then(function(data) {
+          if (!data) return;
+          if (data.success) {
+            var nameEl = document.getElementById('profileName');
+            if (nameEl) nameEl.textContent = newName;
+            profileEditForm.style.display = 'none';
+            profileDisplay.style.display = 'block';
+            editProfileBtn.textContent = 'Edit';
+            editProfileBtn.disabled = false;
+          } else {
+            alert(data.error || 'Failed to update profile.');
+          }
+        }).catch(function() {
+          alert('Something went wrong. Please try again.');
+        });
+      });
+    }
+
+    /* -- Stored addresses for edit lookup -- */
+    var currentAddresses = [];
+
+    /* ═══════════════════════════════════════
+       LOAD PROFILE
+       ═══════════════════════════════════════ */
+    function loadProfile() {
+      fetch('/api/profile', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      })
+      .then(function(res) {
+        if (res.status === 401) { localStorage.removeItem('maison_auth'); window.location.href = '/login'; return null; }
+        return res.json();
+      })
+      .then(function(data) {
+        if (!data) return;
+
+        /* Populate name + email */
+        var nameEl = document.getElementById('profileName');
+        var emailEl = document.getElementById('profileEmail');
+        if (nameEl) nameEl.textContent = (data.profile && data.profile.full_name) || 'Not set';
+        if (emailEl) emailEl.textContent = (data.profile && data.profile.email) || '';
+
+        /* Populate addresses */
+        currentAddresses = data.addresses || [];
+        renderAddresses(currentAddresses);
+
+        /* Populate order history */
+        renderOrders(data.orders || []);
+      })
+      .catch(function(err) {
+        console.error('Profile fetch error:', err);
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       RENDER ADDRESSES
+       ═══════════════════════════════════════ */
+    function renderAddresses(addresses) {
+      if (!addressList || !addressEmpty) return;
+
+      while (addressList.firstChild) { addressList.removeChild(addressList.firstChild); }
+
+      if (addresses.length === 0) {
+        addressEmpty.style.display = '';
+        return;
+      }
+
+      addressEmpty.style.display = 'none';
+
+      addresses.forEach(function(addr) {
+        var card = document.createElement('div');
+        card.className = 'profile__address-card';
+        card.setAttribute('data-id', addr.id);
+
+        /* Header: name + default badge */
+        var header = document.createElement('div');
+        header.style.marginBottom = '0.2rem';
+
+        var nameSpan = document.createElement('span');
+        nameSpan.className = 'profile__address-name';
+        nameSpan.textContent = addr.full_name || '';
+        header.appendChild(nameSpan);
+
+        if (addr.is_default) {
+          var defBadge = document.createElement('span');
+          defBadge.className = 'profile__address-default';
+          defBadge.textContent = 'Default';
+          header.appendChild(defBadge);
+        }
+        card.appendChild(header);
+
+        /* Address lines */
+        var lines = [addr.line1, addr.line2].filter(Boolean);
+        if (lines.length) {
+          var p1 = document.createElement('p');
+          p1.style.margin = '0';
+          p1.textContent = lines.join(', ');
+          card.appendChild(p1);
+        }
+
+        var cityLine = [addr.city, addr.state, addr.postal_code].filter(Boolean).join(', ');
+        if (cityLine) {
+          var p2 = document.createElement('p');
+          p2.style.margin = '0';
+          p2.textContent = cityLine;
+          card.appendChild(p2);
+        }
+
+        if (addr.country) {
+          var p3 = document.createElement('p');
+          p3.style.margin = '0';
+          p3.textContent = addr.country;
+          card.appendChild(p3);
+        }
+
+        /* Action buttons */
+        var actions = document.createElement('div');
+        actions.className = 'profile__address-actions';
+
+        var editBtn = document.createElement('button');
+        editBtn.className = 'profile__address-action';
+        editBtn.textContent = 'Edit';
+        editBtn.setAttribute('data-id', addr.id);
+        editBtn.addEventListener('click', function() { editAddress(addr.id); });
+        actions.appendChild(editBtn);
+
+        var deleteBtn = document.createElement('button');
+        deleteBtn.className = 'profile__address-action profile__address-action--delete';
+        deleteBtn.textContent = 'Delete';
+        deleteBtn.setAttribute('data-id', addr.id);
+        deleteBtn.addEventListener('click', function() { deleteAddress(addr.id); });
+        actions.appendChild(deleteBtn);
+
+        if (!addr.is_default) {
+          var defaultBtn = document.createElement('button');
+          defaultBtn.className = 'profile__address-action profile__address-action--default';
+          defaultBtn.textContent = 'Set as default';
+          defaultBtn.setAttribute('data-id', addr.id);
+          defaultBtn.addEventListener('click', function() { setDefaultAddress(addr.id); });
+          actions.appendChild(defaultBtn);
+        }
+
+        card.appendChild(actions);
+        addressList.appendChild(card);
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       RENDER ORDERS
+       ═══════════════════════════════════════ */
+    function renderOrders(orders) {
+      var ordersTbody = document.getElementById('ordersTbody');
+      var ordersEmpty = document.getElementById('ordersEmpty');
+      if (!ordersTbody || !ordersEmpty) return;
+
+      var STATUS_COLORS = { pending: '#e9db90', shipped: '#7eb8da', delivered: '#7eda9a' };
+
+      function formatDate(iso) {
+        var d = new Date(iso);
+        return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      }
+
+      while (ordersTbody.firstChild) { ordersTbody.removeChild(ordersTbody.firstChild); }
+
+      if (orders.length === 0) {
+        ordersEmpty.style.display = '';
+        return;
+      }
+
+      ordersEmpty.style.display = 'none';
+
+      orders.forEach(function(order) {
+        var tr = document.createElement('tr');
+
+        var tdId = document.createElement('td');
+        tdId.textContent = order.id || '';
+        tr.appendChild(tdId);
+
+        var tdDate = document.createElement('td');
+        tdDate.textContent = order.created_at ? formatDate(order.created_at) : '';
+        tr.appendChild(tdDate);
+
+        var tdItems = document.createElement('td');
+        tdItems.textContent = order.items ? order.items.length : 0;
+        tr.appendChild(tdItems);
+
+        var tdTotal = document.createElement('td');
+        tdTotal.textContent = '$' + (parseFloat(order.total) || 0).toFixed(2);
+        tr.appendChild(tdTotal);
+
+        var tdStatus = document.createElement('td');
+        var badge = document.createElement('span');
+        badge.className = 'profile__status-badge';
+        var st = order.status || 'pending';
+        badge.textContent = st.charAt(0).toUpperCase() + st.slice(1);
+        badge.style.background = STATUS_COLORS[st] || '#ddd';
+        tdStatus.appendChild(badge);
+        tr.appendChild(tdStatus);
+
+        ordersTbody.appendChild(tr);
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       ADDRESS FORM TOGGLE
+       ═══════════════════════════════════════ */
+    if (addBtn && addressForm) {
+      addBtn.addEventListener('click', function() {
+        if (addressForm.classList.contains('is-visible')) {
+          /* Cancel: hide form, clear edit mode */
+          addressForm.classList.remove('is-visible');
+          addressForm.reset();
+          delete addressForm.dataset.editId;
+          addBtn.textContent = 'Add Address';
+        } else {
+          addressForm.classList.add('is-visible');
+          addBtn.textContent = 'Cancel';
+        }
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       ADDRESS FORM SUBMIT (CREATE + EDIT)
+       ═══════════════════════════════════════ */
+    if (addressForm) {
+      addressForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        var authData = JSON.parse(localStorage.getItem('maison_auth'));
+        if (!authData) return;
+
+        var data = {
+          full_name: addressForm.querySelector('[name="full_name"]').value,
+          line1: addressForm.querySelector('[name="line1"]').value,
+          line2: addressForm.querySelector('[name="line2"]').value || '',
+          city: addressForm.querySelector('[name="city"]').value,
+          state: addressForm.querySelector('[name="state"]').value,
+          postal_code: addressForm.querySelector('[name="postal_code"]').value,
+          country: addressForm.querySelector('[name="country"]').value,
+          is_default: addressForm.querySelector('[name="is_default"]').checked
+        };
+
+        var editId = addressForm.dataset.editId;
+        var url = editId ? '/api/profile/addresses/' + editId : '/api/profile/addresses';
+        var method = editId ? 'PATCH' : 'POST';
+
+        fetch(url, {
+          method: method,
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + authData.access_token
+          },
+          body: JSON.stringify(data)
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(result) {
+          if (result.success) {
+            addressForm.reset();
+            addressForm.classList.remove('is-visible');
+            delete addressForm.dataset.editId;
+            addBtn.textContent = 'Add Address';
+            loadProfile();
+          }
+        });
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       DELETE ADDRESS
+       ═══════════════════════════════════════ */
+    function deleteAddress(addressId) {
+      if (!confirm('Remove this address?')) return;
+      var authData = JSON.parse(localStorage.getItem('maison_auth'));
+      if (!authData) return;
+
+      fetch('/api/profile/addresses/' + addressId, {
+        method: 'DELETE',
+        headers: { 'Authorization': 'Bearer ' + authData.access_token }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function() {
+        loadProfile();
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       SET DEFAULT ADDRESS
+       ═══════════════════════════════════════ */
+    function setDefaultAddress(addressId) {
+      var authData = JSON.parse(localStorage.getItem('maison_auth'));
+      if (!authData) return;
+
+      fetch('/api/profile/addresses/' + addressId + '/default', {
+        method: 'PATCH',
+        headers: { 'Authorization': 'Bearer ' + authData.access_token }
+      })
+      .then(function(r) { return r.json(); })
+      .then(function() {
+        loadProfile();
+      });
+    }
+
+    /* ═══════════════════════════════════════
+       EDIT ADDRESS
+       ═══════════════════════════════════════ */
+    function editAddress(addressId) {
+      var addr = currentAddresses.find(function(a) { return a.id === addressId; });
+      if (!addr || !addressForm) return;
+
+      /* Populate form fields */
+      addressForm.querySelector('[name="full_name"]').value = addr.full_name || '';
+      addressForm.querySelector('[name="line1"]').value = addr.line1 || '';
+      addressForm.querySelector('[name="line2"]').value = addr.line2 || '';
+      addressForm.querySelector('[name="city"]').value = addr.city || '';
+      addressForm.querySelector('[name="state"]').value = addr.state || '';
+      addressForm.querySelector('[name="postal_code"]').value = addr.postal_code || '';
+      addressForm.querySelector('[name="country"]').value = addr.country || '';
+      addressForm.querySelector('[name="is_default"]').checked = !!addr.is_default;
+
+      /* Show form in edit mode */
+      addressForm.classList.add('is-visible');
+      addressForm.dataset.editId = addressId;
+      addBtn.textContent = 'Cancel';
+
+      /* Scroll form into view */
+      addressForm.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /* ═══════════════════════════════════════
+       INITIAL LOAD
+       ═══════════════════════════════════════ */
+    loadProfile();
+
+    /* ═══════════════════════════════════════
+       GSAP ENTRANCE ANIMATIONS
+       ═══════════════════════════════════════ */
+    if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && typeof gsap !== 'undefined') {
+      gsap.registerPlugin(ScrollTrigger);
+
+      document.querySelectorAll('.profile__section[data-animate]').forEach(function(section, i) {
+        gsap.set(section, { visibility: 'visible', opacity: 0, y: 25 });
+        gsap.to(section, {
+          opacity: 1,
+          y: 0,
+          duration: 0.7,
+          ease: 'power2.out',
+          delay: 0.2 + (i * 0.15)
+        });
+      });
+
+      /* Footer animation */
+      var footerDiv = document.querySelector('.footer__divider');
+      if (footerDiv) {
+        var ftl = gsap.timeline({
+          scrollTrigger: { trigger: '.footer', start: 'top 85%', once: true }
+        });
+        ftl.fromTo('.footer__divider', { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: 'power2.inOut' })
+          .fromTo('.footer__logo', { opacity: 0, scale: 0.85 }, { opacity: 0.7, scale: 1, duration: 0.8 }, '-=0.3')
+          .fromTo('.footer__tagline', { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.7 }, '-=0.4')
+          .fromTo('.footer__social', { opacity: 0 }, { opacity: 1, duration: 0.6 }, '-=0.3')
+          .fromTo('.footer__markets', { opacity: 0 }, { opacity: 1, duration: 0.5 }, '-=0.2')
+          .fromTo('.footer__legal', { opacity: 0 }, { opacity: 1, duration: 0.4 }, '-=0.1');
+      }
+    } else {
+      document.querySelectorAll('.profile__section').forEach(function(el) {
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+      });
+    }
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+{% endblock %}

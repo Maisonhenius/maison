@@ -1,0 +1,652 @@
+{% extends "layout.html" %}
+{% block title %}Your Cart - Maison Henius{% endblock %}
+{% block meta %}<meta name="description" content="Review your Maison Henius selections before checkout.">{% endblock %}
+
+{% block nav_attrs %}style="position: fixed; background: rgba(10, 10, 8, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);"{% endblock %}
+
+{% block styles %}
+<style>
+  /* ═══════════════════════════════════════
+     CART PAGE - LAYOUT
+     ═══════════════════════════════════════ */
+  .cart-page {
+    background: #faf9f6;
+    min-height: 100vh;
+    padding-top: clamp(8rem, 12vw, 11rem);
+    padding-bottom: clamp(4rem, 8vw, 7rem);
+  }
+
+  .cart-page__inner {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 clamp(1.5rem, 5vw, 4rem);
+  }
+
+  /* ── Header ── */
+  .cart-page__header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .cart-page__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-bottom: 1rem;
+  }
+
+  .cart-page__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.5rem;
+  }
+
+  .cart-page__count {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.4);
+    letter-spacing: 0.05em;
+  }
+
+  .cart-page__divider {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin: 2rem auto 0;
+  }
+
+  /* ═══════════════════════════════════════
+     CART ITEMS
+     ═══════════════════════════════════════ */
+  .cart-items {
+    list-style: none;
+  }
+
+  .cart-item {
+    display: grid;
+    grid-template-columns: 100px 1fr auto;
+    gap: 1.5rem;
+    align-items: center;
+    padding: 1.5rem 0;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.08);
+  }
+
+  .cart-item:first-child {
+    border-top: 1px solid rgba(10, 10, 8, 0.08);
+  }
+
+  .cart-item__img {
+    width: 100px;
+    height: 100px;
+    object-fit: contain;
+    background: #faf9f6;
+  }
+
+  .cart-item__info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .cart-item__name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(1rem, 1.5vw, 1.2rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+  }
+
+  .cart-item__family {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.4);
+  }
+
+  .cart-item__qty {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: 0.6rem;
+  }
+
+  .cart-item__qty-btn {
+    width: 28px;
+    height: 28px;
+    background: transparent;
+    border: 1px solid rgba(10, 10, 8, 0.15);
+    color: #0a0a08;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 300;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.3s ease, background 0.3s ease;
+  }
+
+  .cart-item__qty-btn:hover {
+    border-color: #b8a44e;
+    background: rgba(233, 219, 144, 0.08);
+  }
+
+  .cart-item__qty-num {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    min-width: 1.5rem;
+    text-align: center;
+  }
+
+  .cart-item__actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.8rem;
+  }
+
+  .cart-item__price {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.85rem;
+    color: #0a0a08;
+    letter-spacing: 0.03em;
+  }
+
+  .cart-item__remove {
+    background: none;
+    border: none;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 1.1rem;
+    color: rgba(10, 10, 8, 0.3);
+    cursor: pointer;
+    padding: 0.2rem;
+    line-height: 1;
+    transition: color 0.3s ease;
+  }
+
+  .cart-item__remove:hover {
+    color: #0a0a08;
+  }
+
+  /* ═══════════════════════════════════════
+     CART SUMMARY
+     ═══════════════════════════════════════ */
+  .cart-summary {
+    margin-top: 2.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid rgba(10, 10, 8, 0.12);
+    max-width: 360px;
+    margin-left: auto;
+  }
+
+  .cart-summary__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.8rem;
+  }
+
+  .cart-summary__label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.5);
+    letter-spacing: 0.05em;
+  }
+
+  .cart-summary__value {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.03em;
+  }
+
+  .cart-summary__row--total {
+    margin-top: 1.2rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(10, 10, 8, 0.12);
+  }
+
+  .cart-summary__row--total .cart-summary__label {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .cart-summary__row--total .cart-summary__value {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  /* ═══════════════════════════════════════
+     CART ACTIONS
+     ═══════════════════════════════════════ */
+  .cart-actions {
+    margin-top: 2.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1rem;
+    max-width: 360px;
+    margin-left: auto;
+  }
+
+  .cart-actions__checkout {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    background: #e9db90;
+    border: 1px solid #e9db90;
+    padding: 1.1rem 2rem;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .cart-actions__checkout:hover {
+    background: #b8a44e;
+    border-color: #b8a44e;
+  }
+
+  .cart-actions__continue {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.5);
+    text-decoration: none;
+    padding: 0.6rem 0;
+    transition: color 0.3s ease;
+  }
+
+  .cart-actions__continue:hover {
+    color: #0a0a08;
+  }
+
+  /* ═══════════════════════════════════════
+     EMPTY STATE
+     ═══════════════════════════════════════ */
+  .cart-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    display: none;
+  }
+
+  .cart-empty__icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 2rem;
+    opacity: 0.2;
+  }
+
+  .cart-empty__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.8rem;
+  }
+
+  .cart-empty__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.4);
+    letter-spacing: 0.03em;
+    margin-bottom: 2.5rem;
+  }
+
+  .cart-empty__link {
+    display: inline-block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    text-decoration: none;
+    border: 1px solid rgba(10, 10, 8, 0.2);
+    padding: 1rem 2.5rem;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .cart-empty__link:hover {
+    background: #0a0a08;
+    color: #faf9f6;
+    border-color: #0a0a08;
+  }
+
+  /* ═══════════════════════════════════════
+     CART - FILLED STATE WRAPPER
+     ═══════════════════════════════════════ */
+  .cart-filled {
+    display: none;
+  }
+
+  /* ═══════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════ */
+  @media (max-width: 600px) {
+    .cart-item {
+      grid-template-columns: 80px 1fr;
+      gap: 1rem;
+    }
+
+    .cart-item__actions {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .cart-item__qty-btn {
+      width: 36px;
+      height: 36px;
+    }
+
+    .cart-item__remove {
+      width: 44px;
+      height: 44px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cart-summary,
+    .cart-actions {
+      max-width: 100%;
+    }
+
+    .cart-actions__checkout {
+      padding: 1.2rem 2rem;
+      min-height: 48px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+  <section class="cart-page">
+    <div class="cart-page__inner">
+
+      <!-- ── Header ── -->
+      <div class="cart-page__header">
+        <span class="cart-page__label">Shopping Bag</span>
+        <h1 class="cart-page__title">Your Cart</h1>
+        <p class="cart-page__count" id="cartCount"></p>
+        <hr class="cart-page__divider">
+      </div>
+
+      <!-- ── Empty state ── -->
+      <div class="cart-empty" id="cartEmpty">
+        <svg class="cart-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        <h2 class="cart-empty__heading">Your cart is empty</h2>
+        <p class="cart-empty__sub">Discover our collection and find the fragrance that speaks to you.</p>
+        <a href="/#fragrances" class="cart-empty__link">Continue Shopping</a>
+      </div>
+
+      <!-- ── Filled state ── -->
+      <div class="cart-filled" id="cartFilled">
+        <ul class="cart-items" id="cartItems"></ul>
+
+        <div class="cart-summary">
+          <div class="cart-summary__row">
+            <span class="cart-summary__label">Subtotal</span>
+            <span class="cart-summary__value" id="cartSubtotal">$0</span>
+          </div>
+          <div class="cart-summary__row">
+            <span class="cart-summary__label">Shipping</span>
+            <span class="cart-summary__value">Calculated at checkout</span>
+          </div>
+          <div class="cart-summary__row cart-summary__row--total">
+            <span class="cart-summary__label">Total</span>
+            <span class="cart-summary__value" id="cartTotal">$0</span>
+          </div>
+        </div>
+
+        <div class="cart-actions">
+          <button class="cart-actions__checkout" id="checkoutBtn">Proceed to Checkout</button>
+          <a href="/#fragrances" class="cart-actions__continue">Continue Shopping</a>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._cartInitBound) return;
+  window._cartInitBound = true;
+
+  document.addEventListener('turbo:load', function initCartPage() {
+    var itemsEl    = document.getElementById('cartItems');
+    var emptyEl    = document.getElementById('cartEmpty');
+    var filledEl   = document.getElementById('cartFilled');
+    var countEl    = document.getElementById('cartCount');
+    var subtotalEl = document.getElementById('cartSubtotal');
+    var totalEl    = document.getElementById('cartTotal');
+    var checkoutBtn = document.getElementById('checkoutBtn');
+
+    if (!itemsEl) return;
+
+    function formatPrice(amount) {
+      return '$' + amount.toLocaleString('en-US');
+    }
+
+    function el(tag, cls, text) {
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function buildCartItem(item) {
+      var li = el('li', 'cart-item');
+      li.setAttribute('data-id', item.id);
+
+      var img = el('img', 'cart-item__img');
+      img.src = item.image;
+      img.alt = item.name;
+      li.appendChild(img);
+
+      var info = el('div', 'cart-item__info');
+      info.appendChild(el('span', 'cart-item__name', item.name));
+      info.appendChild(el('span', 'cart-item__family', item.family));
+
+      var qty = el('div', 'cart-item__qty');
+
+      var btnDec = el('button', 'cart-item__qty-btn', '\u2212');
+      btnDec.setAttribute('data-action', 'decrease');
+      btnDec.setAttribute('data-id', item.id);
+      btnDec.setAttribute('aria-label', 'Decrease quantity');
+      qty.appendChild(btnDec);
+
+      qty.appendChild(el('span', 'cart-item__qty-num', String(item.quantity)));
+
+      var btnInc = el('button', 'cart-item__qty-btn', '+');
+      btnInc.setAttribute('data-action', 'increase');
+      btnInc.setAttribute('data-id', item.id);
+      btnInc.setAttribute('aria-label', 'Increase quantity');
+      qty.appendChild(btnInc);
+
+      info.appendChild(qty);
+      li.appendChild(info);
+
+      var actions = el('div', 'cart-item__actions');
+      actions.appendChild(el('span', 'cart-item__price', formatPrice(item.price * item.quantity)));
+
+      var btnRm = el('button', 'cart-item__remove', '\u00d7');
+      btnRm.setAttribute('data-action', 'remove');
+      btnRm.setAttribute('data-id', item.id);
+      btnRm.setAttribute('aria-label', 'Remove ' + item.name);
+      actions.appendChild(btnRm);
+
+      li.appendChild(actions);
+      return li;
+    }
+
+    function renderCart() {
+      var items = MaisonCart.getCart();
+      var count = MaisonCart.getCount();
+      var total = MaisonCart.getTotal();
+
+      if (count === 0) {
+        countEl.textContent = '';
+      } else if (count === 1) {
+        countEl.textContent = '1 item';
+      } else {
+        countEl.textContent = count + ' items';
+      }
+
+      if (items.length === 0) {
+        emptyEl.style.display = 'block';
+        filledEl.style.display = 'none';
+
+        if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+          gsap.fromTo(emptyEl, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
+        }
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      filledEl.style.display = 'block';
+
+      while (itemsEl.firstChild) {
+        itemsEl.removeChild(itemsEl.firstChild);
+      }
+
+      items.forEach(function(item) {
+        itemsEl.appendChild(buildCartItem(item));
+      });
+
+      subtotalEl.textContent = formatPrice(total);
+      totalEl.textContent = formatPrice(total);
+
+      if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+        gsap.fromTo('.cart-item', {
+          opacity: 0, y: 20
+        }, {
+          opacity: 1, y: 0, duration: 0.5, stagger: 0.08, ease: 'power2.out'
+        });
+
+        gsap.fromTo('.cart-summary', {
+          opacity: 0, y: 15
+        }, {
+          opacity: 1, y: 0, duration: 0.5, delay: 0.3, ease: 'power2.out'
+        });
+
+        gsap.fromTo('.cart-actions', {
+          opacity: 0
+        }, {
+          opacity: 1, duration: 0.4, delay: 0.5, ease: 'power2.out'
+        });
+      }
+    }
+
+    itemsEl.addEventListener('click', function(e) {
+      var btn = e.target.closest('[data-action]');
+      if (!btn) return;
+
+      var action = btn.getAttribute('data-action');
+      var id = btn.getAttribute('data-id');
+      var items = MaisonCart.getCart();
+      var item = items.find(function(i) { return i.id === id; });
+
+      if (!item) return;
+
+      if (action === 'increase') {
+        MaisonCart.updateQuantity(id, item.quantity + 1);
+        var numEl = btn.parentElement.querySelector('.cart-item__qty-num');
+        if (typeof gsap !== 'undefined' && numEl) {
+          gsap.fromTo(numEl, { scale: 1.3 }, { scale: 1, duration: 0.3, ease: 'power2.out' });
+        }
+
+      } else if (action === 'decrease') {
+        if (item.quantity <= 1) {
+          var li = btn.closest('.cart-item');
+          if (typeof gsap !== 'undefined' && li) {
+            gsap.to(li, {
+              opacity: 0, x: -30, duration: 0.3, ease: 'power2.in',
+              onComplete: function() {
+                MaisonCart.removeItem(id);
+                renderCart();
+              }
+            });
+            return;
+          }
+          MaisonCart.removeItem(id);
+        } else {
+          MaisonCart.updateQuantity(id, item.quantity - 1);
+        }
+
+      } else if (action === 'remove') {
+        var li = btn.closest('.cart-item');
+        if (typeof gsap !== 'undefined' && li) {
+          gsap.to(li, {
+            opacity: 0, x: -30, duration: 0.3, ease: 'power2.in',
+            onComplete: function() {
+              MaisonCart.removeItem(id);
+              renderCart();
+            }
+          });
+          return;
+        }
+        MaisonCart.removeItem(id);
+      }
+
+      renderCart();
+    });
+
+    checkoutBtn.addEventListener('click', function() {
+      window.location.href = '/checkout';
+    });
+
+    if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+      gsap.fromTo('.cart-page__header', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, delay: 0.2, ease: 'power2.out' });
+      gsap.fromTo('.cart-page__divider', { scaleX: 0 }, { scaleX: 1, duration: 0.8, delay: 0.4, ease: 'power2.inOut' });
+    }
+
+    renderCart();
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+{% endblock %}

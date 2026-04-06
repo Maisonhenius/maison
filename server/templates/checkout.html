@@ -1,0 +1,738 @@
+{% extends "layout.html" %}
+{% block title %}Checkout - Maison Henius{% endblock %}
+{% block meta %}<meta name="description" content="Complete your Maison Henius order.">{% endblock %}
+
+{% block nav_attrs %}style="position: fixed; background: rgba(10, 10, 8, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);"{% endblock %}
+
+{% block styles %}
+<style>
+  /* ===========================================
+     CHECKOUT PAGE - LAYOUT
+     =========================================== */
+  .checkout-page {
+    background: #faf9f6;
+    min-height: 100vh;
+    padding-top: clamp(8rem, 12vw, 11rem);
+    padding-bottom: clamp(4rem, 8vw, 7rem);
+  }
+
+  .checkout-page__inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 clamp(1.5rem, 5vw, 4rem);
+  }
+
+  /* -- Header -- */
+  .checkout-page__header {
+    text-align: center;
+    margin-bottom: 3rem;
+  }
+
+  .checkout-page__breadcrumb {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.35);
+    margin-bottom: 1.2rem;
+  }
+
+  .checkout-page__breadcrumb a {
+    color: rgba(10, 10, 8, 0.5);
+    text-decoration: none;
+    transition: color 0.3s ease;
+  }
+
+  .checkout-page__breadcrumb a:hover {
+    color: #0a0a08;
+  }
+
+  .checkout-page__breadcrumb-sep {
+    font-size: 0.5rem;
+  }
+
+  .checkout-page__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2rem, 4vw, 3rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.5rem;
+  }
+
+  .checkout-page__divider {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin: 2rem auto 0;
+  }
+
+  /* ===========================================
+     TWO-COLUMN LAYOUT
+     =========================================== */
+  .checkout-grid {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 3rem;
+    align-items: start;
+  }
+
+  /* ===========================================
+     SHIPPING FORM
+     =========================================== */
+  .checkout-section__heading {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-bottom: 2rem;
+  }
+
+  .checkout-form__group {
+    margin-bottom: 1.4rem;
+  }
+
+  .checkout-form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.4rem;
+  }
+
+  .checkout-form__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: rgba(26, 26, 26, 0.5);
+    margin-bottom: 0.5rem;
+  }
+
+  .checkout-form__input,
+  .checkout-form__select {
+    width: 100%;
+    background: transparent;
+    border: 1px solid rgba(233, 219, 144, 0.35);
+    padding: 0.9rem 1rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.8rem;
+    color: #1a1a1a;
+    letter-spacing: 0.02em;
+    transition: border-color 0.3s ease;
+    -webkit-appearance: none;
+    appearance: none;
+    border-radius: 0;
+  }
+
+  .checkout-form__input::placeholder {
+    color: rgba(26, 26, 26, 0.25);
+  }
+
+  .checkout-form__input:focus,
+  .checkout-form__select:focus {
+    outline: none;
+    border-color: rgba(233, 219, 144, 0.7);
+  }
+
+  .checkout-form__required {
+    color: #b8a44e;
+    margin-left: 0.15em;
+  }
+
+  .checkout-form__select {
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23b8a44e' stroke-width='1'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    padding-right: 2.5rem;
+    cursor: pointer;
+  }
+
+  /* ===========================================
+     ORDER SUMMARY (right column)
+     =========================================== */
+  .order-summary {
+    background: rgba(10, 10, 8, 0.02);
+    border: 1px solid rgba(10, 10, 8, 0.06);
+    padding: 2rem;
+  }
+
+  .order-summary__items {
+    list-style: none;
+    margin-bottom: 1.5rem;
+  }
+
+  .order-summary__item {
+    display: grid;
+    grid-template-columns: 60px 1fr auto;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.06);
+  }
+
+  .order-summary__item:first-child {
+    padding-top: 0;
+  }
+
+  .order-summary__item:last-child {
+    border-bottom: none;
+  }
+
+  .order-summary__img {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+  }
+
+  .order-summary__item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .order-summary__item-name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: 0.95rem;
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+  }
+
+  .order-summary__item-qty {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.65rem;
+    color: rgba(10, 10, 8, 0.4);
+    letter-spacing: 0.05em;
+  }
+
+  .order-summary__item-price {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.03em;
+  }
+
+  /* -- Totals -- */
+  .order-summary__totals {
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(10, 10, 8, 0.08);
+  }
+
+  .order-summary__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.7rem;
+  }
+
+  .order-summary__label {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.5);
+    letter-spacing: 0.05em;
+  }
+
+  .order-summary__value {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.03em;
+  }
+
+  .order-summary__row--total {
+    margin-top: 1rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(10, 10, 8, 0.08);
+    margin-bottom: 0;
+  }
+
+  .order-summary__row--total .order-summary__label {
+    font-weight: 400;
+    font-size: 0.8rem;
+    color: #0a0a08;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .order-summary__row--total .order-summary__value {
+    font-size: 1rem;
+    font-weight: 500;
+  }
+
+  /* -- Place Order Button -- */
+  .checkout-form__submit {
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    background: #e9db90;
+    border: 1px solid #e9db90;
+    padding: 1.1rem 2rem;
+    margin-top: 2rem;
+    cursor: pointer;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .checkout-form__submit:hover {
+    background: #b8a44e;
+    border-color: #b8a44e;
+  }
+
+  /* ===========================================
+     EMPTY STATE
+     =========================================== */
+  .checkout-empty {
+    text-align: center;
+    padding: 4rem 2rem;
+    display: none;
+  }
+
+  .checkout-empty__icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 2rem;
+    opacity: 0.2;
+  }
+
+  .checkout-empty__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.4rem, 2.2vw, 1.8rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.8rem;
+  }
+
+  .checkout-empty__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(10, 10, 8, 0.4);
+    letter-spacing: 0.03em;
+    margin-bottom: 2.5rem;
+  }
+
+  .checkout-empty__link {
+    display: inline-block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    text-decoration: none;
+    border: 1px solid rgba(10, 10, 8, 0.2);
+    padding: 1rem 2.5rem;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .checkout-empty__link:hover {
+    background: #0a0a08;
+    color: #faf9f6;
+    border-color: #0a0a08;
+  }
+
+  /* ===========================================
+     RESPONSIVE
+     =========================================== */
+  @media (max-width: 768px) {
+    .checkout-grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+
+    /* Order summary first on mobile */
+    .checkout-grid__summary {
+      order: -1;
+    }
+
+    .checkout-form__row {
+      grid-template-columns: 1fr;
+      gap: 1.4rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+  <section class="checkout-page">
+    <div class="checkout-page__inner">
+
+      <!-- -- Header -- -->
+      <div class="checkout-page__header">
+        <div class="checkout-page__breadcrumb">
+          <a href="/cart">Cart</a>
+          <span class="checkout-page__breadcrumb-sep">/</span>
+          <span>Checkout</span>
+        </div>
+        <h1 class="checkout-page__title">Checkout</h1>
+        <hr class="checkout-page__divider">
+      </div>
+
+      <!-- -- Empty state -- -->
+      <div class="checkout-empty" id="checkoutEmpty">
+        <svg class="checkout-empty__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <path d="M16 10a4 4 0 01-8 0"/>
+        </svg>
+        <h2 class="checkout-empty__heading">Your cart is empty</h2>
+        <p class="checkout-empty__sub">Add something beautiful before checking out.</p>
+        <a href="/#fragrances" class="checkout-empty__link">Explore Fragrances</a>
+      </div>
+
+      <!-- -- Checkout form + summary -- -->
+      <form class="checkout-form checkout-grid" id="checkoutForm" data-turbo="false" style="display: none;">
+
+        <!-- LEFT: Shipping -->
+        <div class="checkout-grid__form">
+          <h2 class="checkout-section__heading">Shipping Information</h2>
+
+          <div class="checkout-form__group">
+            <label class="checkout-form__label" for="full_name">Full Name <span class="checkout-form__required">*</span></label>
+            <input class="checkout-form__input" type="text" id="full_name" name="full_name" autocomplete="name" required>
+          </div>
+
+          <div class="checkout-form__row">
+            <div class="checkout-form__group">
+              <label class="checkout-form__label" for="email">Email <span class="checkout-form__required">*</span></label>
+              <input class="checkout-form__input" type="email" id="email" name="email" autocomplete="email" required>
+            </div>
+            <div class="checkout-form__group">
+              <label class="checkout-form__label" for="phone">Phone <span class="checkout-form__required">*</span></label>
+              <input class="checkout-form__input" type="tel" id="phone" name="phone" autocomplete="tel" required>
+            </div>
+          </div>
+
+          <div class="checkout-form__group">
+            <label class="checkout-form__label" for="line1">Address <span class="checkout-form__required">*</span></label>
+            <input class="checkout-form__input" type="text" id="line1" name="line1" autocomplete="address-line1" required>
+          </div>
+
+          <div class="checkout-form__group">
+            <label class="checkout-form__label" for="line2">Apartment, Suite, etc. (optional)</label>
+            <input class="checkout-form__input" type="text" id="line2" name="line2" autocomplete="address-line2">
+          </div>
+
+          <div class="checkout-form__row">
+            <div class="checkout-form__group">
+              <label class="checkout-form__label" for="city">City <span class="checkout-form__required">*</span></label>
+              <input class="checkout-form__input" type="text" id="city" name="city" autocomplete="address-level2" required>
+            </div>
+            <div class="checkout-form__group">
+              <label class="checkout-form__label" for="state">State / Region</label>
+              <input class="checkout-form__input" type="text" id="state" name="state" autocomplete="address-level1">
+            </div>
+          </div>
+
+          <div class="checkout-form__row">
+            <div class="checkout-form__group">
+              <label class="checkout-form__label" for="postal_code">Postal Code <span class="checkout-form__required">*</span></label>
+              <input class="checkout-form__input" type="text" id="postal_code" name="postal_code" autocomplete="postal-code" required>
+            </div>
+            <div class="checkout-form__group">
+              <label class="checkout-form__label" for="country">Country <span class="checkout-form__required">*</span></label>
+              <select class="checkout-form__select" id="country" name="country" autocomplete="country" required>
+                <option value="">Select country</option>
+                <option value="JO" selected>Jordan</option>
+                <option value="AE">United Arab Emirates</option>
+                <option value="SA">Saudi Arabia</option>
+                <option value="KW">Kuwait</option>
+                <option value="BH">Bahrain</option>
+                <option value="OM">Oman</option>
+                <option value="QA">Qatar</option>
+                <option value="LB">Lebanon</option>
+                <option value="EG">Egypt</option>
+                <option value="US">United States</option>
+                <option value="GB">United Kingdom</option>
+                <option value="FR">France</option>
+                <option value="DE">Germany</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: Order Summary -->
+        <div class="checkout-grid__summary">
+          <div class="order-summary">
+            <h2 class="checkout-section__heading">Order Summary</h2>
+            <ul class="order-summary__items" id="summaryItems"></ul>
+            <div class="order-summary__totals">
+              <div class="order-summary__row">
+                <span class="order-summary__label">Subtotal</span>
+                <span class="order-summary__value" id="summarySubtotal">$0</span>
+              </div>
+              <div class="order-summary__row">
+                <span class="order-summary__label">Shipping</span>
+                <span class="order-summary__value" id="summaryShipping">$25</span>
+              </div>
+              <div class="order-summary__row order-summary__row--total">
+                <span class="order-summary__label">Total</span>
+                <span class="order-summary__value" id="summaryTotal">$0</span>
+              </div>
+            </div>
+            <button type="submit" class="checkout-form__submit">Continue to Payment</button>
+          </div>
+        </div>
+
+      </form>
+
+    </div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  /* ===========================================
+     CHECKOUT PAGE - RENDER & STRIPE CHECKOUT
+     Uses safe DOM methods (no innerHTML)
+     =========================================== */
+(function() {
+  if (window._checkoutInitBound) return;
+  window._checkoutInitBound = true;
+
+  var SHIPPING = 25;
+
+  document.addEventListener("turbo:load", function initCheckoutPage() {
+    var formEl      = document.getElementById('checkoutForm');
+    var emptyEl     = document.getElementById('checkoutEmpty');
+    var itemsEl     = document.getElementById('summaryItems');
+    var subtotalEl  = document.getElementById('summarySubtotal');
+    var totalEl     = document.getElementById('summaryTotal');
+
+    if (!formEl) return;
+
+    /* -- Auth gate: require login for checkout -- */
+    var auth = localStorage.getItem('maison_auth');
+    if (!auth) {
+      window.location.href = '/login?redirect=/checkout';
+      return;
+    }
+
+    function formatPrice(amount) {
+      return '$' + amount.toLocaleString('en-US');
+    }
+
+    function el(tag, cls, text) {
+      var node = document.createElement(tag);
+      if (cls) node.className = cls;
+      if (text) node.textContent = text;
+      return node;
+    }
+
+    function buildSummaryItem(item) {
+      var li = el('li', 'order-summary__item');
+
+      var img = el('img', 'order-summary__img');
+      img.src = item.image;
+      img.alt = item.name;
+      li.appendChild(img);
+
+      var info = el('div', 'order-summary__item-info');
+      info.appendChild(el('span', 'order-summary__item-name', item.name));
+      info.appendChild(el('span', 'order-summary__item-qty', 'Qty: ' + item.quantity));
+      li.appendChild(info);
+
+      li.appendChild(el('span', 'order-summary__item-price', formatPrice(item.price * item.quantity)));
+      return li;
+    }
+
+    function renderCheckout() {
+      var cart = MaisonCart.getCart();
+      var subtotal = MaisonCart.getTotal();
+
+      if (cart.length === 0) {
+        emptyEl.style.display = 'block';
+        formEl.style.display = 'none';
+
+        if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+          gsap.fromTo(emptyEl, { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, ease: 'power2.out' });
+        }
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      formEl.style.display = 'grid';
+
+      /* Clear previous items */
+      while (itemsEl.firstChild) {
+        itemsEl.removeChild(itemsEl.firstChild);
+      }
+
+      /* Build summary items */
+      cart.forEach(function(item) {
+        itemsEl.appendChild(buildSummaryItem(item));
+      });
+
+      /* Update totals (subtotal + $25 shipping) */
+      subtotalEl.textContent = formatPrice(subtotal);
+      totalEl.textContent = formatPrice(subtotal + SHIPPING);
+
+      /* Entrance animations */
+      if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+        gsap.fromTo('.checkout-grid__form', {
+          opacity: 0, y: 25
+        }, {
+          opacity: 1, y: 0, duration: 0.6, delay: 0.1, ease: 'power2.out'
+        });
+
+        gsap.fromTo('.order-summary', {
+          opacity: 0, y: 25
+        }, {
+          opacity: 1, y: 0, duration: 0.6, delay: 0.2, ease: 'power2.out'
+        });
+
+        gsap.fromTo('.order-summary__item', {
+          opacity: 0, x: 10
+        }, {
+          opacity: 1, x: 0, duration: 0.4, stagger: 0.06, delay: 0.35, ease: 'power2.out'
+        });
+      }
+    }
+
+    /* -- Pre-fill form if user is logged in -- */
+    (function() {
+      var auth = localStorage.getItem('maison_auth');
+      if (!auth) return;
+      try {
+        var parsed = JSON.parse(auth);
+        var user = parsed.user;
+        var token = parsed.access_token;
+
+        var emailInput = formEl.querySelector('[name="email"]');
+        if (emailInput && user && user.email) emailInput.value = user.email;
+
+        fetch('/api/profile', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (data.profile && data.profile.full_name) {
+            var nameInput = formEl.querySelector('[name="full_name"]');
+            if (nameInput) nameInput.value = data.profile.full_name;
+          }
+          if (data.addresses && data.addresses.length > 0) {
+            var addr = data.addresses.find(function(a) { return a.is_default; }) || data.addresses[0];
+            var fields = { line1: 'line1', line2: 'line2', city: 'city', state: 'state', postal_code: 'postal_code' };
+            Object.keys(fields).forEach(function(key) {
+              var input = formEl.querySelector('[name="' + fields[key] + '"]');
+              if (input && addr[key]) input.value = addr[key];
+            });
+            /* Country: saved address may store full name ("Jordan") or code ("JO").
+               Match against both option values and option text. */
+            if (addr.country) {
+              var countrySelect = formEl.querySelector('[name="country"]');
+              if (countrySelect) {
+                var val = addr.country.trim();
+                var matched = false;
+                for (var i = 0; i < countrySelect.options.length; i++) {
+                  var opt = countrySelect.options[i];
+                  if (opt.value === val || opt.textContent.trim().toLowerCase() === val.toLowerCase()) {
+                    countrySelect.value = opt.value;
+                    matched = true;
+                    break;
+                  }
+                }
+                if (!matched) countrySelect.value = val;
+              }
+            }
+          }
+        });
+      } catch (e) { /* ignore parse errors */ }
+    })();
+
+    /* -- Submit: create Stripe Checkout Session & redirect -- */
+    formEl.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var cart = MaisonCart.getCart();
+      if (!cart.length) return;
+
+      var submitBtn = formEl.querySelector('.checkout-form__submit');
+      var originalText = submitBtn.textContent;
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Processing...';
+      submitBtn.style.opacity = '0.6';
+      submitBtn.style.cursor = 'not-allowed';
+
+      var authData = JSON.parse(localStorage.getItem('maison_auth'));
+      var items = cart.map(function(item) {
+        return { id: item.id, quantity: item.quantity };
+      });
+
+      var payload = {
+        items: items,
+        customer: {
+          full_name: formEl.querySelector('[name="full_name"]').value,
+          email: formEl.querySelector('[name="email"]').value,
+          phone: formEl.querySelector('[name="phone"]').value,
+          address: {
+            line1: formEl.querySelector('[name="line1"]').value,
+            line2: formEl.querySelector('[name="line2"]').value || '',
+            city: formEl.querySelector('[name="city"]').value,
+            state: formEl.querySelector('[name="state"]').value || '',
+            postal_code: formEl.querySelector('[name="postal_code"]').value,
+            country: formEl.querySelector('[name="country"]').value,
+          }
+        }
+      };
+
+      fetch('/api/checkout/create-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + authData.access_token
+        },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.url) {
+          window.location.href = data.url;
+        } else {
+          throw new Error(data.error || 'Failed to create checkout session');
+        }
+      })
+      .catch(function(err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        submitBtn.style.opacity = '';
+        submitBtn.style.cursor = '';
+        alert('Something went wrong. Please try again.');
+      });
+    });
+
+    /* -- Header entrance animation -- */
+    if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+      gsap.fromTo('.header', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.6, delay: 0.1, ease: 'power2.out' });
+      gsap.fromTo('.checkout-page__header', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, delay: 0.2, ease: 'power2.out' });
+      gsap.fromTo('.checkout-page__divider', { scaleX: 0 }, { scaleX: 1, duration: 0.8, delay: 0.4, ease: 'power2.inOut' });
+    }
+
+    /* -- Initial render -- */
+    renderCheckout();
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+{% endblock %}

@@ -1,0 +1,229 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - Dashboard - Maison Henius{% endblock %}
+{% block nav_dashboard %}admin__nav-item--active{% endblock %}
+{% block heading %}Dashboard{% endblock %}
+
+{% block styles %}
+<style>
+  /* Stat cards */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .stat-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .stat-card__label {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  .stat-card__value {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: #1a1a1a;
+  }
+
+  /* Table */
+  .table-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .table-card__title {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: #1a1a1a;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    font-weight: 300;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    color: #888;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 1px solid #e0dbd3;
+  }
+
+  tbody tr:nth-child(even) {
+    background: #faf9f6;
+  }
+
+  tbody td {
+    padding: 0.75rem 1rem;
+    color: #333;
+  }
+
+  @media (max-width: 768px) {
+    .stats {
+      grid-template-columns: 1fr;
+    }
+
+    table {
+      font-size: 0.7rem;
+    }
+
+    thead th, tbody td {
+      padding: 0.5rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-card__label">Total Orders</div>
+    <div class="stat-card__value">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Revenue</div>
+    <div class="stat-card__value">$0.00</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__label">Messages</div>
+    <div class="stat-card__value">0</div>
+  </div>
+</div>
+
+<div class="table-card">
+  <div class="table-card__title">Recent Orders</div>
+  <table>
+    <thead>
+      <tr>
+        <th>Order #</th>
+        <th>Customer</th>
+        <th>Date</th>
+        <th>Total</th>
+        <th>Status</th>
+      </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+  <div class="empty-state">No orders yet</div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._dashboardInitBound) return;
+  window._dashboardInitBound = true;
+
+  document.addEventListener("turbo:load", function initDashboard() {
+    var statValues = document.querySelectorAll('.stat-card__value');
+    var tbody = document.querySelector('tbody');
+    var emptyState = document.querySelector('.empty-state');
+
+    if (!statValues.length || !tbody) return;
+
+    var auth = localStorage.getItem('maison_admin_auth');
+    if (!auth) return;
+    var token = JSON.parse(auth).access_token;
+    var authHeaders = { 'Authorization': 'Bearer ' + token };
+
+    var STATUS_COLORS = {
+      confirmed: '#7eda9a',
+      pending: '#e9db90',
+      shipped: '#7eb8da',
+      delivered: '#5cb85c',
+      cancelled: '#e07a7a'
+    };
+
+    function formatDate(iso) {
+      var d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function checkAuth(r) {
+      if (r.status === 401) { localStorage.removeItem('maison_admin_auth'); window.location.href = '/admin/login'; throw { redirect: true }; }
+      if (!r.ok) throw new Error('API error');
+      return r.json();
+    }
+
+    /* Fetch stats + recent orders in parallel */
+    Promise.all([
+      fetch('/api/admin/stats', { headers: authHeaders }).then(checkAuth),
+      fetch('/api/admin/orders', { headers: authHeaders }).then(checkAuth)
+    ]).then(function(results) {
+      var stats = results[0];
+      var ordersData = results[1];
+
+      /* Stat cards */
+      statValues[0].textContent = stats.total_orders || 0;
+      statValues[1].textContent = '$' + (parseFloat(stats.revenue) || 0).toFixed(2);
+      statValues[2].textContent = stats.messages || 0;
+
+      /* Recent orders (last 5) */
+      var orders = (ordersData.orders || []).slice(0, 5);
+
+      if (orders.length === 0) {
+        emptyState.style.display = '';
+        return;
+      }
+      emptyState.style.display = 'none';
+
+      orders.forEach(function(order) {
+        var tr = document.createElement('tr');
+
+        var tdId = document.createElement('td');
+        tdId.textContent = order.id;
+        tr.appendChild(tdId);
+
+        var tdName = document.createElement('td');
+        tdName.textContent = order.customer_name || '';
+        tr.appendChild(tdName);
+
+        var tdDate = document.createElement('td');
+        tdDate.textContent = order.created_at ? formatDate(order.created_at) : '';
+        tr.appendChild(tdDate);
+
+        var tdTotal = document.createElement('td');
+        tdTotal.textContent = '$' + (parseFloat(order.total) || 0).toFixed(2);
+        tr.appendChild(tdTotal);
+
+        var tdStatus = document.createElement('td');
+        var badge = document.createElement('span');
+        var st = order.status || 'pending';
+        badge.textContent = st.charAt(0).toUpperCase() + st.slice(1);
+        badge.style.cssText = 'display:inline-block;padding:0.25rem 0.6rem;border-radius:4px;font-size:0.7rem;font-weight:500;color:#1a1a1a;background:' + (STATUS_COLORS[st] || '#ddd');
+        tdStatus.appendChild(badge);
+        tr.appendChild(tdStatus);
+
+        tbody.appendChild(tr);
+      });
+    }).catch(function(err) {
+      if (err && err.redirect) return;
+      statValues[0].textContent = '!';
+      statValues[1].textContent = '!';
+      statValues[2].textContent = '!';
+      if (emptyState) emptyState.textContent = 'Failed to load. Please refresh.';
+    });
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+{% endblock %}

@@ -1,0 +1,718 @@
+{% extends "layout.html" %}
+
+{% block title %}Our Story - Maison Henius{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Discover the story behind Maison Henius - a house of memory, emotion, and timeless craftsmanship born from the landscapes of Jordan.">
+{% endblock %}
+
+{% block styles %}
+<style>
+  /* ═══════════════════════════════════════
+     STORY PAGE - HERO
+     ═══════════════════════════════════════ */
+  .story-hero {
+    position: relative;
+    width: 100%;
+    height: 100vh;
+    min-height: 600px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .story-hero__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 40%;
+  }
+
+  .story-hero__overlay {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to bottom,
+      rgba(0, 0, 0, 0.4) 0%,
+      rgba(0, 0, 0, 0.25) 50%,
+      rgba(0, 0, 0, 0.6) 100%
+    );
+  }
+
+  .story-hero__content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+    padding: 0 2rem;
+  }
+
+  .story-hero__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 1.5rem;
+  }
+
+  .story-hero__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2.8rem, 6vw, 5rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    line-height: 1.1;
+    margin-bottom: 1.2rem;
+  }
+
+  .story-hero__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+    letter-spacing: 0.15em;
+    color: rgba(245, 240, 232, 0.6);
+  }
+
+  /* ═══════════════════════════════════════
+     STORY PAGE - ORIGIN
+     ═══════════════════════════════════════ */
+  .story-origin {
+    background: #faf9f6;
+    padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 5vw, 4rem);
+  }
+
+  .story-origin__inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(3rem, 5vw, 5rem);
+    align-items: center;
+  }
+
+  .story-origin__text {
+    order: 1;
+  }
+
+  .story-origin__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-bottom: 1.2rem;
+  }
+
+  .story-origin__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    margin-bottom: 1.5rem;
+  }
+
+  .story-origin__divider {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin-bottom: 1.5rem;
+  }
+
+  .story-origin__body {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(0.75rem, 1vw, 0.85rem);
+    line-height: 1.9;
+    color: rgba(10, 10, 8, 0.7);
+    letter-spacing: 0.02em;
+  }
+
+  .story-origin__body p + p {
+    margin-top: 1.2rem;
+  }
+
+  .story-origin__image {
+    order: 2;
+  }
+
+  .story-origin__img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* ═══════════════════════════════════════
+     STORY PAGE - CRAFTSMANSHIP
+     ═══════════════════════════════════════ */
+  .story-craft {
+    background: #0a0a08;
+    padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 5vw, 4rem);
+  }
+
+  .story-craft__inner {
+    max-width: 1100px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(3rem, 5vw, 5rem);
+    align-items: center;
+  }
+
+  .story-craft__image {
+    order: 1;
+  }
+
+  .story-craft__img {
+    width: 100%;
+    max-width: 420px;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+  }
+
+  .story-craft__text {
+    order: 2;
+  }
+
+  .story-craft__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 1.2rem;
+  }
+
+  .story-craft__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    line-height: 1.25;
+    margin-bottom: 1.5rem;
+  }
+
+  .story-craft__divider {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin-bottom: 1.5rem;
+  }
+
+  .story-craft__body {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(0.75rem, 1vw, 0.85rem);
+    line-height: 1.9;
+    color: rgba(245, 240, 232, 0.6);
+    letter-spacing: 0.02em;
+  }
+
+  .story-craft__body p + p {
+    margin-top: 1.2rem;
+  }
+
+  /* ═══════════════════════════════════════
+     STORY PAGE - VALUES
+     ═══════════════════════════════════════ */
+  .story-values {
+    background: #faf9f6;
+    padding: clamp(5rem, 10vw, 9rem) clamp(1.5rem, 5vw, 4rem);
+    text-align: center;
+  }
+
+  .story-values__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-bottom: 1.2rem;
+  }
+
+  .story-values__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+    color: #0a0a08;
+    letter-spacing: 0.02em;
+    margin-bottom: 1rem;
+  }
+
+  .story-values__divider {
+    display: block;
+    width: 40px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin: 0 auto 3.5rem;
+  }
+
+  .story-values__grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .story-value {
+    text-align: center;
+    padding: 2rem 1rem;
+  }
+
+  .story-value__icon {
+    width: 40px;
+    height: 1px;
+    background: #e9db90;
+    margin: 0 auto 1.5rem;
+  }
+
+  .story-value__name {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(1rem, 1.4vw, 1.2rem);
+    color: #0a0a08;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.8rem;
+  }
+
+  .story-value__desc {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.7rem;
+    line-height: 1.8;
+    color: rgba(10, 10, 8, 0.55);
+    letter-spacing: 0.02em;
+  }
+
+  /* ═══════════════════════════════════════
+     STORY PAGE - PERFUMER'S TABLE (PARALLAX)
+     ═══════════════════════════════════════ */
+  .story-parallax {
+    position: relative;
+    width: 100%;
+    height: 70vh;
+    min-height: 400px;
+    overflow: hidden;
+  }
+
+  .story-parallax__img {
+    position: absolute;
+    inset: -20% 0;
+    width: 100%;
+    height: 140%;
+    object-fit: cover;
+    object-position: center;
+  }
+
+  .story-parallax__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .story-parallax__text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 2;
+    text-align: center;
+    padding: 0 2rem;
+  }
+
+  .story-parallax__quote {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.4rem, 2.6vw, 2.2rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    line-height: 1.4;
+    max-width: 600px;
+  }
+
+  /* ═══════════════════════════════════════
+     STORY PAGE - COLLECTION CTA
+     ═══════════════════════════════════════ */
+  .story-cta {
+    background: #0a0a08;
+    padding: clamp(5rem, 10vw, 8rem) clamp(1.5rem, 5vw, 4rem);
+    text-align: center;
+  }
+
+  .story-cta__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.6rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 1.2rem;
+  }
+
+  .story-cta__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(1.6rem, 2.8vw, 2.4rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    margin-bottom: 1rem;
+  }
+
+  .story-cta__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    color: rgba(245, 240, 232, 0.4);
+    letter-spacing: 0.03em;
+    margin-bottom: 2.5rem;
+  }
+
+  .story-cta__link {
+    display: inline-block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #e9db90;
+    text-decoration: none;
+    border: 1px solid rgba(233, 219, 144, 0.25);
+    padding: 1rem 2.5rem;
+    transition: background 0.3s ease, color 0.3s ease;
+  }
+
+  .story-cta__link:hover {
+    background: #e9db90;
+    color: #0a0a08;
+  }
+
+  /* ═══════════════════════════════════════
+     STORY PAGE - RESPONSIVE
+     ═══════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .story-origin__inner {
+      grid-template-columns: 1fr;
+    }
+
+    .story-origin__image {
+      order: 1;
+    }
+
+    .story-origin__text {
+      order: 2;
+    }
+
+    .story-craft__inner {
+      grid-template-columns: 1fr;
+    }
+
+    .story-craft__image {
+      order: 1;
+    }
+
+    .story-craft__text {
+      order: 2;
+    }
+
+    .story-values__grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .story-value:nth-child(5) {
+      grid-column: 1 / -1;
+    }
+
+    .story-parallax {
+      height: 50vh;
+    }
+
+    .story-cta__link {
+      padding: 1rem 2.5rem;
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .story-values__grid {
+      grid-template-columns: 1fr;
+    }
+
+    .story-value:nth-child(5) {
+      grid-column: auto;
+    }
+
+    .story-hero {
+      min-height: 500px;
+    }
+
+    .story-hero__title {
+      font-size: clamp(2rem, 8vw, 3rem);
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <section class="story-hero">
+    <img src="/static/assets/pictures/Jordan%20Landscape/Wadi%20Rum.png" alt="Wadi Rum desert - the landscape that inspired Maison Henius" class="story-hero__img">
+    <div class="story-hero__overlay"></div>
+    <div class="story-hero__content">
+      <span class="story-hero__label">Maison Henius</span>
+      <h1 class="story-hero__title">Our Story</h1>
+      <p class="story-hero__sub">Where Memory Becomes Fragrance</p>
+    </div>
+  </section>
+
+  <!-- ═══════════ ORIGIN ═══════════ -->
+  <section class="story-origin">
+    <div class="story-origin__inner">
+      <div class="story-origin__text">
+        <span class="story-origin__label">The Beginning</span>
+        <h2 class="story-origin__heading">Born Between Garden and Desert</h2>
+        <hr class="story-origin__divider">
+        <div class="story-origin__body">
+          <p>Maison Henius was born where fragrant gardens meet the mineral vastness of the desert. Inspired by the landscapes of Jordan - where ochre sands hold the warmth of centuries and wild herbs perfume the evening air - the house creates fragrances shaped by nature, memory, and exceptional raw materials.</p>
+          <p>This duality defines every creation. The lush, the arid. The fleeting, the eternal. Each composition reveals a subtle balance of freshness, depth, and character - a fragrance that gradually unfolds and leaves a unique impression on the skin and in the memory.</p>
+          <p>The Maison exists between contrasts: life and silence, heritage and modernity, the intimate and the infinite. It is in this space that true elegance is found.</p>
+        </div>
+      </div>
+      <div class="story-origin__image">
+        <img src="/static/assets/pictures/Jordan%20Landscape/Maison%20Henius.png" alt="Triptych - Garden, Petra, and the Perfumer's Atelier" class="story-origin__img">
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ CRAFTSMANSHIP ═══════════ -->
+  <section class="story-craft">
+    <div class="story-craft__inner">
+      <div class="story-craft__image">
+        <img src="/static/assets/pictures/Collection%20%26%20Fragrances/Bottle%20-%20White%20BG%20with%20Reflection.png" alt="Maison Henius bottle - amber glass with golden Zamac cap" class="story-craft__img">
+      </div>
+      <div class="story-craft__text">
+        <span class="story-craft__label">The Craft</span>
+        <h2 class="story-craft__heading">Every Detail, an Intention</h2>
+        <hr class="story-craft__divider">
+        <div class="story-craft__body">
+          <p>The bottle is an object of quiet refinement. Thick amber glass, lacquered in a gradient that deepens from warm golden-amber at the base to a rich darkness at the shoulder - evoking the transition from desert sand to twilight sky.</p>
+          <p>A brass label plate, embossed and syringed with the Maison crest, rests against the glass like a jeweller's plaque. Serif lettering in deep brown speaks of heritage without raising its voice.</p>
+          <p>The cap tells its own story. Custom-cast in golden Zamac, its form draws from the ancient Ionic column - a fluted shaft rising to spiral volutes, crowned with a Greek key pattern band. The name of the house is engraved around the neck, a quiet signature of provenance and care.</p>
+          <p>This is not packaging. It is an expression of the same artistry held within.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ VALUES ═══════════ -->
+  <section class="story-values">
+    <span class="story-values__label">Our Pillars</span>
+    <h2 class="story-values__heading">What We Hold True</h2>
+    <hr class="story-values__divider">
+    <div class="story-values__grid">
+      <div class="story-value">
+        <div class="story-value__icon"></div>
+        <h3 class="story-value__name">Elegance</h3>
+        <p class="story-value__desc">Refined, sophisticated, never loud. Every element is considered, every gesture precise.</p>
+      </div>
+      <div class="story-value">
+        <div class="story-value__icon"></div>
+        <h3 class="story-value__name">Exclusivity</h3>
+        <p class="story-value__desc">Not secretive, but selective. Designed for the connoisseur who values substance over spectacle.</p>
+      </div>
+      <div class="story-value">
+        <div class="story-value__icon"></div>
+        <h3 class="story-value__name">Warmth</h3>
+        <p class="story-value__desc">Inspired by ochre sands, amber tones, and golden heritage. A house that invites, never intimidates.</p>
+      </div>
+      <div class="story-value">
+        <div class="story-value__icon"></div>
+        <h3 class="story-value__name">Timelessness</h3>
+        <p class="story-value__desc">Enduring creations that transcend seasons and trends. What is true today remains true tomorrow.</p>
+      </div>
+      <div class="story-value">
+        <div class="story-value__icon"></div>
+        <h3 class="story-value__name">Cultural Depth</h3>
+        <p class="story-value__desc">Subtle references to heritage, travel, and artistry. A dialogue between civilisations, never a clich&eacute;.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════ PERFUMER'S TABLE (PARALLAX) ═══════════ -->
+  <section class="story-parallax">
+    <img src="/static/assets/pictures/Jordan%20Landscape/Story.jpeg" alt="Perfumer's table with oils, figs, and raw materials" class="story-parallax__img">
+    <div class="story-parallax__overlay"></div>
+    <div class="story-parallax__text">
+      <p class="story-parallax__quote">"You do not buy a fragrance.<br>You enter a story."</p>
+    </div>
+  </section>
+
+  <!-- ═══════════ COLLECTION CTA ═══════════ -->
+  <section class="story-cta">
+    <span class="story-cta__label">Beyond Borders</span>
+    <h2 class="story-cta__heading">Discover the Collection</h2>
+    <p class="story-cta__sub">Five fragrances. Five journeys. One house.</p>
+    <a href="/#fragrances" class="story-cta__link">Explore Fragrances</a>
+  </section>
+
+</main>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._storyInitBound) return;
+  window._storyInitBound = true;
+
+  document.addEventListener('turbo:load', function initStoryAnimations() {
+    if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
+
+    requestAnimationFrame(function() {
+    gsap.registerPlugin(ScrollTrigger);
+
+    /* ── Hero entrance ── */
+    var heroTl = gsap.timeline({ delay: 0.3 });
+    heroTl
+      .fromTo('.story-hero__img', { scale: 1.15 }, { scale: 1, duration: 1.8, ease: 'power2.out' })
+      .fromTo('.story-hero__label', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.7 }, '-=1.0')
+      .fromTo('.story-hero__title', { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.8 }, '-=0.5')
+      .fromTo('.story-hero__sub', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.4')
+      .fromTo('.header', { opacity: 0, y: -20 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.4');
+
+    /* ── Origin section - clipPath wipe ── */
+    gsap.fromTo('.story-origin__text', {
+      clipPath: 'inset(0 100% 0 0)',
+      opacity: 0
+    }, {
+      clipPath: 'inset(0 0% 0 0)',
+      opacity: 1,
+      duration: 1.0,
+      ease: 'power2.out',
+      scrollTrigger: { trigger: '.story-origin', start: 'top 70%', once: true }
+    });
+
+    gsap.fromTo('.story-origin__img', {
+      clipPath: 'inset(0 0 0 100%)',
+      opacity: 0
+    }, {
+      clipPath: 'inset(0 0 0 0%)',
+      opacity: 1,
+      duration: 1.0,
+      ease: 'power2.out',
+      scrollTrigger: { trigger: '.story-origin', start: 'top 65%', once: true }
+    });
+
+    /* ── Craftsmanship section ── */
+    gsap.fromTo('.story-craft__img', {
+      opacity: 0,
+      y: 60
+    }, {
+      opacity: 1,
+      y: 0,
+      duration: 1.0,
+      ease: 'power2.out',
+      scrollTrigger: { trigger: '.story-craft', start: 'top 70%', once: true }
+    });
+
+    gsap.fromTo('.story-craft__text', {
+      opacity: 0,
+      x: 40
+    }, {
+      opacity: 1,
+      x: 0,
+      duration: 0.8,
+      ease: 'power2.out',
+      scrollTrigger: { trigger: '.story-craft', start: 'top 65%', once: true }
+    });
+
+    /* ── Values - stagger reveal ── */
+    gsap.fromTo('.story-value', {
+      opacity: 0,
+      y: 40
+    }, {
+      opacity: 1,
+      y: 0,
+      duration: 0.7,
+      stagger: 0.12,
+      ease: 'power2.out',
+      scrollTrigger: { trigger: '.story-values__grid', start: 'top 75%', once: true }
+    });
+
+    gsap.fromTo('.story-values__divider', { scaleX: 0 }, {
+      scaleX: 1,
+      duration: 0.8,
+      ease: 'power2.inOut',
+      scrollTrigger: { trigger: '.story-values', start: 'top 80%', once: true }
+    });
+
+    /* ── Parallax image ── */
+    gsap.to('.story-parallax__img', {
+      yPercent: 15,
+      ease: 'none',
+      scrollTrigger: {
+        trigger: '.story-parallax',
+        start: 'top bottom',
+        end: 'bottom top',
+        scrub: true
+      }
+    });
+
+    gsap.fromTo('.story-parallax__quote', {
+      opacity: 0,
+      y: 30
+    }, {
+      opacity: 1,
+      y: 0,
+      duration: 0.8,
+      ease: 'power2.out',
+      scrollTrigger: { trigger: '.story-parallax', start: 'top 60%', once: true }
+    });
+
+    /* ── Collection CTA ── */
+    var ctaTl = gsap.timeline({
+      scrollTrigger: { trigger: '.story-cta', start: 'top 80%', once: true }
+    });
+    ctaTl
+      .fromTo('.story-cta__label', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6 })
+      .fromTo('.story-cta__heading', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6 }, '-=0.3')
+      .fromTo('.story-cta__sub', { opacity: 0 }, { opacity: 1, duration: 0.5 }, '-=0.2')
+      .fromTo('.story-cta__link', { opacity: 0, y: 15 }, { opacity: 1, y: 0, duration: 0.5 }, '-=0.2');
+
+    ScrollTrigger.refresh();
+    });
+  }); /* end turbo:load */
+})(); /* end guard IIFE */
+</script>
+{% endblock %}

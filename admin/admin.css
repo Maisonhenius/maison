@@ -1,0 +1,188 @@
+/* =========================================================
+   Maison Henius - Admin Shared Styles
+   ========================================================= */
+
+/* Reset */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 400;
+  color: #1a1a1a;
+  background: #f5f3ef;
+}
+
+/* Layout */
+.admin {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.admin__sidebar {
+  width: 240px;
+  background: #111;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  z-index: 100;
+}
+
+.admin__logo {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.admin__logo img {
+  height: 40px;
+  width: auto;
+}
+
+.admin__logo span {
+  color: #e9db90;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.admin__nav {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem 0;
+  flex: 1;
+}
+
+.admin__nav-item {
+  display: block;
+  padding: 0.8rem 1.5rem;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+  font-size: 0.8rem;
+  font-weight: 400;
+  transition: background 0.2s, color 0.2s;
+  border-left: 3px solid transparent;
+}
+
+.admin__nav-item:hover {
+  background: rgba(255,255,255,0.05);
+  color: rgba(255,255,255,0.8);
+}
+
+.admin__nav-item--active {
+  color: #e9db90;
+  border-left-color: #e9db90;
+  background: rgba(255,255,255,0.03);
+}
+
+.admin__nav-back {
+  margin-top: auto;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  font-size: 0.75rem;
+}
+
+.admin__nav-signout {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.3);
+  border-top: none;
+  padding-top: 0.5rem;
+}
+
+.admin__nav-signout:hover {
+  color: #d4614b;
+}
+
+/* Main */
+.admin__main {
+  margin-left: 240px;
+  flex: 1;
+  min-height: 100vh;
+}
+
+.admin__header {
+  padding: 2rem;
+  border-bottom: 1px solid #e0dbd3;
+  background: #fff;
+}
+
+.admin__header h1 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.admin__content {
+  padding: 2rem;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #999;
+  font-size: 0.85rem;
+  font-weight: 300;
+}
+
+/* Hamburger */
+.admin__hamburger {
+  display: none;
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 200;
+  background: #111;
+  border: none;
+  color: #e9db90;
+  width: 40px;
+  height: 40px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 1.25rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Backdrop overlay (Fix 3) */
+.admin__backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 99;
+}
+
+.admin__backdrop--visible {
+  display: block;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .admin__hamburger {
+    display: flex;
+  }
+
+  .admin__sidebar {
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+  }
+
+  .admin__sidebar--open {
+    transform: translateX(0);
+  }
+
+  .admin__main {
+    margin-left: 0;
+  }
+
+  .admin__header {
+    padding: 2rem;
+    padding-top: 4rem;
+  }
+}

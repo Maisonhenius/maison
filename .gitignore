@@ -27,7 +27,7 @@ AMOUAGE-CINEMATIC-RESEARCH.md
 showreel.mp4
 
 # Heavy images — originals stay local, only WebP in repo
-assets/pictures/ingredients/
+assets/pictures/ingredients/*.png
 assets/pictures/Olfactory Pyramids/
 assets/pictures/Collection & Fragrances/*.png
 assets/pictures/Collection & Fragrances/for the second video/

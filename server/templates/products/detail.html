@@ -449,7 +449,7 @@
       <div class="product-comp__notes">
         {% for img in group.images %}
         <div class="product-comp__note">
-          <img class="product-comp__note-img" src="/static/assets/pictures/ingredients/{{ img }}.png" alt="{{ img | capitalize }}" loading="lazy">
+          <img class="product-comp__note-img" src="/static/assets/pictures/ingredients/{{ img }}.webp" alt="{{ img | capitalize }}" loading="lazy">
           <div class="product-comp__note-name">{{ img | replace('-', ' ') | title }}</div>
         </div>
         {% endfor %}

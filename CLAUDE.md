@@ -61,7 +61,7 @@ assets/
   videos/web/             <- Web-optimized hero videos (H.264, ~3MB each)
   video-frames/           <- Scroll video WebP frames (121 desktop, 121 mobile, gitignored)
   pictures/               <- Product photography, landscapes, olfactory pyramids
-  pictures/ingredients/   <- 32 individual ingredient photos on travertine (4K)
+  pictures/ingredients/   <- 32 ingredient WebP photos (800px, ~170KB each). 4K PNG originals are gitignored
 ```
 
 ## Auth System
@@ -170,10 +170,11 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 
 ## Testing
 
+**Tests are gitignored** (`server/tests/`, `server/requirements.txt`, `server/pytest.ini`, `server/TESTING.md`) — kept local-only to keep the deploy repo lean. Existing local checkouts have them; fresh clones don't. Re-add via `git rm --cached` if you want them back in the repo.
+
 - Run: `cd server && python3 -m pytest tests/ -v`
 - Framework: pytest + pytest-asyncio + httpx
-- Tests in `server/tests/`, fixtures in `conftest.py`
-- See `server/TESTING.md` for full conventions
+- Tests in `server/tests/` (local only), fixtures in `conftest.py`
 - 100% coverage is the goal — write tests for new functions, bug fixes, and conditionals
 
 ## Browser Testing
@@ -208,6 +209,9 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Jinja2 `order.items` collision**: In templates, `order.items` on a dict resolves to Python's `dict.items()` method, NOT the `"items"` key. Use `order['items']` bracket notation when the key name collides with dict builtins.
 - **Local Stripe testing**: Run `stripe listen --forward-to localhost:3000/api/stripe/webhook` in a separate terminal. The `whsec_...` it outputs goes in `.env.local` as `STRIPE_WEBHOOK_SECRET`.
 - **Order status flow**: Stripe webhook creates orders as `"confirmed"` (not "pending"). Valid statuses: `confirmed`, `pending`, `shipped`, `delivered`, `cancelled`. Changing to shipped/delivered/cancelled auto-sends a branded email to the customer via `email_service.send_order_status_email()`. Confirmed and pending don't trigger emails.
+- **Cart sync is server-authoritative for logged-in users** — `cart.js loadFromServer()` always overwrites localStorage with the server cart (empty included). Don't add merge logic here — that's what caused the "stale cart after checkout" bug. The merge logic for guest→login transition lives in `sync()`, called explicitly from `login.html`.
+- **`loadFromServer()` skips on `/checkout/success`** — guard at the top of the function. Removing it re-introduces a race where the in-flight server fetch repopulates localStorage after the page script clears it.
+- **`/checkout/success` is self-healing** — the route uses Stripe API to verify the session, then calls `_create_order_from_stripe_session()` (the same helper the webhook uses) to create the order + clear the server cart. Idempotent via existing-order check. If you change the webhook order-creation logic, change the helper, not the webhook handler — both code paths flow through it.
 
 ## Deployment (Railway)
 
@@ -242,10 +246,11 @@ All product/landscape images in the deployed repo are WebP. Originals stay local
 ## Stripe (current state)
 
 - **Test mode** is active in production (test keys in Railway env)
-- **Webhook NOT configured on production yet** — `STRIPE_WEBHOOK_SECRET=whsec_placeholder`. Until set, payments will succeed in Stripe but orders won't be created in Supabase
+- **Webhook not yet configured on production** — `STRIPE_WEBHOOK_SECRET=whsec_placeholder`. **The system still works** because `/checkout/success` is self-healing (verifies the Stripe session via API and calls `_create_order_from_stripe_session()` as a fallback). Configuring the webhook is still recommended for instant order creation (no dependency on the user landing on the success page) and for handling other Stripe events later.
 - **Local testing**: `stripe listen --forward-to localhost:3000/api/stripe/webhook`. Local secret is in `.env.local`
 
 ## Future
 - **Turbo Frames**: Cart badge, admin stats as independent frames
 - **Turbo Streams**: Real-time admin updates via SSE
 - **Stimulus Controllers**: Migrate inline scripts to proper controllers
+- **Re-enable CI** — `.github/workflows/test.yml` was removed because it ran pytest from `server/`, but `server/tests/` and `server/requirements.txt` are gitignored. Re-adding requires either un-ignoring those files or writing a new workflow that hits the live URL after Railway deploys

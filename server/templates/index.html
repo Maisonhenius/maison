@@ -1174,7 +1174,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
      ═══════════════════════════════════════ */
   ;(function() {
     var FRAME_COUNT = 121;
-    var FRAME_START = 15;  // Skip first 15 white frames (bottle cap only)
+    var FRAME_START = 30;  // Skip frames showing detached cap + capless bottle (broken-looking)
     var isMobile    = window.innerWidth < 768;
     var FRAME_PATH  = isMobile ? '/static/assets/video-frames/mobile/frame-' : '/static/assets/video-frames/frame-';
     var FRAME_EXT   = '.webp';

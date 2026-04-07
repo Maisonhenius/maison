@@ -205,23 +205,21 @@ var MaisonCart = (function() {
     fetch('/api/cart', { headers: _apiHeaders() })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        if (data.items && data.items.length > 0) {
-          var serverCart = data.items.map(function(item) {
-            return {
-              id: item.product_id,
-              name: item.product_name,
-              family: item.product_family || '',
-              price: item.product_price || 284,
-              image: item.product_image || '',
-              quantity: item.quantity || 1
-            };
-          });
-          // Merge: server wins for items that exist on both, keep local-only items
-          var localItems = _read();
-          var serverIds = serverCart.map(function(i) { return i.id; });
-          var localOnly = localItems.filter(function(i) { return serverIds.indexOf(i.id) === -1; });
-          _write(serverCart.concat(localOnly));
-        }
+        if (!data.items) return;  // request failed or unauthenticated — keep localStorage as-is
+        var serverCart = data.items.map(function(item) {
+          return {
+            id: item.product_id,
+            name: item.product_name,
+            family: item.product_family || '',
+            price: item.product_price || 284,
+            image: item.product_image || '',
+            quantity: item.quantity || 1
+          };
+        });
+        // For logged-in users the server cart is authoritative.
+        // Empty server cart → clear localStorage (fixes stale cart after checkout when
+        // user never sees /checkout/success). Guest→login merge is handled by sync().
+        _write(serverCart);
       })
       .catch(function() {});
   }

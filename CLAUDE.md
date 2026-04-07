@@ -214,6 +214,9 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Cart sync is server-authoritative for logged-in users** — `cart.js loadFromServer()` always overwrites localStorage with the server cart (empty included). Don't add merge logic here — that's what caused the "stale cart after checkout" bug. The merge logic for guest→login transition lives in `sync()`, called explicitly from `login.html`.
 - **`loadFromServer()` skips on `/checkout/success`** — guard at the top of the function. Removing it re-introduces a race where the in-flight server fetch repopulates localStorage after the page script clears it.
 - **`/checkout/success` is self-healing** — the route uses Stripe API to verify the session, then calls `_create_order_from_stripe_session()` (the same helper the webhook uses) to create the order + clear the server cart. Idempotent via existing-order check. If you change the webhook order-creation logic, change the helper, not the webhook handler — both code paths flow through it.
+- **Don't change middleware order in `app.py`** — `CacheControlMiddleware` must be added BEFORE `GZipMiddleware`. Starlette runs `add_middleware()` calls in reverse order on responses, so the last one added is the outermost. GZip needs to wrap CacheControl so `Vary: Accept-Encoding` lands after the cache headers are set.
+- **Railway's Fastly is a passthrough, not a cache** — every response shows `x-cache: MISS` even with valid `Cache-Control` headers. Don't try to "fix" this with surrogate headers; it's a platform-level limitation. The cache headers are still useful for **browser** caching. For real shared edge caching across users, the move is Cloudflare in front of Railway when the custom domain is set up.
+- **Always check image dimensions before encoding** — `cwebp` doesn't auto-resize. If you forget `-resize WIDTH 0`, you'll ship a 4K image that displays at 600px and wastes ~1 MB per file (we did this with cards originally). Run `webpinfo file.webp` to verify dimensions after encoding.
 
 ## Deployment (Railway)
 
@@ -236,14 +239,63 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - Replace `https://maisonhenius.com/` placeholder in `index.html` `og:image`
 - Add `sitemap.xml`, proper `og:image` (1200x630 brand image)
 
-## Image Assets (WebP only)
+## Image & Video Assets (WebP / H.264 only)
 
-All product/landscape images in the deployed repo are WebP. Originals stay local (gitignored).
+All product/landscape images in the deployed repo are WebP. Originals (PNG/JPG) stay local and are gitignored.
 
-- **Convert new images**: `cwebp -q 82 input.png -o input.webp` (add `-resize 800 0` for ingredient photos)
-- **Tracked in git**: `assets/pictures/Collection & Fragrances/*.webp`, `assets/pictures/Jordan Landscape/*.webp`, `assets/pictures/ingredients/*.webp`, `assets/video-frames/**/*.webp`
-- **Gitignored** (originals only): `*.png`, `*.jpg`, `*.jpeg` in those folders
-- **Templates reference `.webp`** — never `.png` for product images. PRODUCTS dict in `app.py` uses `.webp` for `card_image` and `bottle_image`
+- **Tracked in git**: `assets/pictures/Collection & Fragrances/*.webp`, `assets/pictures/Jordan Landscape/*.webp`, `assets/pictures/ingredients/*.webp`, `assets/video-frames/**/*.webp`, `assets/videos/web/*.mp4`
+- **Gitignored** (originals only): `*.png`, `*.jpg`, `*.jpeg` in those folders, `assets/videos/*.mp4` (raw source videos), `assets/videos/web-original-backup/` (pre-encoding hero videos, kept locally for rollback)
+- **Templates reference `.webp`** — never `.png`. PRODUCTS dict in `app.py` uses `.webp` for `card_image` and `bottle_image`.
+
+### Image size targets (don't ship oversized assets)
+
+| Asset type | Max width | cwebp quality | Target file size | Notes |
+|---|---|---|---|---|
+| Card images (`card-*.webp`) | **1200px** | `-q 78` | 200-300 KB each | Display ~600px on screen, retina-ready |
+| Bottle images (`Out of Control.webp` etc.) | 832px (current) | `-q 80` | ~50 KB each | Already optimal |
+| Bottle reflection (story page) | **1600px** | `-q 80` | ~32 KB | Was 5504px originally |
+| Ingredient images (`ingredients/*.webp`) | **800px** | `-q 80` | ~150 KB each | Square aspect for note grid |
+| Jordan landscapes | ~1300px (current) | `-q 80` | ~150-200 KB | Already optimal |
+| Scroll video frames | 1928×1072 (current) | `-q 90` | ~50-160 KB per frame | Don't shrink — canvas needs detail |
+
+### Recipes
+
+```bash
+# Card image (4K source → 1200px web)
+cwebp -q 78 -resize 1200 0 input.png -o output.webp
+
+# Ingredient (any source → 800px square)
+cwebp -q 80 -resize 800 0 input.png -o output.webp
+
+# Hero video (1080p source → 720p H.264 ~1 Mbps, no audio, streamable)
+ffmpeg -y -i input.mp4 -c:v libx264 -preset slow -crf 26 -vf "scale=1280:-2" -an -movflags +faststart output.mp4
+```
+
+**Lesson learned:** card images were originally encoded at 4096×4096 (full 4K) because cwebp doesn't auto-resize. This cost ~7 MB on every landing page paint. Always check dimensions with `webpinfo file.webp` before deploying.
+
+## Performance
+
+Three layers in `server/app.py` near the top of the file:
+
+1. **`mimetypes.add_type("image/webp", ".webp")`** — runs at import time, BEFORE any `StaticFiles` mount. Fixes the default Linux mimetypes registry that was serving WebP as `text/plain`. Required for browsers and CDNs to recognize WebP correctly.
+2. **`CacheControlMiddleware`** (custom class, in app.py) — sets `Cache-Control` on static asset responses based on path:
+   - `/static/css/*`, `/static/js/*`, `/static/admin/*` → `public, max-age=31536000, immutable` (cache-busted via `?v=N` in template references)
+   - `/static/assets/*` → `public, max-age=2592000` (30 days; product images, hero videos, scroll frames, music)
+   - `/static/*` (root favicons, robots.txt) → `public, max-age=86400` (1 day)
+   - **HTML pages and API responses get NO cache header** so they stay fresh
+3. **`GZipMiddleware(minimum_size=500)`** — compresses HTML/CSS/JS/JSON ~70-80%. Skips already-compressed binary content.
+
+Middleware order matters — see the gotcha in the Gotchas section.
+
+### Railway / Fastly caching limitation
+
+Railway's edge proxy is Fastly, but it acts as a **passthrough**, not a cache. Even with proper `Cache-Control` headers, every response shows `x-cache: MISS` and hits the origin in `europe-west4`. Verified by sending 5 sequential requests through the same Fastly cache server — all 5 were MISS. **Don't waste time trying to "fix" the edge cache via headers — it's a platform-level limitation.**
+
+The wins from the cache headers come from **browser caching**, not edge caching:
+- A returning visitor or within-session navigation hits the local browser cache (1 year for CSS/JS, 30 days for assets) → instant
+- TTFB on first hit is still ~600ms (network + origin), but the asset payload is gzipped → ~70% smaller transfer
+
+For real edge caching across multiple users, the move is **Cloudflare in front of Railway** when the custom domain is set up — Cloudflare will respect our cache headers and serve hot assets from PoPs in 200+ cities.
 
 ## Stripe (current state)
 

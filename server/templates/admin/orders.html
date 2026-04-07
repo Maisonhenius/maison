@@ -198,8 +198,8 @@
     <label class="filter-bar__label">Status</label>
     <select id="statusFilter">
       <option value="all">All Statuses</option>
+      <option value="pending">Pending Payment (abandoned)</option>
       <option value="confirmed">Confirmed</option>
-      <option value="pending">Pending</option>
       <option value="shipped">Shipped</option>
       <option value="delivered">Delivered</option>
       <option value="cancelled">Cancelled</option>
@@ -329,10 +329,17 @@
       var sel = document.createElement('select');
       sel.style.cssText = 'font-family:Montserrat,sans-serif;font-size:0.75rem;padding:0.25rem 0.5rem;border:1px solid #ddd;border-radius:4px;background:' + (STATUS_COLORS[order.status] || '#ddd') + ';color:#1a1a1a;cursor:pointer;outline:none;';
 
+      var STATUS_LABELS = {
+        pending:   'Pending Payment',
+        confirmed: 'Confirmed',
+        shipped:   'Shipped',
+        delivered: 'Delivered',
+        cancelled: 'Cancelled'
+      };
       STATUSES.forEach(function(s) {
         var opt = document.createElement('option');
         opt.value = s;
-        opt.textContent = cap(s);
+        opt.textContent = STATUS_LABELS[s] || cap(s);
         if (s === order.status) opt.selected = true;
         sel.appendChild(opt);
       });

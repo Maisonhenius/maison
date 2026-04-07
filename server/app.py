@@ -439,27 +439,77 @@ async def admin_auth_callback(request: Request):
 
 # --- Stripe Checkout API ---
 
-def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
-    """Idempotent order creation from a Stripe Checkout Session.
+def _confirm_order(order: dict, source: str) -> dict:
+    """Transition a pending order to confirmed.
 
-    Used by both the webhook handler and the /checkout/success route fallback.
-    Returns the existing or newly-created order dict, or None if creation failed.
-    Always clears the server-side cart for the user when an order exists/is created.
+    Inserts order_items for analytics and clears the server cart.
+    Idempotent — only runs once per order (status guard prevents duplicates).
+    """
+    order_id = order.get("id")
+    if not order_id:
+        return order
+
+    supabase.table("orders").update({"status": "confirmed"}).eq("id", order_id).execute()
+    order["status"] = "confirmed"
+
+    # Insert order_items for analytics (first transition only)
+    items = order.get("items") or []
+    if isinstance(items, list):
+        for item in items:
+            if isinstance(item, dict):
+                supabase.table("order_items").insert({
+                    "order_id": order_id,
+                    "product_id": item.get("id"),
+                    "product_name": item.get("name", ""),
+                    "product_family": item.get("family", ""),
+                    "price": item.get("price", 0),
+                    "quantity": item.get("quantity", 1),
+                }).execute()
+
+    # Clear server cart
+    user_id = order.get("user_id")
+    if user_id:
+        supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+
+    print(f"[{source}] Order {order_id} pending → confirmed")
+    return order
+
+
+def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
+    """Process a paid Stripe Checkout Session into a confirmed order.
+
+    Three cases handled, all idempotent:
+    1. Existing PENDING order (pre-created on session creation by /api/checkout/create-session)
+       → transition to CONFIRMED, insert order_items, clear cart
+    2. Existing CONFIRMED+ order (already processed by a previous webhook/route call)
+       → defensive cart clear, return as-is
+    3. No existing order (legacy path / pre-create failed / manual Stripe session)
+       → create from session metadata as CONFIRMED directly
+
+    Used by both the Stripe webhook handler and the /checkout/success route fallback.
     """
     session_id = stripe_session.id if hasattr(stripe_session, 'id') else stripe_session["id"]
 
-    # Idempotency: return existing order if already created
+    # Look up existing order (pre-created or already-processed)
     existing = supabase.table("orders").select("*").eq(
         "stripe_session_id", session_id
     ).execute()
+
     if existing.data:
         order = dict(existing.data[0])
-        # Always clear cart even on idempotent hit (defensive)
+        current_status = order.get("status")
+
+        if current_status == "pending":
+            # Case 1: pre-created pending order — payment just succeeded, transition to confirmed
+            return _confirm_order(order, source)
+
+        # Case 2: already confirmed (or shipped/delivered/cancelled) — idempotent, defensive cart clear
         user_id = order.get("user_id")
         if user_id:
             supabase.table("cart_items").delete().eq("user_id", user_id).execute()
         return order
 
+    # Case 3: no existing order — fallback path (pre-create failed or unrecognized session)
     # Convert metadata to plain dict (StripeObject doesn't support .get())
     raw_meta = (stripe_session.metadata if hasattr(stripe_session, 'metadata') else stripe_session.get("metadata")) or {}
     if hasattr(raw_meta, 'to_dict'):
@@ -530,7 +580,7 @@ def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
     if user_id:
         supabase.table("cart_items").delete().eq("user_id", user_id).execute()
 
-    print(f"[{source}] Order {order_id} created for session {session_id}")
+    print(f"[{source}] Order {order_id} created from session metadata (fallback path)")
     return order_data
 
 
@@ -625,6 +675,43 @@ async def create_checkout_session(request: Request):
             "success_url": f"{base_url}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
             "cancel_url": f"{base_url}/checkout",
         })
+
+        # Pre-create the order in our DB with status="pending" so abandoned
+        # checkouts show up in /admin/orders. The webhook (or /checkout/success
+        # fallback) transitions it to "confirmed" via _confirm_order() when
+        # payment succeeds. If payment never completes, the order stays pending
+        # and the admin can reach out to the customer using the stored email/phone.
+        # Non-fatal: if this insert fails the user can still pay, and the
+        # fallback path in _create_order_from_stripe_session() will create the
+        # order from session metadata after payment.
+        shipping_amount = 25
+        try:
+            pending_order_id = "MH-" + str(int(datetime.now().timestamp()))
+            supabase.table("orders").insert({
+                "id": pending_order_id,
+                "user_id": str(user.id),
+                "customer_name": customer["full_name"],
+                "customer_email": customer["email"],
+                "customer_phone": customer.get("phone", ""),
+                "shipping_address": {
+                    "line1": address.get("line1", ""),
+                    "line2": address.get("line2", ""),
+                    "city": address.get("city", ""),
+                    "state": address.get("state", ""),
+                    "postal_code": address.get("postal_code", ""),
+                    "country": address.get("country", ""),
+                },
+                "items": validated_items,
+                "subtotal": calculated_subtotal,
+                "shipping": shipping_amount,
+                "total": calculated_subtotal + shipping_amount,
+                "status": "pending",
+                "stripe_session_id": session.id,
+            }).execute()
+            print(f"[create-session] Pending order {pending_order_id} pre-created for session {session.id}")
+        except Exception as e:
+            print(f"[create-session] Pre-create pending order failed (non-fatal): {e}")
+
         return JSONResponse({"url": session.url})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -663,33 +750,34 @@ async def stripe_webhook(request: Request):
 async def checkout_success(request: Request, session_id: str = ""):
     """Order confirmation page after Stripe payment.
 
-    Self-healing: even if the Stripe webhook never fired (e.g. wrong secret on
-    Railway), this route verifies the session with Stripe and creates the order
-    + clears the cart as a fallback. Idempotent — webhook may also process the
-    same session and the existing-order check prevents duplicates.
+    Self-healing: verifies the session with Stripe and runs the order helper,
+    which handles all three cases idempotently:
+    - Existing PENDING order (pre-created on session creation) → transitions to confirmed
+    - Existing CONFIRMED order (webhook already processed) → defensive cart clear
+    - No order exists → creates from session metadata as fallback
     """
     order_data = None
 
     if session_id and stripe_client:
         try:
-            # 1. Try existing order first (webhook may have created it)
-            existing = supabase.table("orders").select("*").eq(
-                "stripe_session_id", session_id
-            ).execute()
-            if existing.data:
-                order_data = dict(existing.data[0])
-                # Defensive: clear cart even on idempotent hit
-                user_id = order_data.get("user_id")
-                if user_id:
-                    supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+            # Always go through Stripe API to verify the payment was actually completed
+            # before transitioning the order. Prevents accidental confirmation if a user
+            # navigates to /checkout/success manually with a stale session_id.
+            stripe_session = stripe_client.v1.checkout.sessions.retrieve(session_id)
+            payment_status = getattr(stripe_session, "payment_status", None)
+
+            if payment_status == "paid":
+                order_data = _create_order_from_stripe_session(
+                    stripe_session, source="success-route"
+                )
             else:
-                # 2. No order yet — verify with Stripe and create as fallback
-                stripe_session = stripe_client.v1.checkout.sessions.retrieve(session_id)
-                payment_status = getattr(stripe_session, "payment_status", None)
-                if payment_status == "paid":
-                    order_data = _create_order_from_stripe_session(
-                        stripe_session, source="success-route-fallback"
-                    )
+                # Payment not completed (manual navigation or expired session) —
+                # try to surface the pending order if one exists, but don't transition it
+                existing = supabase.table("orders").select("*").eq(
+                    "stripe_session_id", session_id
+                ).execute()
+                if existing.data:
+                    order_data = dict(existing.data[0])
         except Exception as e:
             print(f"[/checkout/success] ERROR: {e}")
             traceback.print_exc()
@@ -1012,13 +1100,21 @@ async def get_admin_stats(request: Request):
     admin = get_admin_user(request)
     if not admin:
         return JSONResponse({"error": "Admin access required"}, status_code=401)
-    orders = supabase.table("orders").select("total").execute()
+    orders = supabase.table("orders").select("total,status").execute()
     messages = supabase.table("messages").select("id").execute()
     orders_list = orders.data if orders.data and isinstance(orders.data, list) else []
     messages_list = messages.data if messages.data and isinstance(messages.data, list) else []
-    revenue = sum(float(o.get("total", 0)) for o in orders_list if isinstance(o, dict))
+
+    # Only count paid orders toward revenue + total. Pending = abandoned checkout
+    # (not paid yet), cancelled = refunded/voided. Both are excluded.
+    PAID_STATUSES = {"confirmed", "shipped", "delivered"}
+    paid_orders = [o for o in orders_list if isinstance(o, dict) and o.get("status") in PAID_STATUSES]
+    pending_orders = [o for o in orders_list if isinstance(o, dict) and o.get("status") == "pending"]
+    revenue = sum(float(o.get("total", 0)) for o in paid_orders)
+
     return JSONResponse({
-        "total_orders": len(orders_list),
+        "total_orders": len(paid_orders),
+        "pending_orders": len(pending_orders),
         "revenue": revenue,
         "messages": len(messages_list),
     })

@@ -104,6 +104,10 @@
     <div class="stat-card__value">$0.00</div>
   </div>
   <div class="stat-card">
+    <div class="stat-card__label">Pending Payment</div>
+    <div class="stat-card__value">0</div>
+  </div>
+  <div class="stat-card">
     <div class="stat-card__label">Messages</div>
     <div class="stat-card__value">0</div>
   </div>
@@ -176,7 +180,8 @@
       /* Stat cards */
       statValues[0].textContent = stats.total_orders || 0;
       statValues[1].textContent = '$' + (parseFloat(stats.revenue) || 0).toFixed(2);
-      statValues[2].textContent = stats.messages || 0;
+      statValues[2].textContent = stats.pending_orders || 0;
+      statValues[3].textContent = stats.messages || 0;
 
       /* Recent orders (last 5) */
       var orders = (ordersData.orders || []).slice(0, 5);

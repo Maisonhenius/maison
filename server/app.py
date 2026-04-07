@@ -2,6 +2,8 @@ from fastapi import FastAPI, Form, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+from fastapi.middleware.gzip import GZipMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
@@ -10,9 +12,15 @@ import os
 import re
 import json
 import time
+import mimetypes
 import traceback
 from stripe import StripeClient, Webhook, SignatureVerificationError
 import email_service
+
+# Register WebP MIME type — Starlette uses Python's mimetypes module via
+# StaticFiles, and the default registry on Linux/Alpine often misses image/webp
+# (was being served as text/plain). Must run BEFORE any StaticFiles mount.
+mimetypes.add_type("image/webp", ".webp")
 
 # Load environment variables
 load_dotenv(Path(__file__).resolve().parent.parent / '.env.local')
@@ -35,6 +43,51 @@ stripe_client = StripeClient(STRIPE_SECRET_KEY) if STRIPE_SECRET_KEY else None
 ALLOWED_EMAILS = ["osamah96@gmail.com", "husein.aldarawish@gmail.com"]
 
 app = FastAPI(title="Maison Henius")
+
+
+# --- Performance middleware ---
+#
+# Two layers:
+# 1. CacheControlMiddleware (inner) tags static asset responses with long
+#    Cache-Control headers so Railway's Fastly edge starts caching them.
+#    Without this, every request hits the origin in europe-west4 (~600ms TTFB)
+#    instead of the nearest Fastly PoP (~30ms). HTML responses get NO cache
+#    header so dynamic content stays fresh.
+# 2. GZipMiddleware (outer) compresses HTML/CSS/JS/JSON. ~70% reduction on
+#    text payloads. Skips already-compressed content (images, video, music)
+#    automatically.
+#
+# Order matters: middleware added LAST runs OUTERMOST. GZip must wrap
+# CacheControl so the Vary: Accept-Encoding header lands AFTER cache-control.
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """Add Cache-Control headers based on path so Fastly + browsers can cache.
+
+    Strategy:
+    - /static/css/*, /static/js/*, /static/admin/*: cache-busted via ?v=N in
+      template references → safe to cache forever (immutable).
+    - /static/assets/*: rarely change (product images, hero videos, scroll
+      frames, music) → 30 days.
+    - HTML pages and API responses: no cache header (default = no edge cache,
+      always fresh from origin).
+    """
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if response.headers.get("cache-control"):
+            return response
+        path = request.url.path
+        if path.startswith(("/static/css/", "/static/js/", "/static/admin/")):
+            response.headers["cache-control"] = "public, max-age=31536000, immutable"
+        elif path.startswith("/static/assets/"):
+            response.headers["cache-control"] = "public, max-age=2592000"
+        elif path.startswith("/static/"):
+            # Root static files (favicon, robots.txt) — short cache
+            response.headers["cache-control"] = "public, max-age=86400"
+        return response
+
+
+app.add_middleware(CacheControlMiddleware)
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 def get_admin_user(request: Request) -> Optional[object]:

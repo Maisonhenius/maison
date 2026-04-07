@@ -265,14 +265,19 @@
 {% block scripts %}
 <script>
 (function() {
-  /* Clear localStorage cart — server cart already cleared by webhook */
-  if (typeof MaisonCart !== 'undefined') {
-    try {
-      localStorage.removeItem('maison_cart');
-      var badges = document.querySelectorAll('.cart-badge');
-      badges.forEach(function(b) { b.textContent = '0'; b.style.display = 'none'; });
-    } catch (e) {}
-  }
+  /* Clear localStorage cart. Server cart is already cleared by the route
+     (which verifies the Stripe session and removes cart_items for the user).
+     cart.js skips loadFromServer() on /checkout/success to avoid race conditions. */
+  try {
+    localStorage.removeItem('maison_cart');
+    var badges = document.querySelectorAll('.cart-badge');
+    badges.forEach(function(b) { b.textContent = '0'; b.style.display = 'none'; });
+    if (typeof MaisonCart !== 'undefined' && MaisonCart.clear) {
+      // Defensive: also call MaisonCart.clear() to delete any server cart items
+      // that may have been re-added between the route's clear and this script.
+      MaisonCart.clear();
+    }
+  } catch (e) {}
 
   /* Entrance animations */
   if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {

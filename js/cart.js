@@ -195,6 +195,9 @@ var MaisonCart = (function() {
 
   function loadFromServer() {
     /* Called on page load when logged in. Fetches server cart into localStorage */
+    // Skip on /checkout/success — the route + page script clear the cart, and
+    // an in-flight server sync would race the clear and repopulate localStorage.
+    if (window.location.pathname === '/checkout/success') return;
     if (_justSynced) { _justSynced = false; return; }
     var auth = _getAuth();
     if (!auth) return;

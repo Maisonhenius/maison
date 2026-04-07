@@ -439,6 +439,101 @@ async def admin_auth_callback(request: Request):
 
 # --- Stripe Checkout API ---
 
+def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
+    """Idempotent order creation from a Stripe Checkout Session.
+
+    Used by both the webhook handler and the /checkout/success route fallback.
+    Returns the existing or newly-created order dict, or None if creation failed.
+    Always clears the server-side cart for the user when an order exists/is created.
+    """
+    session_id = stripe_session.id if hasattr(stripe_session, 'id') else stripe_session["id"]
+
+    # Idempotency: return existing order if already created
+    existing = supabase.table("orders").select("*").eq(
+        "stripe_session_id", session_id
+    ).execute()
+    if existing.data:
+        order = dict(existing.data[0])
+        # Always clear cart even on idempotent hit (defensive)
+        user_id = order.get("user_id")
+        if user_id:
+            supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+        return order
+
+    # Convert metadata to plain dict (StripeObject doesn't support .get())
+    raw_meta = (stripe_session.metadata if hasattr(stripe_session, 'metadata') else stripe_session.get("metadata")) or {}
+    if hasattr(raw_meta, 'to_dict'):
+        meta = raw_meta.to_dict()
+    else:
+        meta = dict(raw_meta) if raw_meta else {}
+
+    # Recalculate from PRODUCTS dict (defense in depth — never trust client prices)
+    items = json.loads(meta.get("items_json", "[]"))
+    validated_items = []
+    calculated_subtotal = 0
+    for item in items:
+        product = PRODUCTS.get(item.get("id"))
+        if product:
+            qty = item.get("quantity", 1)
+            validated_items.append({
+                "id": item["id"],
+                "name": product["name"],
+                "price": product["price"],
+                "quantity": qty,
+                "family": product.get("family", ""),
+            })
+            calculated_subtotal += product["price"] * qty
+
+    if not validated_items:
+        return None
+
+    shipping = 25
+    order_id = "MH-" + str(int(datetime.now().timestamp()))
+
+    order_data = {
+        "id": order_id,
+        "user_id": meta.get("user_id"),
+        "customer_name": meta.get("customer_name", ""),
+        "customer_email": meta.get("customer_email", ""),
+        "customer_phone": meta.get("customer_phone", ""),
+        "shipping_address": {
+            "line1": meta.get("shipping_line1", ""),
+            "line2": meta.get("shipping_line2", ""),
+            "city": meta.get("shipping_city", ""),
+            "state": meta.get("shipping_state", ""),
+            "postal_code": meta.get("shipping_postal_code", ""),
+            "country": meta.get("shipping_country", ""),
+        },
+        "items": validated_items,
+        "subtotal": calculated_subtotal,
+        "shipping": shipping,
+        "total": calculated_subtotal + shipping,
+        "status": "confirmed",
+        "stripe_session_id": session_id,
+    }
+
+    supabase.table("orders").insert(order_data).execute()
+
+    # Insert order_items for analytics
+    for item in validated_items:
+        supabase.table("order_items").insert({
+            "order_id": order_id,
+            "product_id": item["id"],
+            "product_name": item["name"],
+            "product_family": item.get("family", ""),
+            "price": item["price"],
+            "quantity": item["quantity"],
+        }).execute()
+
+    # Clear server cart
+    user_id = meta.get("user_id")
+    if user_id:
+        supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+
+    print(f"[{source}] Order {order_id} created for session {session_id}")
+    return order_data
+
+
 @app.post("/api/checkout/create-session")
 async def create_checkout_session(request: Request):
     """Create Stripe Checkout Session for payment"""
@@ -553,91 +648,10 @@ async def stripe_webhook(request: Request):
     if event.type == "checkout.session.completed":
         try:
             session = event.data.object
-            # Handle both StripeObject (attribute access) and dict (key access)
-            session_id = session.id if hasattr(session, 'id') else session["id"]
-            session_meta = (session.metadata if hasattr(session, 'metadata') else session.get("metadata")) or {}
-
-            print(f"[Stripe Webhook] checkout.session.completed: {session_id}")
-
-            # Idempotency: skip if order already created for this session
-            existing = supabase.table("orders").select("id").eq(
-                "stripe_session_id", session_id
-            ).execute()
-            if existing.data:
-                print(f"[Stripe Webhook] Order already exists for session {session_id}, skipping")
-                return JSONResponse({"received": True})
-
-            # Convert StripeObject metadata to plain dict (.get() doesn't work on StripeObject)
-            meta = session_meta.to_dict() if hasattr(session_meta, 'to_dict') else (session_meta or {})
-
-            items_json = meta.get("items_json", "[]")
-            items = json.loads(items_json)
-            print(f"[Stripe Webhook] Items from metadata: {len(items)} items")
-
-            # Recalculate from PRODUCTS dict (defense in depth)
-            validated_items = []
-            calculated_subtotal = 0
-            for item in items:
-                product = PRODUCTS.get(item.get("id"))
-                if product:
-                    qty = item.get("quantity", 1)
-                    validated_items.append({
-                        "id": item["id"],
-                        "name": product["name"],
-                        "price": product["price"],
-                        "quantity": qty,
-                        "family": product.get("family", ""),
-                    })
-                    calculated_subtotal += product["price"] * qty
-
-            shipping = 25
-            order_id = "MH-" + str(int(datetime.now().timestamp()))
-
-            order_data = {
-                "id": order_id,
-                "user_id": meta.get("user_id"),
-                "customer_name": meta.get("customer_name", ""),
-                "customer_email": meta.get("customer_email", ""),
-                "customer_phone": meta.get("customer_phone", ""),
-                "shipping_address": {
-                    "line1": meta.get("shipping_line1", ""),
-                    "line2": meta.get("shipping_line2", ""),
-                    "city": meta.get("shipping_city", ""),
-                    "state": meta.get("shipping_state", ""),
-                    "postal_code": meta.get("shipping_postal_code", ""),
-                    "country": meta.get("shipping_country", ""),
-                },
-                "items": validated_items,
-                "subtotal": calculated_subtotal,
-                "shipping": shipping,
-                "total": calculated_subtotal + shipping,
-                "status": "confirmed",
-                "stripe_session_id": session_id,
-            }
-
-            supabase.table("orders").insert(order_data).execute()
-
-            # Insert into order_items for analytics
-            for item in validated_items:
-                supabase.table("order_items").insert({
-                    "order_id": order_id,
-                    "product_id": item["id"],
-                    "product_name": item["name"],
-                    "product_family": item.get("family", ""),
-                    "price": item["price"],
-                    "quantity": item["quantity"],
-                }).execute()
-
-            print(f"[Stripe Webhook] Order {order_id} created successfully")
-
-            # Clear server cart
-            user_id = meta.get("user_id")
-            if user_id:
-                supabase.table("cart_items").delete().eq("user_id", user_id).execute()
-                print(f"[Stripe Webhook] Cart cleared for user {user_id}")
-
+            print(f"[Stripe Webhook] checkout.session.completed: {session.id if hasattr(session, 'id') else session.get('id')}")
+            _create_order_from_stripe_session(session, source="webhook")
         except Exception as e:
-            print(f"[Stripe Webhook] ERROR processing checkout.session.completed: {e}")
+            print(f"[Stripe Webhook] ERROR: {e}")
             traceback.print_exc()
             # Still return 200 so Stripe doesn't retry endlessly
             return JSONResponse({"received": True, "error": str(e)})
@@ -647,17 +661,38 @@ async def stripe_webhook(request: Request):
 
 @app.get("/checkout/success", response_class=HTMLResponse)
 async def checkout_success(request: Request, session_id: str = ""):
-    """Order confirmation page after Stripe payment"""
+    """Order confirmation page after Stripe payment.
+
+    Self-healing: even if the Stripe webhook never fired (e.g. wrong secret on
+    Railway), this route verifies the session with Stripe and creates the order
+    + clears the cart as a fallback. Idempotent — webhook may also process the
+    same session and the existing-order check prevents duplicates.
+    """
     order_data = None
-    if session_id:
+
+    if session_id and stripe_client:
         try:
-            result = supabase.table("orders").select("*").eq(
+            # 1. Try existing order first (webhook may have created it)
+            existing = supabase.table("orders").select("*").eq(
                 "stripe_session_id", session_id
             ).execute()
-            if result.data:
-                order_data = result.data[0]
-        except Exception:
-            pass
+            if existing.data:
+                order_data = dict(existing.data[0])
+                # Defensive: clear cart even on idempotent hit
+                user_id = order_data.get("user_id")
+                if user_id:
+                    supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+            else:
+                # 2. No order yet — verify with Stripe and create as fallback
+                stripe_session = stripe_client.v1.checkout.sessions.retrieve(session_id)
+                payment_status = getattr(stripe_session, "payment_status", None)
+                if payment_status == "paid":
+                    order_data = _create_order_from_stripe_session(
+                        stripe_session, source="success-route-fallback"
+                    )
+        except Exception as e:
+            print(f"[/checkout/success] ERROR: {e}")
+            traceback.print_exc()
 
     return templates.TemplateResponse(
         request=request,

@@ -19,8 +19,8 @@ Luxury niche perfume house. FastAPI + Hotwire (Turbo/Stimulus) + Supabase.
 server/
   app.py                  <- FastAPI app, all routes + API endpoints
   email_service.py        <- Resend SDK: branded transactional emails (auth + order status notifications)
-  requirements.txt        <- fastapi, uvicorn, jinja2, supabase, stripe, resend, python-dotenv, pytest, httpx
-  tests/
+  requirements.txt        <- gitignored (local dev with test deps); deploy uses root requirements.txt
+  tests/                  <- gitignored, local only
     conftest.py           <- Shared fixtures (async client). Lazy-imports app inside fixture.
     test_email.py         <- Email module tests (HTML builders + send functions)
     test_routes.py        <- Route/page response tests
@@ -47,6 +47,8 @@ server/
       messages.html       <- Messages list + read/unread (from /api/admin/messages)
 
 # Root-level files (outside server/)
+requirements.txt          <- Production deps (committed). Used by Railway/Docker build
+Procfile                  <- Start command for Railpack/Procfile builder
 .env.local                <- SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DATABASE_URL, STRIPE_SECRET_KEY, STRIPE_PUBLISHABLE_KEY, STRIPE_WEBHOOK_SECRET, RESEND_API_KEY
 js/application.js         <- Turbo + Stimulus init, GSAP/Lenis lifecycle on turbo events
 js/cart.js                <- MaisonCart module (localStorage + Supabase sync when logged in)
@@ -147,7 +149,12 @@ All have RLS enabled. Key columns:
 ## Scroll Video (Canvas Frame Sequencer)
 
 121 WebP frames from `scrollvideo.mp4` (desktop) and `scrollvideo-mobile.mp4` (portrait).
-Frames are gitignored - re-extract if missing:
+Frames ARE committed to the repo (`assets/video-frames/`, ~19MB). Source MP4s are gitignored.
+
+- **`FRAME_START = 30`** in `index.html` (around line 1177) — frames 0-29 show a detached bottle cap floating above a capless bottle body, which looks like a rendering bug. Animation starts at frame 30 where the bottle is fully assembled. Don't lower this without re-checking the source frames.
+- **Mobile video lacks ingredients reveal** — desktop frame 121 shows the ingredient flatlay; mobile frame 121 only shows the bottle. Content limitation, not a code bug.
+
+If frames are missing, re-extract:
 
 ```bash
 # Desktop
@@ -202,17 +209,41 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Local Stripe testing**: Run `stripe listen --forward-to localhost:3000/api/stripe/webhook` in a separate terminal. The `whsec_...` it outputs goes in `.env.local` as `STRIPE_WEBHOOK_SECRET`.
 - **Order status flow**: Stripe webhook creates orders as `"confirmed"` (not "pending"). Valid statuses: `confirmed`, `pending`, `shipped`, `delivered`, `cancelled`. Changing to shipped/delivered/cancelled auto-sends a branded email to the customer via `email_service.send_order_status_email()`. Confirmed and pending don't trigger emails.
 
-## Deploy Checklist
+## Deployment (Railway)
 
-1. Set up Railway with Python buildpack
-2. Configure env vars on Railway (from `.env.local`)
-3. Replace `https://maisonhenius.com/` domain placeholders in templates
-4. Add proper `og:image` (1200x630 brand image)
-5. Create `sitemap.xml`
-6. Set up HTTPS on Railway
-7. Configure Stripe webhook URL in Stripe Dashboard (pointing to `/api/stripe/webhook`)
-8. Enable Stripe email receipts in Dashboard > Settings > Emails
-9. Verify Resend domain (`maisonhenius.com`) DNS records and set `RESEND_API_KEY` env var
+- **Live URL**: https://web-production-cc74a0.up.railway.app
+- **GitHub repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB)
+- **Railway project**: `maison-henius` (id: `f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web`, environment `b99a4d18-a9fc-4742-b874-c0b4d38e5ade`
+- **Builder**: Dockerfile (clones from GitHub on Railway servers — bypasses upload size limits)
+- **Deploy directory**: `/tmp/claude/maison-docker-deploy/` contains only `Dockerfile` + `Procfile` (8KB upload)
+
+### Redeploy
+
+1. Push changes to `https://github.com/Maisonhenius/maison` `main` branch
+2. Bump the cache-bust string in the Dockerfile (e.g. `v6` → `v7`) — Docker caches the `git clone` layer, the version string forces a fresh clone
+3. Run: `cd /tmp/claude/maison-docker-deploy && railway up --project f45a16f9-e777-4cce-abd1-dcd08c2ccb56 --environment b99a4d18-a9fc-4742-b874-c0b4d38e5ade --service web --ci -m "<message>"`
+
+### Still needed before custom domain
+
+- **Stripe webhook secret** (currently `whsec_placeholder`) — create webhook in Stripe Dashboard pointing to `/api/stripe/webhook`, paste signing secret into Railway env
+- **Custom domain** `maisonhenius.com` via `railway domain --custom`
+- Replace `https://maisonhenius.com/` placeholder in `index.html` `og:image`
+- Add `sitemap.xml`, proper `og:image` (1200x630 brand image)
+
+## Image Assets (WebP only)
+
+All product/landscape images in the deployed repo are WebP. Originals stay local (gitignored).
+
+- **Convert new images**: `cwebp -q 82 input.png -o input.webp` (add `-resize 800 0` for ingredient photos)
+- **Tracked in git**: `assets/pictures/Collection & Fragrances/*.webp`, `assets/pictures/Jordan Landscape/*.webp`, `assets/pictures/ingredients/*.webp`, `assets/video-frames/**/*.webp`
+- **Gitignored** (originals only): `*.png`, `*.jpg`, `*.jpeg` in those folders
+- **Templates reference `.webp`** — never `.png` for product images. PRODUCTS dict in `app.py` uses `.webp` for `card_image` and `bottle_image`
+
+## Stripe (current state)
+
+- **Test mode** is active in production (test keys in Railway env)
+- **Webhook NOT configured on production yet** — `STRIPE_WEBHOOK_SECRET=whsec_placeholder`. Until set, payments will succeed in Stripe but orders won't be created in Supabase
+- **Local testing**: `stripe listen --forward-to localhost:3000/api/stripe/webhook`. Local secret is in `.env.local`
 
 ## Future
 - **Turbo Frames**: Cart badge, admin stats as independent frames

@@ -52,8 +52,8 @@
   .story-hero__label {
     display: block;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 400;
-    font-size: 0.6rem;
+    font-weight: 500;
+    font-size: 0.74rem;
     letter-spacing: 0.35em;
     text-transform: uppercase;
     color: #e9db90;
@@ -103,8 +103,8 @@
   .story-origin__label {
     display: block;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 400;
-    font-size: 0.6rem;
+    font-weight: 500;
+    font-size: 0.74rem;
     letter-spacing: 0.35em;
     text-transform: uppercase;
     color: #b8a44e;
@@ -173,14 +173,57 @@
 
   .story-craft__image {
     order: 1;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+  }
+
+  /* Big soft gold halo bleed across the section side — ambient warmth */
+  .story-craft__image::before {
+    content: '';
+    position: absolute;
+    inset: -10% -5%;
+    background: radial-gradient(ellipse at center,
+      rgba(233, 219, 144, 0.22) 0%,
+      rgba(233, 219, 144, 0.10) 30%,
+      rgba(233, 219, 144, 0.03) 55%,
+      rgba(233, 219, 144, 0) 75%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Tight frame around the bottle — gold corner brackets that hug the image */
+  .story-craft__img-frame {
+    position: relative;
+    display: inline-block;
+    padding: 18px;
+    z-index: 1;
+  }
+
+  .story-craft__img-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(to right, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) top left / 44px 1px no-repeat,
+      linear-gradient(to bottom, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) top left / 1px 44px no-repeat,
+      linear-gradient(to left, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) top right / 44px 1px no-repeat,
+      linear-gradient(to bottom, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) top right / 1px 44px no-repeat,
+      linear-gradient(to right, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) bottom left / 44px 1px no-repeat,
+      linear-gradient(to top, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) bottom left / 1px 44px no-repeat,
+      linear-gradient(to left, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) bottom right / 44px 1px no-repeat,
+      linear-gradient(to top, rgba(233, 219, 144, 0.7) 0, rgba(233, 219, 144, 0.7) 44px, transparent 44px) bottom right / 1px 44px no-repeat;
+    pointer-events: none;
   }
 
   .story-craft__img {
+    position: relative;
     width: 100%;
-    max-width: 420px;
+    max-width: 380px;
     height: auto;
     display: block;
-    margin: 0 auto;
   }
 
   .story-craft__text {
@@ -190,8 +233,8 @@
   .story-craft__label {
     display: block;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 400;
-    font-size: 0.6rem;
+    font-weight: 500;
+    font-size: 0.74rem;
     letter-spacing: 0.35em;
     text-transform: uppercase;
     color: #e9db90;
@@ -243,8 +286,8 @@
   .story-values__label {
     display: block;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 400;
-    font-size: 0.6rem;
+    font-weight: 500;
+    font-size: 0.74rem;
     letter-spacing: 0.35em;
     text-transform: uppercase;
     color: #b8a44e;
@@ -293,18 +336,18 @@
   .story-value__name {
     font-family: 'Cormorant Garamond', serif;
     font-weight: 400;
-    font-size: clamp(1rem, 1.4vw, 1.2rem);
+    font-size: clamp(1.15rem, 1.6vw, 1.4rem);
     color: #0a0a08;
     letter-spacing: 0.05em;
-    margin-bottom: 0.8rem;
+    margin-bottom: 1rem;
   }
 
   .story-value__desc {
     font-family: 'Montserrat', sans-serif;
-    font-weight: 300;
-    font-size: 0.7rem;
+    font-weight: 400;
+    font-size: clamp(0.82rem, 1vw, 0.9rem);
     line-height: 1.8;
-    color: rgba(10, 10, 8, 0.55);
+    color: rgba(10, 10, 8, 0.78);
     letter-spacing: 0.02em;
   }
 
@@ -369,8 +412,8 @@
   .story-cta__label {
     display: block;
     font-family: 'Montserrat', sans-serif;
-    font-weight: 400;
-    font-size: 0.6rem;
+    font-weight: 500;
+    font-size: 0.74rem;
     letter-spacing: 0.35em;
     text-transform: uppercase;
     color: #e9db90;
@@ -511,7 +554,7 @@
         </div>
       </div>
       <div class="story-origin__image">
-        <img src="/static/assets/pictures/Jordan%20Landscape/Maison%20Henius.webp" alt="Triptych - Garden, Petra, and the Perfumer's Atelier" class="story-origin__img">
+        <img src="/static/assets/pictures/Jordan%20Landscape/Maison%20Henius%20-%20universe.webp" alt="Triptych - Garden, canyon walk, and the Perfumer's Atelier" class="story-origin__img">
       </div>
     </div>
   </section>
@@ -520,7 +563,9 @@
   <section class="story-craft">
     <div class="story-craft__inner">
       <div class="story-craft__image">
-        <img src="/static/assets/pictures/Collection%20%26%20Fragrances/Bottle%20-%20White%20BG%20with%20Reflection.webp" alt="Maison Henius bottle - amber glass with golden Zamac cap" class="story-craft__img">
+        <div class="story-craft__img-frame">
+          <img src="/static/assets/pictures/Collection%20%26%20Fragrances/Bottle%20-%20White%20BG%20with%20Reflection.webp" alt="Maison Henius bottle - amber glass with golden Zamac cap" class="story-craft__img">
+        </div>
       </div>
       <div class="story-craft__text">
         <span class="story-craft__label">The Craft</span>
@@ -597,6 +642,11 @@
   window._storyInitBound = true;
 
   document.addEventListener('turbo:load', function initStoryAnimations() {
+    // Page-presence guard: this listener is bound at the document level and fires
+    // on every Turbo navigation. Bail out if the current page isn't the story page,
+    // otherwise GSAP would try to bind to .story-* selectors that don't exist on
+    // other pages (= 69+ console warnings per visit + wasted ScrollTrigger creation).
+    if (!document.querySelector('.story-hero')) return;
     if (typeof gsap === 'undefined' || typeof ScrollTrigger === 'undefined') return;
 
     requestAnimationFrame(function() {

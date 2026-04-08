@@ -470,6 +470,12 @@
   window._profileInitBound = true;
 
   document.addEventListener("turbo:load", function initProfilePage() {
+    /* Page-presence guard: this listener is bound at the document level and fires
+       on every Turbo navigation. Bail out if we're not on the profile page —
+       otherwise the auth gate below would force-redirect to /login on EVERY
+       page navigation for any logged-out user who once visited /profile. */
+    if (!document.getElementById('addressList')) return;
+
     /* -- Auth gate -- */
     var auth = localStorage.getItem('maison_auth');
     if (!auth) { window.location.href = '/login'; return; }

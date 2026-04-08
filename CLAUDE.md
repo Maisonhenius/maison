@@ -136,7 +136,7 @@ All have RLS enabled. Key columns:
 - Colors: Black `#0a0a08`, Ivory `#faf9f6`, Gold `#e9db90`/`#b8a44e`, White `#fff`
 - Fonts: Cormorant Garamond (headings, weight 300, italic), Montserrat (body, weight 300)
 - Tone: Narrative, poetic, confidently minimal. Never religious, trendy, or mass-market
-- Legal entity: "Marisal Goods wholesalers -FZE" (not "Maison Henius") in footer copyright
+- Visible copyright in footer: "Maison Henius" (brand name, per user direction 2026-04-08). Legal entity is still "Marisal Goods wholesalers -FZE" but only used in legal documents (Terms of Service, etc.), not in visible UI copy.
 
 ## Animation Stack
 

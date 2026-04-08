@@ -15,7 +15,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/style.css?v=3">
   {% block styles %}{% endblock %}
 
   <script type="importmap">
@@ -26,7 +26,7 @@
     }
   }
   </script>
-  <script type="module" src="/static/js/application.js?v=8"></script>
+  <script type="module" src="/static/js/application.js?v=9"></script>
 </head>
 <body>
   {% block nav %}
@@ -89,20 +89,21 @@
   <footer class="footer">
     <hr class="footer__divider">
     <img src="/static/assets/images/logo.svg" alt="Maison Henius" class="footer__logo">
+    <p class="footer__wordmark">Maison Henius</p>
     <p class="footer__tagline">Essences Beyond Time.</p>
     <div class="footer__social">
       <a href="https://www.instagram.com/maisonhenius" target="_blank" rel="noopener">Instagram</a>
       <a href="https://www.tiktok.com/@maison.henius" target="_blank" rel="noopener">TikTok</a>
     </div>
     <p class="footer__markets">Jordan - UAE</p>
-    <p class="footer__legal">&copy; 2026 Marisal Goods wholesalers -FZE. All rights reserved.</p>
+    <p class="footer__legal">&copy; 2026 Maison Henius. All rights reserved.</p>
   </footer>
   {% endblock %}
 
   <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/ScrollTrigger.min.js"></script>
-  <script src="/static/js/cart.js?v=3"></script>
+  <script src="/static/js/cart.js?v=4"></script>
   <script>
   (function() {
     var auth = localStorage.getItem('maison_auth');

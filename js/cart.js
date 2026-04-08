@@ -203,9 +203,17 @@ var MaisonCart = (function() {
     if (!auth) return;
 
     fetch('/api/cart', { headers: _apiHeaders() })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        if (r.status === 401) {
+          // Token is stale/expired — evict it so future navigations bail early
+          // (without this, every Turbo nav would re-hit /api/cart and re-401)
+          localStorage.removeItem('maison_auth');
+          return null;
+        }
+        return r.json();
+      })
       .then(function(data) {
-        if (!data.items) return;  // request failed or unauthenticated — keep localStorage as-is
+        if (!data || !data.items) return;  // request failed or unauthenticated — keep localStorage as-is
         var serverCart = data.items.map(function(item) {
           return {
             id: item.product_id,

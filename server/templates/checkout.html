@@ -151,6 +151,14 @@
     margin-left: 0.15em;
   }
 
+  .checkout-form__optional {
+    color: rgba(10, 10, 8, 0.4);
+    font-size: 0.85em;
+    margin-left: 0.3em;
+    text-transform: none;
+    letter-spacing: 0.05em;
+  }
+
   .checkout-form__select {
     background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23b8a44e' stroke-width='1'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -450,8 +458,8 @@
 
           <div class="checkout-form__row">
             <div class="checkout-form__group">
-              <label class="checkout-form__label" for="postal_code">Postal Code <span class="checkout-form__required">*</span></label>
-              <input class="checkout-form__input" type="text" id="postal_code" name="postal_code" autocomplete="postal-code" required>
+              <label class="checkout-form__label" for="postal_code">Postal Code <span class="checkout-form__optional">(optional)</span><span class="checkout-form__required" style="display:none">*</span></label>
+              <input class="checkout-form__input" type="text" id="postal_code" name="postal_code" autocomplete="postal-code">
             </div>
             <div class="checkout-form__group">
               <label class="checkout-form__label" for="country">Country <span class="checkout-form__required">*</span></label>
@@ -663,6 +671,31 @@
       } catch (e) { /* ignore parse errors */ }
     })();
 
+    /* -- Postal code: required only for countries with postal systems -- */
+    var REQUIRES_POSTAL = { US: 1, GB: 1, FR: 1, DE: 1 };
+    var countrySelect  = formEl.querySelector('[name="country"]');
+    var postalInput    = formEl.querySelector('[name="postal_code"]');
+    var postalLabel    = formEl.querySelector('label[for="postal_code"]');
+    var postalReqMark  = postalLabel ? postalLabel.querySelector('.checkout-form__required') : null;
+    var postalOptMark  = postalLabel ? postalLabel.querySelector('.checkout-form__optional') : null;
+
+    function syncPostalRequired() {
+      var needs = REQUIRES_POSTAL[countrySelect.value] === 1;
+      if (needs) {
+        postalInput.setAttribute('required', '');
+        if (postalReqMark) postalReqMark.style.display = '';
+        if (postalOptMark) postalOptMark.style.display = 'none';
+      } else {
+        postalInput.removeAttribute('required');
+        if (postalReqMark) postalReqMark.style.display = 'none';
+        if (postalOptMark) postalOptMark.style.display = '';
+      }
+    }
+    if (countrySelect && postalInput) {
+      countrySelect.addEventListener('change', syncPostalRequired);
+      syncPostalRequired();
+    }
+
     /* -- Submit: create Stripe Checkout Session & redirect -- */
     formEl.addEventListener('submit', function(e) {
       e.preventDefault();
@@ -706,20 +739,29 @@
         },
         body: JSON.stringify(payload)
       })
-      .then(function(r) { return r.json(); })
+      .then(function(r) {
+        return r.json().then(function(data) {
+          if (!r.ok) {
+            throw new Error(data.error || ('HTTP ' + r.status + ' ' + r.statusText));
+          }
+          return data;
+        });
+      })
       .then(function(data) {
         if (data.url) {
           window.location.href = data.url;
         } else {
-          throw new Error(data.error || 'Failed to create checkout session');
+          throw new Error('Server did not return a checkout URL');
         }
       })
       .catch(function(err) {
+        console.error('[checkout] create-session failed:', err);
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
         submitBtn.style.opacity = '';
         submitBtn.style.cursor = '';
-        alert('Something went wrong. Please try again.');
+        var msg = (err && err.message) ? err.message : 'Unknown error';
+        alert('Checkout failed: ' + msg + '\n\nPlease try again or contact support.');
       });
     });
 

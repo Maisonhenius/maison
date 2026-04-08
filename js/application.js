@@ -4,21 +4,38 @@ import { Application } from "@hotwired/stimulus"
 // Start Stimulus
 window.Stimulus = Application.start()
 
-// Turbo lifecycle: cleanup GSAP before page swap
-document.addEventListener("turbo:before-render", () => {
+// Global error logger — leaves a trace in console if anything blows up
+// (uncaught exceptions, rejected promises) so we can diagnose freeze reports
+if (!window._maisonErrorLogger) {
+  window._maisonErrorLogger = true
+  window.addEventListener("error", (e) => {
+    console.error("[maison] uncaught error:", e.error || e.message, e.filename + ":" + e.lineno)
+  })
+  window.addEventListener("unhandledrejection", (e) => {
+    console.error("[maison] unhandled promise rejection:", e.reason)
+  })
+}
+
+// Defensive cleanup helper — used by both turbo:before-render and turbo:load
+// (turbo:load destroys any leftover Lenis before creating a new one — guards
+//  against double-init if turbo:before-render didn't run for any reason)
+function cleanupLenisAndScrollTriggers() {
   // Remove ticker callback BEFORE destroying Lenis to prevent null.raf() errors
   if (window._lenisRaf && typeof gsap !== "undefined") {
-    gsap.ticker.remove(window._lenisRaf)
+    try { gsap.ticker.remove(window._lenisRaf) } catch (e) { console.warn("[maison] ticker.remove failed:", e) }
     window._lenisRaf = null
   }
   if (typeof ScrollTrigger !== "undefined") {
-    ScrollTrigger.getAll().forEach(t => t.kill())
+    try { ScrollTrigger.getAll().forEach(t => t.kill()) } catch (e) { console.warn("[maison] ScrollTrigger.kill failed:", e) }
   }
   if (window.lenis) {
-    window.lenis.destroy()
+    try { window.lenis.destroy() } catch (e) { console.warn("[maison] lenis.destroy failed:", e) }
     window.lenis = null
   }
-})
+}
+
+// Turbo lifecycle: cleanup GSAP before page swap
+document.addEventListener("turbo:before-render", cleanupLenisAndScrollTriggers)
 
 // Intercept same-page hash link clicks — scroll with Lenis instead of Turbo navigation
 document.addEventListener("click", (e) => {
@@ -46,6 +63,11 @@ document.addEventListener("click", (e) => {
 
 // Turbo lifecycle: reinit Lenis after page swap
 document.addEventListener("turbo:load", () => {
+  // Defensive: kill any leftover Lenis/ticker/ScrollTriggers before re-creating.
+  // Prevents accumulation if turbo:before-render didn't fire (initial load,
+  // browser back-forward cache, etc.) which would otherwise leak listeners.
+  cleanupLenisAndScrollTriggers()
+
   var prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
   if (!prefersReducedMotion && typeof gsap !== "undefined" && typeof Lenis !== "undefined") {
     window.lenis = new Lenis({

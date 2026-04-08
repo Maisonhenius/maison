@@ -156,7 +156,7 @@ body {
 }
 
 .logo__img {
-  height: clamp(52px, 7.8vw, 85px);
+  height: clamp(58px, 8.5vw, 100px);
   width: auto;
   display: block;
 }
@@ -396,10 +396,20 @@ body {
 }
 
 .footer__logo {
-  height: 50px;
+  height: 88px;
   width: auto;
-  opacity: 0.7;
-  margin-bottom: 1.5rem;
+  opacity: 0.95;
+  margin-bottom: 1rem;
+}
+
+.footer__wordmark {
+  font-family: 'Cormorant Garamond', serif;
+  font-weight: 400;
+  font-size: clamp(1.04rem, 1.44vw, 1.28rem);
+  color: #e9db90;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
 }
 
 .footer__tagline {
@@ -407,7 +417,7 @@ body {
   font-weight: 300;
   font-style: italic;
   font-size: 1rem;
-  color: rgba(245, 240, 232, 0.4);
+  color: rgba(245, 240, 232, 0.55);
   letter-spacing: 0.05em;
   margin-bottom: 1.5rem;
 }

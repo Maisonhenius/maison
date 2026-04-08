@@ -416,6 +416,7 @@
 
       <form class="profile__address-form" id="addressForm">
         <input class="profile__address-input" type="text" name="full_name" placeholder="Full name" autocomplete="name">
+        <input class="profile__address-input" type="tel" name="phone" placeholder="Phone" autocomplete="tel">
         <input class="profile__address-input" type="text" name="line1" placeholder="Address line 1" autocomplete="address-line1">
         <input class="profile__address-input" type="text" name="line2" placeholder="Address line 2 (optional)" autocomplete="address-line2">
         <div class="profile__address-row">
@@ -645,6 +646,15 @@
           card.appendChild(p3);
         }
 
+        if (addr.phone) {
+          var p4 = document.createElement('p');
+          p4.style.margin = '0.3rem 0 0';
+          p4.style.color = 'rgba(10, 10, 8, 0.55)';
+          p4.style.fontSize = '0.78rem';
+          p4.textContent = addr.phone;
+          card.appendChild(p4);
+        }
+
         /* Action buttons */
         var actions = document.createElement('div');
         actions.className = 'profile__address-actions';
@@ -762,6 +772,7 @@
 
         var data = {
           full_name: addressForm.querySelector('[name="full_name"]').value,
+          phone: addressForm.querySelector('[name="phone"]').value,
           line1: addressForm.querySelector('[name="line1"]').value,
           line2: addressForm.querySelector('[name="line2"]').value || '',
           city: addressForm.querySelector('[name="city"]').value,
@@ -840,6 +851,7 @@
 
       /* Populate form fields */
       addressForm.querySelector('[name="full_name"]').value = addr.full_name || '';
+      addressForm.querySelector('[name="phone"]').value = addr.phone || '';
       addressForm.querySelector('[name="line1"]').value = addr.line1 || '';
       addressForm.querySelector('[name="line2"]').value = addr.line2 || '';
       addressForm.querySelector('[name="city"]').value = addr.city || '';

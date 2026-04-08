@@ -689,6 +689,29 @@ async def create_checkout_session(request: Request):
 
     address = customer.get("address", {})
 
+    # Auto-save first checkout address to user's profile if they have none.
+    # This way the next time they checkout, the address autofills from their saved
+    # default. Non-fatal: if this fails, checkout still proceeds.
+    try:
+        if address.get("line1") and address.get("city"):
+            existing_addrs = supabase.table("addresses").select("id").eq("user_id", str(user.id)).limit(1).execute()
+            if not existing_addrs.data:
+                supabase.table("addresses").insert({
+                    "user_id": str(user.id),
+                    "full_name": customer["full_name"],
+                    "phone": customer.get("phone", ""),
+                    "line1": address.get("line1", ""),
+                    "line2": address.get("line2", ""),
+                    "city": address.get("city", ""),
+                    "state": address.get("state", ""),
+                    "postal_code": address.get("postal_code", ""),
+                    "country": address.get("country", ""),
+                    "is_default": True,
+                }).execute()
+                print(f"[create-session] Auto-saved first address for user {user.id}")
+    except Exception as e:
+        print(f"[create-session] Auto-save address failed (non-fatal): {e}")
+
     # Build URLs
     scheme = request.headers.get("x-forwarded-proto", "http")
     host = request.headers.get("host", "localhost:3000")
@@ -935,6 +958,7 @@ async def create_address(request: Request):
     address_data = {
         "user_id": str(user.id),
         "full_name": body.get("full_name", ""),
+        "phone": body.get("phone", ""),
         "line1": body.get("line1", ""),
         "line2": body.get("line2", ""),
         "city": body.get("city", ""),
@@ -965,7 +989,7 @@ async def update_address(request: Request, address_id: str):
         return JSONResponse({"error": "Address not found"}, status_code=404)
 
     update_data = {}
-    for field in ["full_name", "line1", "line2", "city", "state", "postal_code", "country"]:
+    for field in ["full_name", "phone", "line1", "line2", "city", "state", "postal_code", "country"]:
         if field in body:
             update_data[field] = body[field]
 

@@ -611,9 +611,9 @@ body {
 }
 
 .mobile-nav__logo img {
-  height: 50px;
+  height: 80px;
   width: auto;
-  opacity: 0.6;
+  opacity: 0.95;
 }
 
 .mobile-nav__links {

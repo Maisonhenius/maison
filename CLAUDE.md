@@ -145,13 +145,15 @@ All have RLS enabled. Key columns:
 - **No SplitText** - paid GSAP plugin, NOT on public CDN. Use clipPath mask reveals.
 - **Hash anchors**: `application.js` intercepts `<a href="#...">` clicks for Lenis smooth scroll. Must call `ScrollTrigger.refresh()` before `lenis.scrollTo()` to account for pin spacer heights.
 - Turbo lifecycle: kill ScrollTriggers on `turbo:before-render`, reinit Lenis on `turbo:load`
+- **Global error logger** (`application.js`): `window.error` + `unhandledrejection` listeners log as `[maison] uncaught error: ...` / `[maison] unhandled promise rejection: ...`. If a page freezes or animation breaks, check console for these tags first.
+- **Lenis cleanup is defensive** — `lenis.destroy()`, `gsap.ticker.remove()`, `ScrollTrigger.kill()` are all wrapped in try/catch in `application.js`. The cleanup runs on `turbo:before-render` AND at the start of `turbo:load` (idempotent — kills any leftover state before re-creating).
 
 ## Scroll Video (Canvas Frame Sequencer)
 
 121 WebP frames from `scrollvideo.mp4` (desktop) and `scrollvideo-mobile.mp4` (portrait).
 Frames ARE committed to the repo (`assets/video-frames/`, ~19MB). Source MP4s are gitignored.
 
-- **`FRAME_START = 30`** in `index.html` (around line 1177) — frames 0-29 show a detached bottle cap floating above a capless bottle body, which looks like a rendering bug. Animation starts at frame 30 where the bottle is fully assembled. Don't lower this without re-checking the source frames.
+- **`FRAME_START = 0`** in `index.html` (around line 1226) — frame 1 shows the gold ornate cap floating high alone (intentional, the cap-design reveal moment the user explicitly approved). Frames 2-30 show the cap descending while the bottle body fades in. Frames 31+ are the assembled bottle with ingredients. Don't raise this — frame 1 alone is the highlight shot.
 - **Mobile video lacks ingredients reveal** — desktop frame 121 shows the ingredient flatlay; mobile frame 121 only shows the bottle. Content limitation, not a code bug.
 
 If frames are missing, re-extract:
@@ -193,7 +195,11 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Product image filenames**: `Velvet Waterfall .png` and `Oud Passion .png` have trailing spaces - use URL encoding `%20`.
 - **Static files**: Mounted as 4 separate directories (`/static/css`, `/static/js`, `/static/assets`, `/static/admin`) — never exposes project root. Root files (favicon, etc.) served via whitelist route.
 - **GSAP SplitText**: Paid plugin. Don't load from CDN - crashes the script.
-- **Turbo `turbo:load` listeners**: Inline `turbo:load` listeners use the guard IIFE pattern — wrap in `(function() { if (window._pageInitBound) return; window._pageInitBound = true; document.addEventListener('turbo:load', function() { ... }); })()`. This registers the listener only once (no accumulation) while allowing it to fire on back/forward navigation (unlike `{ once: true }` which breaks snapshot restoration). Animation-heavy pages also need `requestAnimationFrame` wrapping and `ScrollTrigger.refresh()` at the end.
+- **Turbo `turbo:load` listeners need TWO guards**:
+  1. **IIFE guard** (per JS load): `(function() { if (window._pageInitBound) return; window._pageInitBound = true; document.addEventListener('turbo:load', function() { ... }); })()` — registers the listener only once, no accumulation.
+  2. **Page-presence guard** (per fire): `if (!document.querySelector('.unique-page-element')) return;` as the FIRST line of the listener body. Without this, the listener fires on EVERY Turbo navigation regardless of page → produces dozens of `GSAP target not found` warnings AND can cause real bugs (e.g. `profile.html` was force-redirecting any logged-out user to `/login` on every navigation if they'd ever visited `/profile`). Pattern: landing checks `.hero__video`, story checks `.story-hero`, profile checks `#addressList`, product checks `.product-hero`, cart checks `#cartItems`, checkout checks `#checkoutForm`.
+
+  Animation-heavy pages also need `requestAnimationFrame` wrapping and `ScrollTrigger.refresh()` at the end.
 - **`application.js` cache-busting**: Browser aggressively caches this ES module. After editing, bump the `?v=N` query string in `layout.html`.
 - **Hash link scrolling**: Lenis blocks native `#hash` scrolling. `application.js` intercepts same-page hash clicks and uses `lenis.scrollTo()` with `ScrollTrigger.refresh()` before scrolling. Cross-page hash links handled in the `turbo:load` handler with a 300ms delay.
 - **`cart.js` is global**: Loaded in `layout.html`, not individual templates. `MaisonCart` is available on every page.
@@ -213,6 +219,8 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Don't insert `order_items` during pre-create** — only on the `pending → confirmed` transition (in `_confirm_order`). Otherwise abandoned checkouts would pollute analytics. Same rule for clearing `cart_items`: only when transitioning to confirmed, not on pre-create (the user might come back to retry).
 - **Cart sync is server-authoritative for logged-in users** — `cart.js loadFromServer()` always overwrites localStorage with the server cart (empty included). Don't add merge logic here — that's what caused the "stale cart after checkout" bug. The merge logic for guest→login transition lives in `sync()`, called explicitly from `login.html`.
 - **`loadFromServer()` skips on `/checkout/success`** — guard at the top of the function. Removing it re-introduces a race where the in-flight server fetch repopulates localStorage after the page script clears it.
+- **`cart.js` evicts stale tokens on 401**: `loadFromServer()` checks for `r.status === 401` and removes `maison_auth` from localStorage. Without this, an expired JWT keeps re-firing /api/cart on every Turbo navigation. Don't replace with a retry loop — the token is dead, the user needs to re-login.
+- **Postal code conditionally required in checkout**: `checkout.html` defines `REQUIRES_POSTAL = { US: 1, GB: 1, FR: 1, DE: 1 }` — only those countries require postal_code. UAE, KSA, Gulf countries are optional. When adding a new country to the `<select>`, also decide if it belongs in REQUIRES_POSTAL. The `syncPostalRequired()` listener toggles the input's `required` attribute + the `(optional)` label hint based on the current selection.
 - **`/checkout/success` is self-healing** — the route uses Stripe API to verify the session, then calls `_create_order_from_stripe_session()` (the same helper the webhook uses) to create the order + clear the server cart. Idempotent via existing-order check. If you change the webhook order-creation logic, change the helper, not the webhook handler — both code paths flow through it.
 - **Don't change middleware order in `app.py`** — `CacheControlMiddleware` must be added BEFORE `GZipMiddleware`. Starlette runs `add_middleware()` calls in reverse order on responses, so the last one added is the outermost. GZip needs to wrap CacheControl so `Vary: Accept-Encoding` lands after the cache headers are set.
 - **Railway's Fastly is a passthrough, not a cache** — every response shows `x-cache: MISS` even with valid `Cache-Control` headers. Don't try to "fix" this with surrogate headers; it's a platform-level limitation. The cache headers are still useful for **browser** caching. For real shared edge caching across users, the move is Cloudflare in front of Railway when the custom domain is set up.
@@ -272,6 +280,18 @@ ffmpeg -y -i input.mp4 -c:v libx264 -preset slow -crf 26 -vf "scale=1280:-2" -an
 ```
 
 **Lesson learned:** card images were originally encoded at 4096×4096 (full 4K) because cwebp doesn't auto-resize. This cost ~7 MB on every landing page paint. Always check dimensions with `webpinfo file.webp` before deploying.
+
+## Nano Banana asset workflow
+
+When editing existing brand images via the `nano-banana` skill:
+
+1. **Pass the existing image as input** — never generate from scratch when editing. The skill needs the original to preserve composition.
+2. **Save with a distinct filename** (e.g. `patchouli-green.webp`, `card-parisian-v2.webp`). Never overwrite the original.
+3. **Verify dimensions + format** — Nano Banana sometimes returns JPEG bytes with a `.webp` extension. Run `webpinfo` to check, re-encode with `cwebp -q 78 -resize WIDTH 0` if wrong.
+4. **Promote to canonical name** by renaming after approval: `mv original.webp original-backup.webp && mv new.webp original.webp`. The `-backup` suffix is descriptive (e.g. `coffee-beans.webp`, `patchouli-dried.webp`, `card-parisian-original.webp`). Backups stay in git as fallback.
+5. **Path renaming preserves Jinja captions**: templates like `products/detail.html` build the ingredient name from the filename via `{{ img | replace('-', ' ') | title }}`. So `patchouli-green.webp` would render as "Patchouli Green" in the UI — promote to canonical `patchouli.webp` to keep "Patchouli" as the display name.
+
+Current AI-edited assets (with backups available): `patchouli.webp` (backup: `patchouli-dried.webp`), `coffee.webp` (backup: `coffee-beans.webp`), `card-parisian.webp` (backup: `card-parisian-original.webp`), `card-out-of-control.webp` (backup: `card-out-of-control-original.webp`), `Maison Henius - universe.webp` (sibling of original `Maison Henius.webp`).
 
 ## Performance
 

@@ -138,6 +138,19 @@ All have RLS enabled. Key columns:
 - Tone: Narrative, poetic, confidently minimal. Never religious, trendy, or mass-market
 - Visible copyright in footer: "Maison Henius" (brand name, per user direction 2026-04-08). Legal entity is still "Marisal Goods wholesalers -FZE" but only used in legal documents (Terms of Service, etc.), not in visible UI copy.
 
+## Mobile / Responsive
+
+Site is mobile-first. Key patterns to preserve:
+
+- **iOS auto-zoom prevention**: `style.css` has a global `@media (max-width: 768px) { input, select, textarea { font-size: 16px !important } }` rule. iOS Safari force-zooms 1.5x on any input < 16px — the `!important` is intentional, do NOT remove. Auth pages (login/signup/forgot-password/reset-password) inline their own copy of this rule on `.auth__input` because they don't load `style.css` — keep all 4 in sync.
+- **Touch targets ≥ 44×44 px** (WCAG 2.5.5 + Apple HIG). Currently enforced at: header nav icons, hamburger, cart qty buttons (`width: 44px; height: 44px` on mobile media query), auth submit buttons (`min-height: 48px`), profile address Edit/Delete actions (negative-margin trick to keep visible size small but tap area ~44px), product hero Add to Cart (full-width on mobile).
+- **Viewport safety**: every page has `<meta name="viewport" content="width=device-width, initial-scale=1.0">`. Never add `user-scalable=no` (accessibility violation).
+- **`body { overflow-x: hidden }`** is the global safety net against horizontal scroll. Any new section that needs full-bleed should use `width: 100%` (NOT `100vw` — `100vw` includes scrollbar width and overflows on desktop).
+- **Hamburger nav < 768px**: `.nav__hamburger` shown, `.nav__left` hidden, `.nav__right` collapses gap. Logo flexes to center. Pattern lives in `style.css` `@media (max-width: 768px)`.
+- **Scroll-to-top FAB hidden < 480px**: `.scroll-top { display: none }` on small screens. Was added because the FAB overlapped pillar descriptions on `/story` at narrow widths. JS still adds the `is-visible` class on scroll, but CSS overrides — pages are short enough on a phone that the FAB doesn't add value.
+- **Product hero CTA stacks vertically < 480px**: `.product-hero__bar` becomes `flex-direction: column`, price + Add to Cart full-width. Don't try to fit them side-by-side — at 320px the price gets crushed.
+- **Tested viewports**: 320×568 (iPhone SE worst case), 375×812 (iPhone 13/14), 768 (iPad portrait). Use Playwright at these sizes to verify before claiming a mobile fix done.
+
 ## Animation Stack
 
 - **GSAP 3.12 + ScrollTrigger** (CDN) - all entrance/scroll animations
@@ -208,7 +221,8 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Landing page nav override**: `index.html` overrides `{% block nav %}` with its own header inside the hero. Nav changes must be mirrored in THREE places: `layout.html` nav, `index.html` hero nav, AND the `#mobileNav` overlay in `layout.html`.
 - **Hero width**: Use `width: 100%` not `100vw` for full-screen sections — `100vw` includes scrollbar width and causes horizontal overflow on mobile.
 - **Mobile nav double-init**: `initMobileNav()` runs both immediately and on `turbo:load`. The `dataset.mobileNavInit` guard on each button/link prevents duplicate listeners. Do NOT remove this guard.
-- **Standalone pages + Turbo**: Login, signup, forgot-password, reset-password, admin/login, admin/auth-callback don't extend `layout.html`. Links to them MUST have `data-turbo="false"` — otherwise Turbo SPA-navigates, corrupts GSAP state, and back navigation shows a blank page.
+- **Scroll-to-top FAB hidden on narrow phones**: `.scroll-top` is `display: none` on `< 480px` via `style.css`. The JS still adds `is-visible` class on scroll, but CSS overrides. Don't try to "fix" the FAB visibility on mobile — it intentionally gets out of the way of long-form content. See the Mobile / Responsive section.
+- **Standalone pages + Turbo**: Login, signup, forgot-password, reset-password, admin/login, admin/auth-callback don't extend `layout.html`. Links to them MUST have `data-turbo="false"` — otherwise Turbo SPA-navigates, corrupts GSAP state, and back navigation shows a blank page. **Mobile implication**: standalone pages don't load `style.css`, so any global mobile rules (iOS-zoom prevention, touch-target min-heights, FAB hide) must be DUPLICATED into each standalone page's inline `<style>` block. The 4 customer auth pages currently each inline their own copy of `@media (max-width: 768px) { .auth__input { font-size: 16px !important; } ... }` — keep them in sync when adding new standalone pages.
 - **Resend emails**: All auth emails (signup confirm, password reset, admin login) sent via Resend from `noreply@maisonhenius.com`. Routes use `supabase.auth.admin.generate_link()` (service role client) to get verification URLs without Supabase sending email, then `email_service.py` delivers branded HTML via Resend. Exception: `reset-password` creates its own anon client (needs isolated session state for `set_session()`). Module is named `email_service.py` (not `email.py`) to avoid stdlib conflict.
 - **Stripe webhook raw body**: The `/api/stripe/webhook` endpoint must read `await request.body()` (raw bytes) for signature verification — parsed JSON breaks the signature check.
 - **Stripe StripeObject metadata**: `Webhook.construct_event()` returns `StripeObject` types — `session.metadata` does NOT support `.get()`. Always convert with `.to_dict()` first before accessing keys.

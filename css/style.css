@@ -694,3 +694,36 @@ body {
     gap: 1rem;
   }
 }
+
+/* ─────────────────────────────────────────────────────────────
+   MOBILE: prevent iOS Safari auto-zoom on form inputs
+   iOS force-zooms 1.5x when an input has computed font-size < 16px.
+   This rule guarantees every form across the site is safe on iPhone.
+   Applies to all pages that link style.css (everything except auth
+   pages, which inline their own copy of this rule).
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  input[type="text"],
+  input[type="email"],
+  input[type="tel"],
+  input[type="password"],
+  input[type="number"],
+  input[type="search"],
+  input[type="url"],
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   MOBILE: hide scroll-to-top FAB on narrow screens
+   At <480px the FAB overlaps long-form text on /story (covers
+   pillar descriptions). Pages are short enough on small phones
+   that the FAB doesn't add value — content is one swipe up.
+   ───────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .scroll-top {
+    display: none !important;
+  }
+}

@@ -74,9 +74,9 @@
     }
 
     .auth__sub {
-      font-weight: 300;
-      font-size: 0.75rem;
-      color: rgba(245, 240, 232, 0.35);
+      font-weight: 400;
+      font-size: 0.85rem;
+      color: rgba(245, 240, 232, 0.65);
       letter-spacing: 0.03em;
       margin-bottom: 2.5rem;
     }
@@ -177,6 +177,34 @@
     @media (prefers-reduced-motion: reduce) {
       .auth { visibility: visible !important; opacity: 1 !important; }
     }
+
+    /* ── Mobile: prevent iOS auto-zoom + larger touch targets ── */
+    @media (max-width: 768px) {
+      .auth__input {
+        font-size: 16px !important;
+        padding: 1rem 1.2rem;
+      }
+      .auth__btn {
+        font-size: 0.75rem;
+        padding: 1.1rem 1.8rem;
+        min-height: 48px;
+      }
+      .auth__footer a {
+        display: inline-block;
+        padding: 0.5rem 0.3rem;
+      }
+    }
+
+    /* ── Forgot password link: clean :hover instead of inline JS ── */
+    .auth__footer .auth__forgot {
+      color: rgba(245, 240, 232, 0.55);
+      transition: color 0.3s ease;
+    }
+    .auth__footer .auth__forgot:hover,
+    .auth__footer .auth__forgot:focus-visible {
+      color: #e9db90;
+      outline: none;
+    }
   </style>
 </head>
 <body>
@@ -197,7 +225,7 @@
 
     <p class="auth__error" id="loginError"></p>
 
-    <p class="auth__footer" style="margin-top: 1.2rem;"><a href="/forgot-password" style="color: rgba(245, 240, 232, 0.35); transition: color 0.3s ease;" onmouseover="this.style.color='#e9db90'" onmouseout="this.style.color='rgba(245, 240, 232, 0.35)'">Forgot password?</a></p>
+    <p class="auth__footer" style="margin-top: 1.2rem;"><a href="/forgot-password" class="auth__forgot">Forgot password?</a></p>
     <p class="auth__footer">Don't have an account? <a href="/signup" id="signupLink">Create one</a></p>
   </div>
 

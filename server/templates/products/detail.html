@@ -371,6 +371,25 @@
     .product-hero__name {
       font-size: clamp(1.6rem, 7vw, 2.4rem);
     }
+    .product-hero__family {
+      font-size: 0.65rem;
+      letter-spacing: 0.22em;
+    }
+    /* Stack price + Add to Cart so they each get full width on small phones */
+    .product-hero__bar {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 1rem;
+      padding: 3rem clamp(1.5rem, 4vw, 4rem) 1.5rem;
+    }
+    .product-hero__actions {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .product-hero__cart-btn {
+      flex: 1;
+      min-height: 48px;
+    }
   }
 </style>
 {% endblock %}

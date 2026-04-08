@@ -637,12 +637,26 @@
         fetch('/api/profile', {
           headers: { 'Authorization': 'Bearer ' + token }
         }).then(function(r) { return r.json(); }).then(function(data) {
-          if (data.profile && data.profile.full_name) {
-            var nameInput = formEl.querySelector('[name="full_name"]');
-            if (nameInput) nameInput.value = data.profile.full_name;
+          var profile = data.profile || {};
+          var addr = (data.addresses && data.addresses.length > 0)
+            ? (data.addresses.find(function(a) { return a.is_default; }) || data.addresses[0])
+            : null;
+
+          /* full_name: prefer profile, fall back to address recipient name */
+          var nameInput = formEl.querySelector('[name="full_name"]');
+          if (nameInput) {
+            var name = profile.full_name || (addr && addr.full_name) || '';
+            if (name) nameInput.value = name;
           }
-          if (data.addresses && data.addresses.length > 0) {
-            var addr = data.addresses.find(function(a) { return a.is_default; }) || data.addresses[0];
+
+          /* phone: prefer address phone (specific to delivery), fall back to profile phone */
+          var phoneInput = formEl.querySelector('[name="phone"]');
+          if (phoneInput) {
+            var phone = (addr && addr.phone) || profile.phone || '';
+            if (phone) phoneInput.value = phone;
+          }
+
+          if (addr) {
             var fields = { line1: 'line1', line2: 'line2', city: 'city', state: 'state', postal_code: 'postal_code' };
             Object.keys(fields).forEach(function(key) {
               var input = formEl.querySelector('[name="' + fields[key] + '"]');
@@ -664,6 +678,10 @@
                   }
                 }
                 if (!matched) countrySelect.value = val;
+                /* Re-sync postal-required state after programmatic country change.
+                   Otherwise a US user with a saved address would see "Postal Code (optional)"
+                   even though US requires it (the change event only fires for user input). */
+                if (typeof syncPostalRequired === 'function') syncPostalRequired();
               }
             }
           }

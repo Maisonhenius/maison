@@ -756,7 +756,7 @@
   <h1 class="sr-only">Maison Henius - Luxury Perfume House</h1>
 
   <section class="hero">
-    <video class="hero__video" autoplay muted playsinline>
+    <video class="hero__video" autoplay muted playsinline preload="auto">
       <source src="/static/assets/videos/web/1.mp4" type="video/mp4">
     </video>
 
@@ -802,7 +802,10 @@
       <div class="scroll-indicator__line"></div>
     </div>
 
-    <audio id="bgMusic" loop preload="auto">
+    <!-- preload="none": music is muted by default, only plays if the user clicks the
+         sound toggle. Most visitors never click it, so we were shipping ~452 KB on every
+         cold visit for nothing. `none` defers the download until user interaction. -->
+    <audio id="bgMusic" loop preload="none">
       <source src="/static/assets/music/music.mp3" type="audio/mpeg">
     </audio>
 
@@ -864,7 +867,7 @@
         <div class="about__origin-image">
           <img src="/static/assets/pictures/Jordan Landscape/Wadi Rum.webp"
                alt="Wadi Rum desert - the Jordanian landscape that inspires Maison Henius"
-               loading="lazy">
+               width="1248" height="832" loading="lazy" decoding="async">
         </div>
       </div>
     </div>
@@ -902,8 +905,8 @@
 
     <div class="collection__list">
       <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-out-of-control.webp" alt="" loading="lazy">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Out of Control.webp" alt="Out of Control - Fruity-Floral Eau de Parfum" loading="lazy">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-out-of-control.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Out of Control.webp" alt="Out of Control - Fruity-Floral Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">Fruity-Floral</span>
           <h3 class="collection__card-name">Out of Control</h3>
@@ -915,8 +918,8 @@
       </article>
 
       <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-parisian.webp" alt="" loading="lazy">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Parisian.webp" alt="Parisian - Floral-Gourmand Eau de Parfum" loading="lazy">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-parisian.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Parisian.webp" alt="Parisian - Floral-Gourmand Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">Floral-Gourmand</span>
           <h3 class="collection__card-name">Parisian</h3>
@@ -928,8 +931,8 @@
       </article>
 
       <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-velvet-waterfall.webp" alt="" loading="lazy">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Velvet Waterfall .webp" alt="Velvet Waterfall - Floral-Woody Eau de Parfum" loading="lazy">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-velvet-waterfall.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Velvet Waterfall .webp" alt="Velvet Waterfall - Floral-Woody Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">Floral-Woody</span>
           <h3 class="collection__card-name">Velvet Waterfall</h3>
@@ -941,8 +944,8 @@
       </article>
 
       <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oh-my-dear.webp" alt="" loading="lazy">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oh My Dear.webp" alt="Oh My Dear! - Woody-Amber Eau de Parfum" loading="lazy">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oh-my-dear.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oh My Dear.webp" alt="Oh My Dear! - Woody-Amber Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">Woody-Amber</span>
           <h3 class="collection__card-name">Oh My Dear!</h3>
@@ -954,8 +957,8 @@
       </article>
 
       <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oud-passion.webp" alt="" loading="lazy">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oud Passion .webp" alt="Oud Passion - Woody-Amber Oud Eau de Parfum" loading="lazy">
+        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oud-passion.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
+        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oud Passion .webp" alt="Oud Passion - Woody-Amber Oud Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">Woody-Amber &middot; Oud</span>
           <h3 class="collection__card-name">Oud Passion</h3>
@@ -990,7 +993,7 @@
     <div class="story__atelier">
       <img src="/static/assets/pictures/Jordan Landscape/Story.webp"
            alt="The perfumer's atelier - oils, figs, and raw materials"
-           loading="lazy">
+           width="1356" height="736" loading="lazy" decoding="async">
     </div>
   </section>
 
@@ -1261,15 +1264,39 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     }
 
     function preload() {
-      for (var i = 0; i < TOTAL; i++) {
+      // Throttled preloader: keep a small pool of concurrent requests instead of
+      // firing all 121 at once (which was saturating the browser's 6-per-origin
+      // connection limit and making the loader feel frozen on slow networks).
+      //
+      // Priority order: FRAME_START first (so the cap-floating reveal can draw
+      // immediately), then the rest in order. We also draw FRAME_START the
+      // moment it lands — no more blank canvas waiting for all 121 frames.
+      //
+      // ScrollTrigger.create() is still deferred until ALL frames are loaded so
+      // the scroll animation never starts incomplete (same contract as before).
+      var POOL = 6;           // matches browser per-origin HTTP/1.1 cap
+      var nextIdx = 0;        // next frame index to dispatch
+      var order = [];
+      order.push(FRAME_START);
+      for (var j = 0; j < TOTAL; j++) { if (j !== FRAME_START) order.push(j); }
+
+      function dispatchNext() {
+        if (nextIdx >= order.length) return;
+        var i = order[nextIdx++];
         var img = new Image();
+        img.decoding = 'async';
         img.src = frameUrl(i);
+        frames[i] = img;
         img.onload = img.onerror = function() {
           loaded++;
           loaderBar.style.width = ((loaded / TOTAL) * 100) + '%';
+          // Draw FRAME_START as soon as it's ready — user sees the cap-floating
+          // reveal instantly instead of blank canvas while the rest stream in.
+          if (i === FRAME_START && currentFrame < 0) drawFrame(FRAME_START);
           if (loaded === TOTAL) {
             loader.classList.add('scroll-video__loader--hidden');
-            drawFrame(FRAME_START);
+            // Ensure FRAME_START is drawn (defensive — normally already drawn above)
+            if (currentFrame < 0) drawFrame(FRAME_START);
             // Create the scrub ScrollTrigger after all frames loaded
             ScrollTrigger.create({
               trigger: section,
@@ -1282,10 +1309,14 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
                 if (idx !== currentFrame) drawFrame(idx);
               }
             });
+          } else {
+            dispatchNext();
           }
         };
-        frames[i] = img;
       }
+
+      // Kick off the pool
+      for (var p = 0; p < POOL && p < order.length; p++) dispatchNext();
     }
 
     // Lazy init: preload when section approaches

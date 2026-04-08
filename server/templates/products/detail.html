@@ -241,7 +241,7 @@
     flex: 1; text-align: center;
   }
   .product-comp__note-img {
-    width: 100%; aspect-ratio: 1;
+    width: 100%; height: auto; aspect-ratio: 1;
     object-fit: cover; border-radius: 12px;
     margin-bottom: 0.8rem;
   }
@@ -397,7 +397,7 @@
 {% block content %}
   <!-- ═══ HERO: Full-screen video + bottom bar ═══ -->
   <section class="product-hero">
-    <video class="product-hero__video" autoplay muted loop playsinline>
+    <video class="product-hero__video" autoplay muted loop playsinline preload="auto">
       <source src="/static/assets/videos/web/{{ product.video }}" type="video/mp4">
     </video>
     <div class="product-hero__overlay"></div>
@@ -429,7 +429,8 @@
   <section class="product-mood">
     <img class="product-mood__img"
          src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}"
-         alt="{{ product.name }} - ingredients and bottle on travertine" loading="lazy">
+         alt="{{ product.name }} - ingredients and bottle on travertine"
+         width="1200" height="1200" loading="lazy" decoding="async">
   </section>
 
   <!-- ═══ THE WEARER ═══ -->
@@ -465,7 +466,7 @@
       <div class="product-comp__notes">
         {% for img in group.images %}
         <div class="product-comp__note">
-          <img class="product-comp__note-img" src="/static/assets/pictures/ingredients/{{ img }}.webp" alt="{{ img | capitalize }}" loading="lazy">
+          <img class="product-comp__note-img" src="/static/assets/pictures/ingredients/{{ img }}.webp" alt="{{ img | capitalize }}" width="800" height="800" loading="lazy" decoding="async">
           <div class="product-comp__note-name">{{ img | replace('-', ' ') | title }}</div>
         </div>
         {% endfor %}
@@ -479,7 +480,8 @@
     <span class="product-bottle__label">The Bottle</span>
     <img class="product-bottle__img"
          src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.bottle_image | replace(' ', '%20') }}"
-         alt="{{ product.name }} - Maison Henius bottle" loading="lazy">
+         alt="{{ product.name }} - Maison Henius bottle"
+         width="832" height="1258" loading="lazy" decoding="async">
     <div class="product-bottle__details">Eau de Parfum · 100ml</div>
     <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
     <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart - ${{ product.price }}</button>
@@ -494,7 +496,7 @@
     <div class="product-explore__grid">
       {% for slug, other in others.items() %}
       <a href="/products/{{ slug }}" class="product-explore__card">
-        <img src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ other.card_image }}" alt="{{ other.name }}" loading="lazy">
+        <img src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ other.card_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
         <span class="product-explore__card-name">{{ other.name }}</span>
       </a>
       {% endfor %}

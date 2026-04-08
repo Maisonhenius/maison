@@ -8,6 +8,7 @@ from pathlib import Path
 from datetime import datetime
 from dotenv import load_dotenv
 from typing import Optional
+import asyncio
 import os
 import re
 import json
@@ -16,6 +17,27 @@ import mimetypes
 import traceback
 from stripe import StripeClient, Webhook, SignatureVerificationError
 import email_service
+
+# --- Async DB helpers ---
+#
+# supabase-py is a SYNC library. Calling `.execute()` inside an `async def` route
+# blocks the asyncio event loop for the duration of the network round-trip to
+# Supabase (~100–400ms each), meaning no other requests can be served during
+# that time. Wrapping every call in `asyncio.to_thread` runs the blocking I/O on
+# a worker thread and frees the event loop to handle concurrent requests.
+#
+# Pattern at every call site: `await _db(supabase.table("...").select("*"))`
+# instead of `supabase.table("...").select("*").execute()`.
+
+
+async def _db(query):
+    """Run a Supabase query builder's `.execute()` in a worker thread."""
+    return await asyncio.to_thread(query.execute)
+
+
+async def _to_thread(callable_, *args, **kwargs):
+    """Convenience: run any blocking callable in a worker thread."""
+    return await asyncio.to_thread(callable_, *args, **kwargs)
 
 # Register WebP MIME type — Starlette uses Python's mimetypes module via
 # StaticFiles, and the default registry on Linux/Alpine often misses image/webp
@@ -90,14 +112,14 @@ app.add_middleware(CacheControlMiddleware)
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
-def get_admin_user(request: Request) -> Optional[object]:
+async def get_admin_user(request: Request) -> Optional[object]:
     """Extract and validate admin user from auth header"""
     auth_header = request.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
     token = auth_header.split(" ")[1]
     try:
-        user_resp = supabase.auth.get_user(token)
+        user_resp = await _to_thread(supabase.auth.get_user, token)
         if user_resp and user_resp.user and str(user_resp.user.email) in ALLOWED_EMAILS:
             return user_resp.user
     except Exception:
@@ -105,14 +127,14 @@ def get_admin_user(request: Request) -> Optional[object]:
     return None
 
 
-def get_authenticated_user(request: Request):
+async def get_authenticated_user(request: Request):
     """Extract and validate user from Bearer token"""
     auth_header = request.headers.get("authorization", "")
     if not auth_header.startswith("Bearer "):
         return None
     token = auth_header.split(" ")[1]
     try:
-        user_resp = supabase.auth.get_user(token)
+        user_resp = await _to_thread(supabase.auth.get_user, token)
         if user_resp and user_resp.user:
             return user_resp.user
     except Exception:
@@ -344,7 +366,7 @@ async def auth_signup(request: Request):
 
     try:
         # Create user via admin API (unconfirmed — must verify email)
-        user = supabase.auth.admin.create_user({
+        user = await _to_thread(supabase.auth.admin.create_user, {
             "email": email,
             "password": password,
             "email_confirm": False,
@@ -355,16 +377,16 @@ async def auth_signup(request: Request):
             user_id = str(user.user.id)
 
             # Create profile (admin API guarantees user exists in auth.users)
-            supabase.table("profiles").upsert({
+            await _db(supabase.table("profiles").upsert({
                 "id": user_id,
                 "full_name": full_name,
                 "email": email
-            }).execute()
+            }))
 
             # Generate confirmation link without Supabase sending email
             scheme = request.headers.get("x-forwarded-proto", "http")
             host = request.headers.get("host", "localhost:3000")
-            link_resp = supabase.auth.admin.generate_link({
+            link_resp = await _to_thread(supabase.auth.admin.generate_link, {
                 "type": "signup",
                 "email": email,
                 "password": password,
@@ -372,8 +394,8 @@ async def auth_signup(request: Request):
             })
             action_link = link_resp.properties.action_link
 
-            # Send branded email via Resend
-            email_service.send_signup_confirmation(email, action_link, full_name)
+            # Send branded email via Resend (blocking HTTP to Resend — run in thread)
+            await _to_thread(email_service.send_signup_confirmation, email, action_link, full_name)
 
             return JSONResponse({
                 "success": True,
@@ -398,7 +420,10 @@ async def auth_login(request: Request):
 
     try:
         # Use anon client for auth (service role bypasses normal auth flows)
-        result = supabase_anon.auth.sign_in_with_password({"email": email, "password": password})
+        result = await _to_thread(
+            supabase_anon.auth.sign_in_with_password,
+            {"email": email, "password": password},
+        )
         if result.user:
             access_token = result.session.access_token if result.session else ""
             return JSONResponse({
@@ -424,14 +449,14 @@ async def forgot_password(request: Request):
     try:
         scheme = request.headers.get("x-forwarded-proto", "http")
         host = request.headers.get("host", "localhost:3000")
-        link_resp = supabase.auth.admin.generate_link({
+        link_resp = await _to_thread(supabase.auth.admin.generate_link, {
             "type": "recovery",
             "email": email,
             "options": {"redirect_to": f"{scheme}://{host}/reset-password"}
         })
         action_link = link_resp.properties.action_link
 
-        email_service.send_password_reset(email, action_link)
+        await _to_thread(email_service.send_password_reset, email, action_link)
     except Exception:
         pass  # Always return success — never reveal if email exists
 
@@ -450,9 +475,12 @@ async def reset_password(request: Request):
 
     try:
         # Needs isolated client — set_session() mutates auth state
-        anon = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
-        anon.auth.set_session(access_token, refresh_token)
-        anon.auth.update_user({"password": new_password})
+        def _do_reset():
+            anon = create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+            anon.auth.set_session(access_token, refresh_token)
+            anon.auth.update_user({"password": new_password})
+
+        await _to_thread(_do_reset)
         return JSONResponse({"success": True})
     except Exception as e:
         error_msg = str(e)
@@ -472,14 +500,14 @@ async def admin_send_link(request: Request, email: str = Form(...)):
     try:
         scheme = request.headers.get("x-forwarded-proto", "http")
         host = request.headers.get("host", "localhost:3000")
-        link_resp = supabase.auth.admin.generate_link({
+        link_resp = await _to_thread(supabase.auth.admin.generate_link, {
             "type": "magiclink",
             "email": clean_email,
             "options": {"redirect_to": f"{scheme}://{host}/admin/auth/callback"}
         })
         action_link = link_resp.properties.action_link
 
-        email_service.send_admin_login_link(clean_email, action_link)
+        await _to_thread(email_service.send_admin_login_link, clean_email, action_link)
 
         return JSONResponse({"success": True, "message": "Check your email for a login link"})
     except Exception as e:
@@ -492,7 +520,7 @@ async def admin_auth_callback(request: Request):
 
 # --- Stripe Checkout API ---
 
-def _confirm_order(order: dict, source: str) -> dict:
+async def _confirm_order(order: dict, source: str) -> dict:
     """Transition a pending order to confirmed.
 
     Inserts order_items for analytics and clears the server cart.
@@ -502,33 +530,37 @@ def _confirm_order(order: dict, source: str) -> dict:
     if not order_id:
         return order
 
-    supabase.table("orders").update({"status": "confirmed"}).eq("id", order_id).execute()
+    await _db(supabase.table("orders").update({"status": "confirmed"}).eq("id", order_id))
     order["status"] = "confirmed"
 
-    # Insert order_items for analytics (first transition only)
+    # Insert order_items for analytics (first transition only).
+    # Batched: one INSERT for the whole cart instead of N sequential round-trips.
     items = order.get("items") or []
     if isinstance(items, list):
-        for item in items:
-            if isinstance(item, dict):
-                supabase.table("order_items").insert({
-                    "order_id": order_id,
-                    "product_id": item.get("id"),
-                    "product_name": item.get("name", ""),
-                    "product_family": item.get("family", ""),
-                    "price": item.get("price", 0),
-                    "quantity": item.get("quantity", 1),
-                }).execute()
+        rows = [
+            {
+                "order_id": order_id,
+                "product_id": item.get("id"),
+                "product_name": item.get("name", ""),
+                "product_family": item.get("family", ""),
+                "price": item.get("price", 0),
+                "quantity": item.get("quantity", 1),
+            }
+            for item in items if isinstance(item, dict)
+        ]
+        if rows:
+            await _db(supabase.table("order_items").insert(rows))
 
     # Clear server cart
     user_id = order.get("user_id")
     if user_id:
-        supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+        await _db(supabase.table("cart_items").delete().eq("user_id", user_id))
 
     print(f"[{source}] Order {order_id} pending → confirmed")
     return order
 
 
-def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
+async def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
     """Process a paid Stripe Checkout Session into a confirmed order.
 
     Three cases handled, all idempotent:
@@ -544,9 +576,9 @@ def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
     session_id = stripe_session.id if hasattr(stripe_session, 'id') else stripe_session["id"]
 
     # Look up existing order (pre-created or already-processed)
-    existing = supabase.table("orders").select("*").eq(
-        "stripe_session_id", session_id
-    ).execute()
+    existing = await _db(
+        supabase.table("orders").select("*").eq("stripe_session_id", session_id)
+    )
 
     if existing.data:
         order = dict(existing.data[0])
@@ -554,12 +586,12 @@ def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
 
         if current_status == "pending":
             # Case 1: pre-created pending order — payment just succeeded, transition to confirmed
-            return _confirm_order(order, source)
+            return await _confirm_order(order, source)
 
         # Case 2: already confirmed (or shipped/delivered/cancelled) — idempotent, defensive cart clear
         user_id = order.get("user_id")
         if user_id:
-            supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+            await _db(supabase.table("cart_items").delete().eq("user_id", user_id))
         return order
 
     # Case 3: no existing order — fallback path (pre-create failed or unrecognized session)
@@ -615,23 +647,27 @@ def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
         "stripe_session_id": session_id,
     }
 
-    supabase.table("orders").insert(order_data).execute()
+    await _db(supabase.table("orders").insert(order_data))
 
-    # Insert order_items for analytics
-    for item in validated_items:
-        supabase.table("order_items").insert({
+    # Insert order_items for analytics — batched as one INSERT.
+    rows = [
+        {
             "order_id": order_id,
             "product_id": item["id"],
             "product_name": item["name"],
             "product_family": item.get("family", ""),
             "price": item["price"],
             "quantity": item["quantity"],
-        }).execute()
+        }
+        for item in validated_items
+    ]
+    if rows:
+        await _db(supabase.table("order_items").insert(rows))
 
     # Clear server cart
     user_id = meta.get("user_id")
     if user_id:
-        supabase.table("cart_items").delete().eq("user_id", user_id).execute()
+        await _db(supabase.table("cart_items").delete().eq("user_id", user_id))
 
     print(f"[{source}] Order {order_id} created from session metadata (fallback path)")
     return order_data
@@ -640,7 +676,7 @@ def _create_order_from_stripe_session(stripe_session, source: str = "webhook"):
 @app.post("/api/checkout/create-session")
 async def create_checkout_session(request: Request):
     """Create Stripe Checkout Session for payment"""
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
@@ -694,9 +730,11 @@ async def create_checkout_session(request: Request):
     # default. Non-fatal: if this fails, checkout still proceeds.
     try:
         if address.get("line1") and address.get("city"):
-            existing_addrs = supabase.table("addresses").select("id").eq("user_id", str(user.id)).limit(1).execute()
+            existing_addrs = await _db(
+                supabase.table("addresses").select("id").eq("user_id", str(user.id)).limit(1)
+            )
             if not existing_addrs.data:
-                supabase.table("addresses").insert({
+                await _db(supabase.table("addresses").insert({
                     "user_id": str(user.id),
                     "full_name": customer["full_name"],
                     "phone": customer.get("phone", ""),
@@ -707,7 +745,7 @@ async def create_checkout_session(request: Request):
                     "postal_code": address.get("postal_code", ""),
                     "country": address.get("country", ""),
                     "is_default": True,
-                }).execute()
+                }))
                 print(f"[create-session] Auto-saved first address for user {user.id}")
     except Exception as e:
         print(f"[create-session] Auto-save address failed (non-fatal): {e}")
@@ -733,24 +771,30 @@ async def create_checkout_session(request: Request):
     }
 
     try:
-        session = stripe_client.v1.checkout.sessions.create(params={
-            "mode": "payment",
-            "line_items": line_items,
-            "shipping_options": [{
-                "shipping_rate_data": {
-                    "type": "fixed_amount",
-                    "fixed_amount": {"amount": 2500, "currency": "usd"},
-                    "display_name": "Standard Shipping",
+        # Stripe's Python SDK is sync — run the checkout session creation in a
+        # worker thread to avoid blocking the asyncio event loop on the network
+        # round-trip to Stripe.
+        session = await _to_thread(
+            stripe_client.v1.checkout.sessions.create,
+            params={
+                "mode": "payment",
+                "line_items": line_items,
+                "shipping_options": [{
+                    "shipping_rate_data": {
+                        "type": "fixed_amount",
+                        "fixed_amount": {"amount": 2500, "currency": "usd"},
+                        "display_name": "Standard Shipping",
+                    },
+                }],
+                "customer_email": customer["email"],
+                "metadata": metadata,
+                "payment_intent_data": {
+                    "receipt_email": customer["email"],
                 },
-            }],
-            "customer_email": customer["email"],
-            "metadata": metadata,
-            "payment_intent_data": {
-                "receipt_email": customer["email"],
+                "success_url": f"{base_url}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
+                "cancel_url": f"{base_url}/checkout",
             },
-            "success_url": f"{base_url}/checkout/success?session_id={{CHECKOUT_SESSION_ID}}",
-            "cancel_url": f"{base_url}/checkout",
-        })
+        )
 
         # Pre-create the order in our DB with status="pending" so abandoned
         # checkouts show up in /admin/orders. The webhook (or /checkout/success
@@ -763,7 +807,7 @@ async def create_checkout_session(request: Request):
         shipping_amount = 25
         try:
             pending_order_id = "MH-" + str(int(datetime.now().timestamp()))
-            supabase.table("orders").insert({
+            await _db(supabase.table("orders").insert({
                 "id": pending_order_id,
                 "user_id": str(user.id),
                 "customer_name": customer["full_name"],
@@ -783,7 +827,7 @@ async def create_checkout_session(request: Request):
                 "total": calculated_subtotal + shipping_amount,
                 "status": "pending",
                 "stripe_session_id": session.id,
-            }).execute()
+            }))
             print(f"[create-session] Pending order {pending_order_id} pre-created for session {session.id}")
         except Exception as e:
             print(f"[create-session] Pre-create pending order failed (non-fatal): {e}")
@@ -812,7 +856,7 @@ async def stripe_webhook(request: Request):
         try:
             session = event.data.object
             print(f"[Stripe Webhook] checkout.session.completed: {session.id if hasattr(session, 'id') else session.get('id')}")
-            _create_order_from_stripe_session(session, source="webhook")
+            await _create_order_from_stripe_session(session, source="webhook")
         except Exception as e:
             print(f"[Stripe Webhook] ERROR: {e}")
             traceback.print_exc()
@@ -839,19 +883,21 @@ async def checkout_success(request: Request, session_id: str = ""):
             # Always go through Stripe API to verify the payment was actually completed
             # before transitioning the order. Prevents accidental confirmation if a user
             # navigates to /checkout/success manually with a stale session_id.
-            stripe_session = stripe_client.v1.checkout.sessions.retrieve(session_id)
+            stripe_session = await _to_thread(
+                stripe_client.v1.checkout.sessions.retrieve, session_id
+            )
             payment_status = getattr(stripe_session, "payment_status", None)
 
             if payment_status == "paid":
-                order_data = _create_order_from_stripe_session(
+                order_data = await _create_order_from_stripe_session(
                     stripe_session, source="success-route"
                 )
             else:
                 # Payment not completed (manual navigation or expired session) —
                 # try to surface the pending order if one exists, but don't transition it
-                existing = supabase.table("orders").select("*").eq(
-                    "stripe_session_id", session_id
-                ).execute()
+                existing = await _db(
+                    supabase.table("orders").select("*").eq("stripe_session_id", session_id)
+                )
                 if existing.data:
                     order_data = dict(existing.data[0])
         except Exception as e:
@@ -883,9 +929,9 @@ async def create_message(name: str = Form(...), email: str = Form(...), message:
 
     try:
         msg_id = "MSG-" + str(int(time.time())).upper()
-        supabase.table("messages").insert({
+        await _db(supabase.table("messages").insert({
             "id": msg_id, "name": name, "email": email, "message": message
-        }).execute()
+        }))
         return JSONResponse({"success": True})
     except Exception as e:
         return JSONResponse({"error": "Failed to send message"}, status_code=500)
@@ -901,15 +947,19 @@ async def get_profile(request: Request):
 
     token = auth_header.split(" ")[1]
     try:
-        user_resp = supabase.auth.get_user(token)
+        user_resp = await _to_thread(supabase.auth.get_user, token)
         if not user_resp or not user_resp.user:
             return JSONResponse({"error": "Invalid token"}, status_code=401)
         user_id = str(user_resp.user.id)
         user_email = str(user_resp.user.email or "")
 
-        profile = supabase.table("profiles").select("*").eq("id", user_id).single().execute()
-        addresses = supabase.table("addresses").select("*").eq("user_id", user_id).execute()
-        orders = supabase.table("orders").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
+        # Parallelize the three independent reads — asyncio.gather runs them
+        # concurrently across worker threads instead of sequentially.
+        profile, addresses, orders = await asyncio.gather(
+            _db(supabase.table("profiles").select("*").eq("id", user_id).single()),
+            _db(supabase.table("addresses").select("*").eq("user_id", user_id)),
+            _db(supabase.table("orders").select("*").eq("user_id", user_id).order("created_at", desc=True)),
+        )
 
         profile_data = dict(profile.data) if profile.data and isinstance(profile.data, dict) else {}
         profile_data["email"] = user_email
@@ -930,7 +980,7 @@ async def update_profile(request: Request):
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
     token = auth_header.split(" ")[1]
     try:
-        user_resp = supabase.auth.get_user(token)
+        user_resp = await _to_thread(supabase.auth.get_user, token)
         if not user_resp or not user_resp.user:
             return JSONResponse({"error": "Invalid token"}, status_code=401)
         user_id = str(user_resp.user.id)
@@ -941,7 +991,7 @@ async def update_profile(request: Request):
         if "phone" in body:
             update_data["phone"] = body["phone"]
         if update_data:
-            supabase.table("profiles").update(update_data).eq("id", user_id).execute()
+            await _db(supabase.table("profiles").update(update_data).eq("id", user_id))
         return JSONResponse({"success": True})
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
@@ -950,7 +1000,7 @@ async def update_profile(request: Request):
 
 @app.post("/api/profile/addresses")
 async def create_address(request: Request):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
@@ -970,21 +1020,23 @@ async def create_address(request: Request):
 
     # If setting as default, unset other defaults first
     if address_data["is_default"]:
-        supabase.table("addresses").update({"is_default": False}).eq("user_id", str(user.id)).execute()
+        await _db(supabase.table("addresses").update({"is_default": False}).eq("user_id", str(user.id)))
 
-    result = supabase.table("addresses").insert(address_data).execute()
+    result = await _db(supabase.table("addresses").insert(address_data))
     return JSONResponse({"success": True, "address": result.data[0] if result.data else None})
 
 
 @app.patch("/api/profile/addresses/{address_id}")
 async def update_address(request: Request, address_id: str):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
     body = await request.json()
     # Only allow updating own addresses
-    existing = supabase.table("addresses").select("*").eq("id", address_id).eq("user_id", str(user.id)).execute()
+    existing = await _db(
+        supabase.table("addresses").select("*").eq("id", address_id).eq("user_id", str(user.id))
+    )
     if not existing.data:
         return JSONResponse({"error": "Address not found"}, status_code=404)
 
@@ -994,56 +1046,60 @@ async def update_address(request: Request, address_id: str):
             update_data[field] = body[field]
 
     if update_data:
-        result = supabase.table("addresses").update(update_data).eq("id", address_id).execute()
+        result = await _db(supabase.table("addresses").update(update_data).eq("id", address_id))
         return JSONResponse({"success": True, "address": result.data[0] if result.data else None})
     return JSONResponse({"success": True})
 
 
 @app.delete("/api/profile/addresses/{address_id}")
 async def delete_address(request: Request, address_id: str):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
     # Only allow deleting own addresses
-    existing = supabase.table("addresses").select("*").eq("id", address_id).eq("user_id", str(user.id)).execute()
+    existing = await _db(
+        supabase.table("addresses").select("*").eq("id", address_id).eq("user_id", str(user.id))
+    )
     if not existing.data:
         return JSONResponse({"error": "Address not found"}, status_code=404)
 
-    supabase.table("addresses").delete().eq("id", address_id).execute()
+    await _db(supabase.table("addresses").delete().eq("id", address_id))
     return JSONResponse({"success": True})
 
 
 @app.patch("/api/profile/addresses/{address_id}/default")
 async def set_default_address(request: Request, address_id: str):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    existing = supabase.table("addresses").select("*").eq("id", address_id).eq("user_id", str(user.id)).execute()
+    existing = await _db(
+        supabase.table("addresses").select("*").eq("id", address_id).eq("user_id", str(user.id))
+    )
     if not existing.data:
         return JSONResponse({"error": "Address not found"}, status_code=404)
 
     # Unset all defaults, then set this one
-    supabase.table("addresses").update({"is_default": False}).eq("user_id", str(user.id)).execute()
-    supabase.table("addresses").update({"is_default": True}).eq("id", address_id).execute()
+    await _db(supabase.table("addresses").update({"is_default": False}).eq("user_id", str(user.id)))
+    await _db(supabase.table("addresses").update({"is_default": True}).eq("id", address_id))
     return JSONResponse({"success": True})
 
 # --- Cart API Routes ---
 
 @app.get("/api/cart")
 async def get_cart(request: Request):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    result = supabase.table("cart_items").select("*").eq("user_id", str(user.id)).execute()
+    result = await _db(supabase.table("cart_items").select("*").eq("user_id", str(user.id)))
     return JSONResponse({"items": result.data})
 
 
 @app.post("/api/cart")
 async def add_to_cart(request: Request):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
@@ -1057,14 +1113,17 @@ async def add_to_cart(request: Request):
         return JSONResponse({"error": f"Unknown product: {product_id}"}, status_code=400)
 
     # Check if item already in cart
-    existing = supabase.table("cart_items").select("*").eq("user_id", user_id).eq("product_id", product_id).execute()
+    existing = await _db(
+        supabase.table("cart_items").select("*").eq("user_id", user_id).eq("product_id", product_id)
+    )
 
     if existing.data:
         # Update quantity
-        new_qty = existing.data[0]["quantity"] + body.get("quantity", 1)
-        supabase.table("cart_items").update({"quantity": new_qty}).eq("id", existing.data[0]["id"]).execute()
+        row = existing.data[0]
+        new_qty = row["quantity"] + body.get("quantity", 1)
+        await _db(supabase.table("cart_items").update({"quantity": new_qty}).eq("id", row["id"]))
     else:
-        supabase.table("cart_items").insert({
+        await _db(supabase.table("cart_items").insert({
             "user_id": user_id,
             "product_id": product_id,
             "product_name": product["name"],
@@ -1072,53 +1131,57 @@ async def add_to_cart(request: Request):
             "product_price": product["price"],
             "product_image": body.get("product_image", ""),
             "quantity": body.get("quantity", 1)
-        }).execute()
+        }))
 
-    result = supabase.table("cart_items").select("*").eq("user_id", user_id).execute()
+    result = await _db(supabase.table("cart_items").select("*").eq("user_id", user_id))
     return JSONResponse({"success": True, "items": result.data})
 
 
 @app.patch("/api/cart/{item_id}")
 async def update_cart_item(request: Request, item_id: str):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
     body = await request.json()
     quantity = body.get("quantity", 1)
 
-    existing = supabase.table("cart_items").select("*").eq("id", item_id).eq("user_id", str(user.id)).execute()
+    existing = await _db(
+        supabase.table("cart_items").select("*").eq("id", item_id).eq("user_id", str(user.id))
+    )
     if not existing.data:
         return JSONResponse({"error": "Item not found"}, status_code=404)
 
     if quantity <= 0:
-        supabase.table("cart_items").delete().eq("id", item_id).execute()
+        await _db(supabase.table("cart_items").delete().eq("id", item_id))
     else:
-        supabase.table("cart_items").update({"quantity": quantity}).eq("id", item_id).execute()
+        await _db(supabase.table("cart_items").update({"quantity": quantity}).eq("id", item_id))
 
-    result = supabase.table("cart_items").select("*").eq("user_id", str(user.id)).execute()
+    result = await _db(supabase.table("cart_items").select("*").eq("user_id", str(user.id)))
     return JSONResponse({"success": True, "items": result.data})
 
 
 @app.delete("/api/cart/{item_id}")
 async def remove_cart_item(request: Request, item_id: str):
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    existing = supabase.table("cart_items").select("*").eq("id", item_id).eq("user_id", str(user.id)).execute()
+    existing = await _db(
+        supabase.table("cart_items").select("*").eq("id", item_id).eq("user_id", str(user.id))
+    )
     if not existing.data:
         return JSONResponse({"error": "Item not found"}, status_code=404)
 
-    supabase.table("cart_items").delete().eq("id", item_id).execute()
-    result = supabase.table("cart_items").select("*").eq("user_id", str(user.id)).execute()
+    await _db(supabase.table("cart_items").delete().eq("id", item_id))
+    result = await _db(supabase.table("cart_items").select("*").eq("user_id", str(user.id)))
     return JSONResponse({"success": True, "items": result.data})
 
 
 @app.post("/api/cart/sync")
 async def sync_cart(request: Request):
     """Merge localStorage cart with server cart on login"""
-    user = get_authenticated_user(request)
+    user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
@@ -1127,58 +1190,71 @@ async def sync_cart(request: Request):
     user_id = str(user.id)
 
     # Get existing server cart
-    server_result = supabase.table("cart_items").select("*").eq("user_id", user_id).execute()
+    server_result = await _db(supabase.table("cart_items").select("*").eq("user_id", user_id))
     server_items = {item["product_id"]: item for item in (server_result.data or [])}
 
-    # Merge: server wins on conflicts, only insert local-only items
+    # Merge: server wins on conflicts, only insert local-only items.
+    # Batch the inserts so guest→login sync is one round-trip instead of N.
+    rows_to_insert = []
     for local_item in local_items:
         pid = local_item.get("id", "")  # localStorage uses "id" as product_id
         if pid in server_items:
-            pass  # Server wins — keep server quantity
-        else:
-            # Validate product exists and use authoritative price
-            product = PRODUCTS.get(pid)
-            if not product:
-                continue  # Skip unknown products silently during sync
-            supabase.table("cart_items").insert({
-                "user_id": user_id,
-                "product_id": pid,
-                "product_name": product["name"],
-                "product_family": product.get("family", ""),
-                "product_price": product["price"],
-                "product_image": local_item.get("image", ""),
-                "quantity": local_item.get("quantity", 1)
-            }).execute()
+            continue  # Server wins — keep server quantity
+        # Validate product exists and use authoritative price
+        product = PRODUCTS.get(pid)
+        if not product:
+            continue  # Skip unknown products silently during sync
+        rows_to_insert.append({
+            "user_id": user_id,
+            "product_id": pid,
+            "product_name": product["name"],
+            "product_family": product.get("family", ""),
+            "product_price": product["price"],
+            "product_image": local_item.get("image", ""),
+            "quantity": local_item.get("quantity", 1),
+        })
+
+    if rows_to_insert:
+        await _db(supabase.table("cart_items").insert(rows_to_insert))
 
     # Return merged cart
-    merged = supabase.table("cart_items").select("*").eq("user_id", user_id).execute()
+    merged = await _db(supabase.table("cart_items").select("*").eq("user_id", user_id))
     return JSONResponse({"success": True, "items": merged.data})
 
 # --- Admin API Routes ---
 
 @app.get("/api/admin/orders")
 async def get_admin_orders(request: Request):
-    admin = get_admin_user(request)
+    admin = await get_admin_user(request)
     if not admin:
         return JSONResponse({"error": "Admin access required"}, status_code=401)
-    result = supabase.table("orders").select("*").order("created_at", desc=True).execute()
+    # Hard cap: most-recent 500 orders. Protects the admin dashboard from becoming
+    # multi-second + multi-MB as order count grows. Pagination can be added later.
+    result = await _db(
+        supabase.table("orders").select("*").order("created_at", desc=True).limit(500)
+    )
     return JSONResponse({"orders": result.data})
 
 @app.get("/api/admin/messages")
 async def get_admin_messages(request: Request):
-    admin = get_admin_user(request)
+    admin = await get_admin_user(request)
     if not admin:
         return JSONResponse({"error": "Admin access required"}, status_code=401)
-    result = supabase.table("messages").select("*").order("created_at", desc=True).execute()
+    result = await _db(
+        supabase.table("messages").select("*").order("created_at", desc=True).limit(500)
+    )
     return JSONResponse({"messages": result.data})
 
 @app.get("/api/admin/stats")
 async def get_admin_stats(request: Request):
-    admin = get_admin_user(request)
+    admin = await get_admin_user(request)
     if not admin:
         return JSONResponse({"error": "Admin access required"}, status_code=401)
-    orders = supabase.table("orders").select("total,status").execute()
-    messages = supabase.table("messages").select("id").execute()
+    # Parallelize the two independent selects
+    orders, messages = await asyncio.gather(
+        _db(supabase.table("orders").select("total,status")),
+        _db(supabase.table("messages").select("id")),
+    )
     orders_list = orders.data if orders.data and isinstance(orders.data, list) else []
     messages_list = messages.data if messages.data and isinstance(messages.data, list) else []
 
@@ -1198,21 +1274,23 @@ async def get_admin_stats(request: Request):
 
 @app.patch("/api/admin/orders/{order_id}")
 async def update_order_status(order_id: str, request: Request):
-    admin = get_admin_user(request)
+    admin = await get_admin_user(request)
     if not admin:
         return JSONResponse({"error": "Admin access required"}, status_code=401)
     body = await request.json()
     new_status = body["status"]
 
-    supabase.table("orders").update({"status": new_status}).eq("id", order_id).execute()
+    await _db(supabase.table("orders").update({"status": new_status}).eq("id", order_id))
 
     # Send email notification for shipped/delivered/cancelled
     email_sent = False
     if new_status in ("shipped", "delivered", "cancelled"):
         try:
-            order = supabase.table("orders").select(
-                "customer_email, customer_name"
-            ).eq("id", order_id).execute()
+            order = await _db(
+                supabase.table("orders")
+                .select("customer_email, customer_name")
+                .eq("id", order_id)
+            )
             if order.data:
                 customer_email = order.data[0].get("customer_email")
                 customer_name = order.data[0].get("customer_name", "")
@@ -1220,12 +1298,13 @@ async def update_order_status(order_id: str, request: Request):
                     scheme = request.headers.get("x-forwarded-proto", "http")
                     host = request.headers.get("host", "localhost:3000")
                     base_url = f"{scheme}://{host}"
-                    email_service.send_order_status_email(
-                        to_email=customer_email,
-                        order_id=order_id,
-                        customer_name=customer_name,
-                        new_status=new_status,
-                        base_url=base_url,
+                    await _to_thread(
+                        email_service.send_order_status_email,
+                        customer_email,
+                        order_id,
+                        customer_name,
+                        new_status,
+                        base_url,
                     )
                     email_sent = True
         except Exception as e:
@@ -1235,8 +1314,8 @@ async def update_order_status(order_id: str, request: Request):
 
 @app.patch("/api/admin/messages/{msg_id}/read")
 async def mark_message_read(msg_id: str, request: Request):
-    admin = get_admin_user(request)
+    admin = await get_admin_user(request)
     if not admin:
         return JSONResponse({"error": "Admin access required"}, status_code=401)
-    supabase.table("messages").update({"read": True}).eq("id", msg_id).execute()
+    await _db(supabase.table("messages").update({"read": True}).eq("id", msg_id))
     return JSONResponse({"success": True})

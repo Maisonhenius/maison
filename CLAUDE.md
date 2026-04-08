@@ -64,6 +64,65 @@ assets/
   pictures/ingredients/   <- 32 ingredient WebP photos (800px, ~170KB each). 4K PNG originals are gitignored
 ```
 
+## Async DB Helpers (MUST USE for all DB code)
+
+`supabase-py` is a **synchronous** library. Calling `.execute()` directly inside an
+`async def` route blocks the asyncio event loop for the whole Supabase round-trip
+(~100–400ms), preventing any other request from being served during that time.
+Every Supabase call in `app.py` is wrapped in one of two thread-offload helpers
+defined at the top of the file:
+
+```python
+async def _db(query):          # for builder chains
+    return await asyncio.to_thread(query.execute)
+
+async def _to_thread(callable_, *args, **kwargs):  # for auth / stripe / email / ad-hoc
+    return await asyncio.to_thread(callable_, *args, **kwargs)
+```
+
+**The pattern** at every call site:
+
+```python
+# ❌ WRONG (blocks the event loop)
+result = supabase.table("orders").select("*").eq("id", x).execute()
+
+# ✅ RIGHT
+result = await _db(supabase.table("orders").select("*").eq("id", x))
+
+# ✅ Auth / Stripe / Resend
+user = await _to_thread(supabase.auth.get_user, token)
+session = await _to_thread(stripe_client.v1.checkout.sessions.create, params={...})
+await _to_thread(email_service.send_signup_confirmation, email, link, name)
+```
+
+**Batch inserts over loops.** `supabase-py` accepts a list to `.insert()` — use it to
+avoid N+1 round-trips:
+
+```python
+# ❌ N round-trips
+for item in items:
+    await _db(supabase.table("order_items").insert(item))
+
+# ✅ 1 round-trip
+rows = [build_row(item) for item in items]
+if rows:
+    await _db(supabase.table("order_items").insert(rows))
+```
+
+**Parallelize independent reads.** `/api/profile` and `/api/admin/stats` both fetch
+multiple tables — use `asyncio.gather` to run them in parallel across worker threads:
+
+```python
+profile, addresses, orders = await asyncio.gather(
+    _db(supabase.table("profiles").select("*").eq("id", uid).single()),
+    _db(supabase.table("addresses").select("*").eq("user_id", uid)),
+    _db(supabase.table("orders").select("*").eq("user_id", uid).order("created_at", desc=True)),
+)
+```
+
+**Both `get_authenticated_user()` and `get_admin_user()` are `async`** — callers must
+`await` them: `user = await get_authenticated_user(request)`.
+
 ## Auth System
 
 - **Customer**: email/password via Supabase Auth (`/login`, `/signup`)
@@ -96,9 +155,9 @@ assets/
 | `/api/admin/auth/send-link` | POST | None | Send admin magic link (whitelist check) |
 | `/admin/auth/callback` | GET | None | Handle magic link redirect (extracts token client-side) |
 | `/api/admin/stats` | GET | Admin | Dashboard stats (order count, revenue, messages) |
-| `/api/admin/orders` | GET | Admin | List all orders |
+| `/api/admin/orders` | GET | Admin | List most-recent 500 orders (capped) |
 | `/api/admin/orders/{id}` | PATCH | Admin | Update order status + send customer email (shipped/delivered/cancelled) |
-| `/api/admin/messages` | GET | Admin | List all contact messages |
+| `/api/admin/messages` | GET | Admin | List most-recent 500 messages (capped) |
 | `/api/admin/messages/{id}/read` | PATCH | Admin | Mark message as read |
 | `/api/profile/addresses` | POST | Bearer | Create saved address |
 | `/api/profile/addresses/{id}` | PATCH | Bearer | Update address |
@@ -240,6 +299,9 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **Don't change middleware order in `app.py`** — `CacheControlMiddleware` must be added BEFORE `GZipMiddleware`. Starlette runs `add_middleware()` calls in reverse order on responses, so the last one added is the outermost. GZip needs to wrap CacheControl so `Vary: Accept-Encoding` lands after the cache headers are set.
 - **Railway's Fastly is a passthrough, not a cache** — every response shows `x-cache: MISS` even with valid `Cache-Control` headers. Don't try to "fix" this with surrogate headers; it's a platform-level limitation. The cache headers are still useful for **browser** caching. For real shared edge caching across users, the move is Cloudflare in front of Railway when the custom domain is set up.
 - **Always check image dimensions before encoding** — `cwebp` doesn't auto-resize. If you forget `-resize WIDTH 0`, you'll ship a 4K image that displays at 600px and wastes ~1 MB per file (we did this with cards originally). Run `webpinfo file.webp` to verify dimensions after encoding.
+- **HTML `width`/`height` on images with CSS `aspect-ratio`**: adding `width="X" height="Y"` to an `<img>` is great for CLS, BUT if the CSS rule relies on `aspect-ratio` without an explicit `height`, the HTML attributes act as presentational hints (`height: Ypx`) that override `aspect-ratio` → the image renders as a tall rectangle instead of the intended square. Fix: add `height: auto` to the CSS rule. Example: `.product-comp__note-img { width: 100%; height: auto; aspect-ratio: 1; ... }`. Already bit us once on the ingredient grid on product detail pages.
+- **Scroll-video preloader is throttled on purpose** — `preload()` in `index.html` uses a concurrency pool of 6 (matches browser per-origin HTTP/1.1 cap) and draws `FRAME_START` the instant it arrives, rather than waiting for all 121 frames. Do NOT "simplify" this back to a tight `for (i=0; i<TOTAL; i++) new Image()` loop — that was the original P0 perf bug (blank canvas for 15+ seconds on slow networks). The `ScrollTrigger.create()` call is still deferred until all frames load, so the scroll animation contract is unchanged.
+- **`cart.js` localStorage items include `serverId`** (not just product `id`). When a logged-in user adds/updates/removes items, the cached `serverId` lets mutations go through in 1 round-trip instead of 2 (old pattern was GET-then-DELETE/PATCH). Legacy items without `serverId` still work via a one-off GET fallback in `_findServerItemId()`. Don't strip the field thinking it's dead code.
 
 ## Deployment (Railway)
 
@@ -321,6 +383,12 @@ Three layers in `server/app.py` near the top of the file:
 3. **`GZipMiddleware(minimum_size=500)`** — compresses HTML/CSS/JS/JSON ~70-80%. Skips already-compressed binary content.
 
 Middleware order matters — see the gotcha in the Gotchas section.
+
+### Backend request model
+
+- **All Supabase/Stripe/Resend calls are offloaded to worker threads** via the `_db()` / `_to_thread()` helpers (see the "Async DB Helpers" section). This keeps the asyncio event loop free to serve concurrent requests. Verified empirically: 5 parallel `/api/profile` requests finish in ~800ms vs ~1900ms sequential (2.4×).
+- **Independent reads are parallelized with `asyncio.gather`** in `/api/profile` (profile + addresses + orders) and `/api/admin/stats` (orders + messages).
+- **Admin list endpoints are capped at 500 rows** via `.limit(500)` so the admin dashboard can't get crushed as tables grow.
 
 ### Railway / Fastly caching limitation
 

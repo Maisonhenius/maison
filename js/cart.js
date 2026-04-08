@@ -30,13 +30,24 @@ var MaisonCart = (function() {
     _updateBadge();
   }
 
+  // Badge nodes are queried once per render instead of on every _updateBadge call.
+  // Re-queried on Turbo navigation since the DOM is swapped.
+  var _cachedBadges = null;
+  function _getBadges() {
+    if (!_cachedBadges || !_cachedBadges.length || !document.contains(_cachedBadges[0])) {
+      _cachedBadges = document.querySelectorAll('.cart-badge');
+    }
+    return _cachedBadges;
+  }
+  document.addEventListener('turbo:load', function() { _cachedBadges = null; });
+
   function _updateBadge() {
-    var badges = document.querySelectorAll('.cart-badge');
+    var badges = _getBadges();
     var count = getCount();
-    badges.forEach(function(badge) {
-      badge.textContent = count;
-      badge.style.display = count > 0 ? 'flex' : 'none';
-    });
+    for (var i = 0; i < badges.length; i++) {
+      badges[i].textContent = count;
+      badges[i].style.display = count > 0 ? 'flex' : 'none';
+    }
   }
 
   var _justSynced = false;
@@ -54,6 +65,22 @@ var MaisonCart = (function() {
       toast.style.opacity = '0';
       setTimeout(function() { if (toast.parentNode) toast.parentNode.removeChild(toast); }, 300);
     }, 2000);
+  }
+
+  // Helper: find a local item's server row id. Falls back to a one-off GET
+  // if we don't have it cached (e.g. item was written by an older version of
+  // this script that didn't store serverId). New writes always cache it.
+  function _findServerItemId(productId) {
+    var items = _read();
+    var item = items.find(function(i) { return i.id === productId; });
+    if (item && item.serverId) return Promise.resolve(item.serverId);
+    // Legacy fallback — should rarely hit after a user adds or edits anything once.
+    return fetch('/api/cart', { headers: _apiHeaders() })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var match = (data.items || []).find(function(i) { return i.product_id === productId; });
+        return match ? match.id : null;
+      });
   }
 
   function addItem(product) {
@@ -74,7 +101,10 @@ var MaisonCart = (function() {
     }
     _write(items);
 
-    // Sync to server if logged in (fire and forget)
+    // Sync to server if logged in. The POST /api/cart endpoint returns the full
+    // merged cart — we use the response to cache each item's server id in
+    // localStorage so subsequent update/delete calls only need ONE round-trip
+    // (instead of the previous GET+DELETE / GET+PATCH pattern).
     if (_getAuth()) {
       fetch('/api/cart', {
         method: 'POST',
@@ -87,7 +117,20 @@ var MaisonCart = (function() {
           product_image: product.image || '',
           quantity: product.quantity || 1
         })
-      }).catch(function() {});
+      })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(data) {
+        if (!data || !data.items) return;
+        // Merge server ids back into localStorage
+        var local = _read();
+        var byPid = {};
+        data.items.forEach(function(srv) { byPid[srv.product_id] = srv.id; });
+        local.forEach(function(li) {
+          if (byPid[li.id]) li.serverId = byPid[li.id];
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+      })
+      .catch(function() {});
     }
 
     _showToast(product.name + ' added to cart');
@@ -95,20 +138,21 @@ var MaisonCart = (function() {
   }
 
   function removeItem(productId) {
-    var items = _read().filter(function(item) { return item.id !== productId; });
+    var priorItems = _read();
+    var removedItem = priorItems.find(function(i) { return i.id === productId; });
+    var items = priorItems.filter(function(item) { return item.id !== productId; });
     _write(items);
 
-    // Sync to server if logged in
-    if (_getAuth()) {
-      // Find the server item by product_id and delete it
-      fetch('/api/cart', { headers: _apiHeaders() })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          var serverItem = (data.items || []).find(function(i) { return i.product_id === productId; });
-          if (serverItem) {
-            fetch('/api/cart/' + serverItem.id, { method: 'DELETE', headers: _apiHeaders() }).catch(function() {});
-          }
+    // Sync to server if logged in — use cached serverId if available (one round-trip
+    // instead of GET+DELETE).
+    if (_getAuth() && removedItem) {
+      if (removedItem.serverId) {
+        fetch('/api/cart/' + removedItem.serverId, { method: 'DELETE', headers: _apiHeaders() }).catch(function() {});
+      } else {
+        _findServerItemId(productId).then(function(serverId) {
+          if (serverId) fetch('/api/cart/' + serverId, { method: 'DELETE', headers: _apiHeaders() }).catch(function() {});
         }).catch(function() {});
+      }
     }
 
     return items;
@@ -124,20 +168,18 @@ var MaisonCart = (function() {
       item.quantity = quantity;
       _write(items);
 
-      // Sync to server if logged in
+      // Sync to server if logged in — use cached serverId.
       if (_getAuth()) {
-        fetch('/api/cart', { headers: _apiHeaders() })
-          .then(function(r) { return r.json(); })
-          .then(function(data) {
-            var serverItem = (data.items || []).find(function(i) { return i.product_id === productId; });
-            if (serverItem) {
-              fetch('/api/cart/' + serverItem.id, {
-                method: 'PATCH',
-                headers: _apiHeaders(),
-                body: JSON.stringify({ quantity: quantity })
-              }).catch(function() {});
-            }
+        var patch = function(serverId) {
+          if (!serverId) return;
+          fetch('/api/cart/' + serverId, {
+            method: 'PATCH',
+            headers: _apiHeaders(),
+            body: JSON.stringify({ quantity: quantity })
           }).catch(function() {});
+        };
+        if (item.serverId) patch(item.serverId);
+        else _findServerItemId(productId).then(patch).catch(function() {});
       }
     }
     return items;
@@ -148,16 +190,25 @@ var MaisonCart = (function() {
   function getTotal() { return _read().reduce(function(sum, item) { return sum + (item.price * item.quantity); }, 0); }
 
   function clear() {
+    var priorItems = _read();
     _write([]);
-    // Clear server cart too
-    if (_getAuth()) {
-      fetch('/api/cart', { headers: _apiHeaders() })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-          (data.items || []).forEach(function(item) {
-            fetch('/api/cart/' + item.id, { method: 'DELETE', headers: _apiHeaders() }).catch(function() {});
-          });
-        }).catch(function() {});
+    // Clear server cart too — use cached serverIds so we avoid the GET round-trip.
+    // If any items are missing a cached serverId (legacy), fall back to GET.
+    if (_getAuth() && priorItems.length) {
+      var missingCachedId = priorItems.some(function(i) { return !i.serverId; });
+      if (missingCachedId) {
+        fetch('/api/cart', { headers: _apiHeaders() })
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            (data.items || []).forEach(function(item) {
+              fetch('/api/cart/' + item.id, { method: 'DELETE', headers: _apiHeaders() }).catch(function() {});
+            });
+          }).catch(function() {});
+      } else {
+        priorItems.forEach(function(item) {
+          fetch('/api/cart/' + item.serverId, { method: 'DELETE', headers: _apiHeaders() }).catch(function() {});
+        });
+      }
     }
   }
 
@@ -217,6 +268,7 @@ var MaisonCart = (function() {
         var serverCart = data.items.map(function(item) {
           return {
             id: item.product_id,
+            serverId: item.id,  // cache server row id for fewer round-trips on mutate
             name: item.product_name,
             family: item.product_family || '',
             price: item.product_price || 284,
@@ -232,15 +284,25 @@ var MaisonCart = (function() {
       .catch(function() {});
   }
 
-  // Init badge on page load + load server cart if logged in
+  // Init: update the badge immediately (reads from localStorage — synchronous, cheap)
+  // then defer the server sync until the browser is idle, so it doesn't compete
+  // with first-paint resources (fonts, hero video, critical CSS).
+  function _scheduleServerSync() {
+    if (typeof requestIdleCallback === 'function') {
+      requestIdleCallback(loadFromServer, { timeout: 2000 });
+    } else {
+      setTimeout(loadFromServer, 300);
+    }
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
       _updateBadge();
-      loadFromServer();
+      _scheduleServerSync();
     });
   } else {
     _updateBadge();
-    loadFromServer();
+    _scheduleServerSync();
   }
 
   return {

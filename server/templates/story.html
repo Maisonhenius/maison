@@ -88,16 +88,13 @@
   }
 
   .story-origin__inner {
-    max-width: 1100px;
+    max-width: 700px;
     margin: 0 auto;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(3rem, 5vw, 5rem);
-    align-items: center;
   }
 
   .story-origin__text {
-    order: 1;
+    text-align: center;
+    margin-bottom: clamp(3rem, 5vw, 5rem);
   }
 
   .story-origin__label {
@@ -128,7 +125,7 @@
     height: 1px;
     background: #e9db90;
     border: none;
-    margin-bottom: 1.5rem;
+    margin: 0 auto 1.5rem;
   }
 
   .story-origin__body {
@@ -145,7 +142,8 @@
   }
 
   .story-origin__image {
-    order: 2;
+    overflow: hidden;
+    border-radius: 12px;
   }
 
   .story-origin__img {
@@ -197,9 +195,13 @@
   /* Tight frame around the bottle — gold corner brackets that hug the image */
   .story-craft__img-frame {
     position: relative;
-    display: inline-block;
+    display: block;
     padding: 18px;
+    box-sizing: border-box;
     z-index: 1;
+    width: 502px;
+    height: 502px;
+    overflow: hidden;
   }
 
   .story-craft__img-frame::before {
@@ -221,8 +223,8 @@
   .story-craft__img {
     position: relative;
     width: 100%;
-    max-width: 380px;
-    height: auto;
+    height: 100%;
+    object-fit: cover;
     display: block;
   }
 
@@ -462,16 +464,8 @@
      STORY PAGE - RESPONSIVE
      ═══════════════════════════════════════ */
   @media (max-width: 768px) {
-    .story-origin__inner {
-      grid-template-columns: 1fr;
-    }
-
     .story-origin__image {
-      order: 1;
-    }
-
-    .story-origin__text {
-      order: 2;
+      border-radius: 8px;
     }
 
     .story-craft__inner {
@@ -564,7 +558,7 @@
     <div class="story-craft__inner">
       <div class="story-craft__image">
         <div class="story-craft__img-frame">
-          <img src="/static/assets/pictures/Collection%20%26%20Fragrances/Bottle%20-%20White%20BG%20with%20Reflection.webp" alt="Maison Henius bottle - amber glass with golden Zamac cap" class="story-craft__img" width="1600" height="894" loading="lazy" decoding="async">
+          <img src="/static/assets/pictures/Collection%20%26%20Fragrances/craft-collection.webp" alt="The Maison Henius collection - five amber bottles on travertine pedestals" class="story-craft__img" loading="lazy" decoding="async">
         </div>
       </div>
       <div class="story-craft__text">
@@ -617,7 +611,7 @@
 
   <!-- ═══════════ PERFUMER'S TABLE (PARALLAX) ═══════════ -->
   <section class="story-parallax">
-    <img src="/static/assets/pictures/Jordan%20Landscape/Story.webp" alt="Perfumer's table with oils, figs, and raw materials" class="story-parallax__img" width="1356" height="736" loading="lazy" decoding="async">
+    <img src="/static/assets/pictures/Jordan%20Landscape/Story.webp" alt="Perfumer's table with oils, figs, and raw materials" class="story-parallax__img" width="1356" height="757" loading="lazy" decoding="async">
     <div class="story-parallax__overlay"></div>
     <div class="story-parallax__text">
       <p class="story-parallax__quote">"You do not buy a fragrance.<br>You enter a story."</p>

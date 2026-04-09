@@ -313,23 +313,25 @@
     gap: 1.2rem; max-width: 900px; margin: 0 auto;
   }
   .product-explore__card {
-    aspect-ratio: 1; border-radius: 12px; overflow: hidden;
-    position: relative; display: block; text-decoration: none;
+    display: flex; flex-direction: column;
+    text-decoration: none; gap: 0.8rem;
+  }
+  .product-explore__card-img {
+    width: 100%; height: 100%; border-radius: 12px;
+    overflow: hidden; aspect-ratio: 1;
   }
   .product-explore__card img {
     width: 100%; height: 100%; object-fit: cover;
-    transition: transform 0.6s ease;
+    display: block; transition: transform 0.6s ease;
   }
   .product-explore__card:hover img {
     transform: scale(1.05);
   }
   .product-explore__card-name {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-    padding: 1.5rem 0.8rem 0.8rem;
     font-family: 'Cormorant Garamond', serif; font-weight: 300;
     font-style: italic; font-size: 0.95rem;
-    color: rgba(245,240,232,0.8); text-align: center;
+    color: rgba(245,240,232,0.75); text-align: center;
+    letter-spacing: 0.02em;
   }
 
   /* ── Responsive ── */
@@ -496,7 +498,9 @@
     <div class="product-explore__grid">
       {% for slug, other in others.items() %}
       <a href="/products/{{ slug }}" class="product-explore__card">
-        <img src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ other.card_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
+        <div class="product-explore__card-img">
+          <img src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ other.card_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
+        </div>
         <span class="product-explore__card-name">{{ other.name }}</span>
       </a>
       {% endfor %}

@@ -29,7 +29,7 @@ server/
     layout.html           <- base template (nav, footer, Hotwire importmap, CDN scripts)
     index.html            <- landing page (extends layout)
     products/detail.html  <- single product template (data from route param, serves all 5)
-    story.html            <- Our Story / Universe page
+    story.html            <- Our Story / Universe page (centered text + image sections)
     cart.html             <- Cart page (MaisonCart localStorage)
     checkout.html         <- Checkout (requires login, creates Stripe Checkout Session)
     checkout-success.html <- Order confirmation after Stripe payment
@@ -297,10 +297,10 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **First checkout auto-saves to profile**: `/api/checkout/create-session` checks if the user has zero saved addresses; if so, the address they typed in checkout is auto-inserted into the `addresses` table with `is_default=true`. So the second time they checkout, the address is already saved + can be reused. Wrapped in try/except so a save failure doesn't block payment. Address shows in `/profile` immediately on next visit. Trigger condition: `address.line1 AND address.city` must be present (ignores partial submissions).
 - **`/checkout/success` is self-healing** — the route uses Stripe API to verify the session, then calls `_create_order_from_stripe_session()` (the same helper the webhook uses) to create the order + clear the server cart. Idempotent via existing-order check. If you change the webhook order-creation logic, change the helper, not the webhook handler — both code paths flow through it.
 - **Don't change middleware order in `app.py`** — `CacheControlMiddleware` must be added BEFORE `GZipMiddleware`. Starlette runs `add_middleware()` calls in reverse order on responses, so the last one added is the outermost. GZip needs to wrap CacheControl so `Vary: Accept-Encoding` lands after the cache headers are set.
-- **Railway's Fastly is a passthrough, not a cache** — every response shows `x-cache: MISS` even with valid `Cache-Control` headers. Don't try to "fix" this with surrogate headers; it's a platform-level limitation. The cache headers are still useful for **browser** caching. For real shared edge caching across users, the move is Cloudflare in front of Railway when the custom domain is set up.
 - **Always check image dimensions before encoding** — `cwebp` doesn't auto-resize. If you forget `-resize WIDTH 0`, you'll ship a 4K image that displays at 600px and wastes ~1 MB per file (we did this with cards originally). Run `webpinfo file.webp` to verify dimensions after encoding.
-- **HTML `width`/`height` on images with CSS `aspect-ratio`**: adding `width="X" height="Y"` to an `<img>` is great for CLS, BUT if the CSS rule relies on `aspect-ratio` without an explicit `height`, the HTML attributes act as presentational hints (`height: Ypx`) that override `aspect-ratio` → the image renders as a tall rectangle instead of the intended square. Fix: add `height: auto` to the CSS rule. Example: `.product-comp__note-img { width: 100%; height: auto; aspect-ratio: 1; ... }`. Already bit us once on the ingredient grid on product detail pages.
+- **Square images — NEVER use `aspect-ratio`**: CSS `aspect-ratio: 1` breaks in flex containers, inline-block, and when HTML width/height attributes are present. Use explicit `width` + `height` (same value) on the container + `overflow: hidden`, then `width: 100%; height: 100%; object-fit: cover` on the `<img>`. Remove HTML `width`/`height` attributes from the `<img>` tag when using this pattern. The `aspect-ratio` approach has failed repeatedly — don't retry it.
 - **Scroll-video preloader is throttled on purpose** — `preload()` in `index.html` uses a concurrency pool of 6 (matches browser per-origin HTTP/1.1 cap) and draws `FRAME_START` the instant it arrives, rather than waiting for all 121 frames. Do NOT "simplify" this back to a tight `for (i=0; i<TOTAL; i++) new Image()` loop — that was the original P0 perf bug (blank canvas for 15+ seconds on slow networks). The `ScrollTrigger.create()` call is still deferred until all frames load, so the scroll animation contract is unchanged.
+- **Product explore cards**: `products/detail.html` "Explore More" grid uses a `.product-explore__card-img` wrapper div around the `<img>`, with the product name as a separate `<span>` below (not overlaid). Don't add gradient overlays on the image — the name is intentionally outside.
 - **`cart.js` localStorage items include `serverId`** (not just product `id`). When a logged-in user adds/updates/removes items, the cached `serverId` lets mutations go through in 1 round-trip instead of 2 (old pattern was GET-then-DELETE/PATCH). Legacy items without `serverId` still work via a one-off GET fallback in `_findServerItemId()`. Don't strip the field thinking it's dead code.
 
 ## Deployment (Railway)
@@ -338,7 +338,8 @@ All product/landscape images in the deployed repo are WebP. Originals (PNG/JPG) 
 |---|---|---|---|---|
 | Card images (`card-*.webp`) | **1200px** | `-q 78` | 200-300 KB each | Display ~600px on screen, retina-ready |
 | Bottle images (`Out of Control.webp` etc.) | 832px (current) | `-q 80` | ~50 KB each | Already optimal |
-| Bottle reflection (story page) | **1600px** | `-q 80` | ~32 KB | Was 5504px originally |
+| Craft collection (story page) | **1004px** | `-q 80` | ~50 KB | 2x retina for 502px display frame |
+| Story atelier (landing + story) | **1356px** | `-q 80` | ~175 KB | Full-width landscape banner |
 | Ingredient images (`ingredients/*.webp`) | **800px** | `-q 80` | ~150 KB each | Square aspect for note grid |
 | Jordan landscapes | ~1300px (current) | `-q 80` | ~150-200 KB | Already optimal |
 | Scroll video frames | 1928×1072 (current) | `-q 90` | ~50-160 KB per frame | Don't shrink — canvas needs detail |
@@ -368,7 +369,7 @@ When editing existing brand images via the `nano-banana` skill:
 4. **Promote to canonical name** by renaming after approval: `mv original.webp original-backup.webp && mv new.webp original.webp`. The `-backup` suffix is descriptive (e.g. `coffee-beans.webp`, `patchouli-dried.webp`, `card-parisian-original.webp`). Backups stay in git as fallback.
 5. **Path renaming preserves Jinja captions**: templates like `products/detail.html` build the ingredient name from the filename via `{{ img | replace('-', ' ') | title }}`. So `patchouli-green.webp` would render as "Patchouli Green" in the UI — promote to canonical `patchouli.webp` to keep "Patchouli" as the display name.
 
-Current AI-edited assets (with backups available): `patchouli.webp` (backup: `patchouli-dried.webp`), `coffee.webp` (backup: `coffee-beans.webp`), `card-parisian.webp` (backup: `card-parisian-original.webp`), `card-out-of-control.webp` (backup: `card-out-of-control-original.webp`), `Maison Henius - universe.webp` (sibling of original `Maison Henius.webp`).
+Current AI-edited assets (with backups available): `patchouli.webp` (backup: `patchouli-dried.webp`), `coffee.webp` (backup: `coffee-beans.webp`), `card-parisian.webp` (backup: `card-parisian-original.webp`), `card-out-of-control.webp` (backup: `card-out-of-control-original.webp`), `Maison Henius - universe.webp` (sibling of original `Maison Henius.webp`), `Story.webp` (backup: `Story-original.webp`, 4K source: `Story-edited.webp`), `craft-collection.webp` (4K source: `big-bottle-design-4k.webp`).
 
 ## Performance
 

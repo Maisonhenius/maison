@@ -298,11 +298,13 @@
       position: relative;
       overflow: hidden;
       border-radius: 12px;
+      aspect-ratio: 1;
     }
 
     .about__origin-image img {
       width: 100%;
-      height: auto;
+      height: 100%;
+      object-fit: cover;
       display: block;
       filter: brightness(0.9) contrast(1.05);
     }
@@ -993,7 +995,7 @@
     <div class="story__atelier">
       <img src="/static/assets/pictures/Jordan Landscape/Story.webp"
            alt="The perfumer's atelier - oils, figs, and raw materials"
-           width="1356" height="736" loading="lazy" decoding="async">
+           width="1356" height="757" loading="lazy" decoding="async">
     </div>
   </section>
 

@@ -309,13 +309,28 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **GitHub repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB)
 - **Railway project**: `maison-henius` (id: `f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web`, environment `b99a4d18-a9fc-4742-b874-c0b4d38e5ade`
 - **Builder**: Dockerfile (clones from GitHub on Railway servers — bypasses upload size limits)
-- **Deploy directory**: `/tmp/claude/maison-docker-deploy/` contains only `Dockerfile` + `Procfile` (8KB upload)
+- **Deploy directory**: `/tmp/claude/maison-docker-deploy/` — ephemeral, recreated each session (see Redeploy steps)
 
 ### Redeploy
 
 1. Push changes to `https://github.com/Maisonhenius/maison` `main` branch
-2. Bump the cache-bust string in the Dockerfile (e.g. `v6` → `v7`) — Docker caches the `git clone` layer, the version string forces a fresh clone
-3. Run: `cd /tmp/claude/maison-docker-deploy && railway up --project f45a16f9-e777-4cce-abd1-dcd08c2ccb56 --environment b99a4d18-a9fc-4742-b874-c0b4d38e5ade --service web --ci -m "<message>"`
+2. Recreate deploy dir + Dockerfile (ephemeral — `/tmp` is wiped between sessions):
+   ```bash
+   mkdir -p /tmp/claude/maison-docker-deploy
+   cat > /tmp/claude/maison-docker-deploy/Dockerfile << 'DEOF'
+   FROM python:3.11-slim
+   RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+   WORKDIR /app
+   # Cache-bust: vN (bump to force fresh clone)
+   RUN git clone --depth 1 https://github.com/Maisonhenius/maison.git .
+   RUN pip install --no-cache-dir -r requirements.txt
+   WORKDIR /app/server
+   EXPOSE 3000
+   CMD uvicorn app:app --host 0.0.0.0 --port ${PORT:-3000}
+   DEOF
+   ```
+3. Deploy: `cd /tmp/claude/maison-docker-deploy && railway up --project f45a16f9-e777-4cce-abd1-dcd08c2ccb56 --environment b99a4d18-a9fc-4742-b874-c0b4d38e5ade --service web --ci -m "<message>"`
+4. Verify: `railway logs -n 15` — should show `Uvicorn running on http://0.0.0.0:8080`
 
 ### Still needed before custom domain
 

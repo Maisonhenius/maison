@@ -15,13 +15,14 @@
   <meta property="og:site_name" content="Maison Henius">
   <meta name="twitter:card" content="summary">
 
-  <!-- LCP ELEMENT. The hero <video> carries a `poster` attribute, and web-vitals
-       spec says when a video has a poster, LCP measures when the POSTER paints,
-       not the first video frame. Preloading the poster at HIGH priority gives
-       us ~1500-2000ms LCP on mobile Slow 4G vs ~4700ms waiting for 4.mp4 to
-       download + decode + render. After the first playing event, JS removes
-       the poster attribute so subsequent playlist swaps (4→1→2→3) don't flash
-       the static still image during the ~200ms gap between ended and playing. -->
+  <!-- LCP ELEMENT. The `.hero__poster` <img> inside the hero section is
+       what LCP measures. Preloading it at HIGH priority gets it to paint
+       within ~1500ms on mobile Slow 4G (vs. the ~4770ms of waiting for
+       4.mp4 to download + decode its first frame). We previously tried a
+       native `<video poster=...>` attribute but Chrome skips rendering the
+       poster when `autoplay` is set — confirmed via PerformanceObserver,
+       zero poster LCP entries. A real <img> element is always a first-class
+       LCP candidate regardless of video state. See `.hero__poster` CSS. -->
   <link rel="preload" as="image" href="/static/assets/videos/web/4-poster.webp" type="image/webp" fetchpriority="high">
 
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
@@ -53,6 +54,31 @@
       transform: translate(-50%, -50%);
       object-fit: cover;
       z-index: 0;
+    }
+
+    /* Real <img> LCP placeholder. The hero <video> has `autoplay muted
+       playsinline preload=auto` which causes Chrome to skip rendering the
+       native `poster` attribute entirely — it jumps straight to first video
+       frame decode, so LCP ends up measuring the ~2500ms video decode gap
+       instead of the tiny poster paint. The workaround is to put a real
+       <img> element on top of the video at the same geometry; <img> is a
+       first-class LCP candidate regardless of autoplay state and paints the
+       moment its bytes arrive (~1500ms on mobile Slow 4G for a 33KB WebP).
+       On the video's `playing` event, JS adds `--hidden` to fade it out,
+       revealing the actual video underneath. */
+    .hero__poster {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 0;
+      pointer-events: none;
+      transition: opacity 0.6s ease-out;
+    }
+    .hero__poster--hidden {
+      opacity: 0;
     }
 
     /* Subtle dark overlay for text legibility */
@@ -756,10 +782,19 @@
   <h1 class="sr-only">Maison Henius - Luxury Perfume House</h1>
 
   <section class="hero">
-    <video class="hero__video" autoplay muted playsinline preload="auto"
-           poster="/static/assets/videos/web/4-poster.webp">
+    <video class="hero__video" autoplay muted playsinline preload="auto">
       <source src="/static/assets/videos/web/4.mp4" type="video/mp4">
     </video>
+    <!-- LCP element. See `.hero__poster` CSS for why this exists as a real
+         <img> rather than a native <video poster="..."> attribute. -->
+    <img class="hero__poster"
+         src="/static/assets/videos/web/4-poster.webp"
+         alt=""
+         aria-hidden="true"
+         width="1280"
+         height="720"
+         fetchpriority="high"
+         decoding="async">
 
     <div class="hero__overlay"></div>
 
@@ -1056,12 +1091,13 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     heroVideo.src = heroVideos[videoIndex];
     heroVideo.play().catch(function() {});
   });
-  // Drop the poster attr once the first frame is actually playing. LCP has
-  // already fired against the preloaded poster image at this point, and
-  // leaving the poster attached would flash it during the ~200ms gap between
-  // `ended` and `playing` every time the playlist swaps (4→1→2→3 cycle).
+  // Fade out the .hero__poster <img> the moment the video actually starts
+  // painting frames. LCP has already fired against the poster image at this
+  // point (that's the whole reason it exists). Using a CSS class + opacity
+  // transition rather than removing the element keeps the fade buttery-smooth.
+  var heroPoster = document.querySelector('.hero__poster');
   heroVideo.addEventListener('playing', function() {
-    heroVideo.removeAttribute('poster');
+    if (heroPoster) heroPoster.classList.add('hero__poster--hidden');
   }, { once: true });
 
   var bgMusic = document.getElementById('bgMusic');

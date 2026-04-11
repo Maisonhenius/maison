@@ -15,6 +15,11 @@
   <meta property="og:site_name" content="Maison Henius">
   <meta name="twitter:card" content="summary">
 
+  <!-- Preload the first scroll-video frame so the cap-alone reveal feels
+       instant the moment the section enters the viewport. Tiny (~14KB)
+       and zero-cost on cold visits. -->
+  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp" type="image/webp">
+
 {% endblock %}
 
 {% block styles %}
@@ -738,7 +743,7 @@
 
   <section class="hero">
     <video class="hero__video" autoplay muted playsinline preload="auto">
-      <source src="/static/assets/videos/web/1.mp4" type="video/mp4">
+      <source src="/static/assets/videos/web/4.mp4" type="video/mp4">
     </video>
 
     <div class="hero__overlay"></div>
@@ -1029,7 +1034,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
      0. HERO VIDEO CYCLE + SOUND TOGGLE
      ═══════════════════════════════════════ */
 
-  var heroVideos = ['/static/assets/videos/web/1.mp4', '/static/assets/videos/web/2.mp4', '/static/assets/videos/web/3.mp4'];
+  var heroVideos = ['/static/assets/videos/web/4.mp4', '/static/assets/videos/web/1.mp4', '/static/assets/videos/web/2.mp4', '/static/assets/videos/web/3.mp4'];
   var videoIndex = 0;
   heroVideo.addEventListener('ended', function() {
     videoIndex = (videoIndex + 1) % heroVideos.length;
@@ -1227,14 +1232,14 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
 
     function drawFrame(idx) {
       if (idx < 0 || idx >= FRAME_COUNT) return;
-      var img = frames[idx];
-      if (!img || !img.complete || !img.naturalWidth) return;
+      var bitmap = frames[idx];
+      if (!bitmap) return;
       currentFrame = idx;
 
       var cw = sticky.clientWidth;
       var ch = sticky.clientHeight;
-      var iw = img.naturalWidth;
-      var ih = img.naturalHeight;
+      var iw = bitmap.width;
+      var ih = bitmap.height;
 
       // Cover: fill the entire sticky container, crop the overflowing sides.
       // The Seedance composition keeps the bottle centered with generous
@@ -1246,48 +1251,57 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
       var dy = (ch - dh) / 2;
 
       ctx.clearRect(0, 0, cw, ch);
-      ctx.drawImage(img, dx, dy, dw, dh);
+      ctx.drawImage(bitmap, dx, dy, dw, dh);
+    }
+
+    function onFrameReady(i) {
+      loaded++;
+      loaderBar.style.width = ((loaded / FRAME_COUNT) * 100) + '%';
+      if (i === 0 && currentFrame < 0) drawFrame(0);
+      if (loaded === FRAME_COUNT) {
+        loader.classList.add('scroll-video__loader--hidden');
+        if (currentFrame < 0) drawFrame(0);
+        ScrollTrigger.create({
+          trigger: section,
+          start: 'top top',
+          end: 'bottom bottom',
+          pin: sticky,
+          scrub: 1,
+          onUpdate: function(self) {
+            var idx = Math.min(Math.floor(self.progress * FRAME_COUNT), FRAME_COUNT - 1);
+            if (idx !== currentFrame) drawFrame(idx);
+          }
+        });
+      } else {
+        dispatchNext();
+      }
+    }
+
+    var nextIdx = 0;
+    var order;
+
+    function dispatchNext() {
+      if (nextIdx >= order.length) return;
+      var i = order[nextIdx++];
+      // fetch → blob → createImageBitmap decodes off the main thread in a
+      // worker, keeping the scroll loop free and avoiding decode stalls on
+      // mid-tier mobile. Same pixels, same fidelity — just faster arrival.
+      fetch(frameUrl(i))
+        .then(function(r) { return r.ok ? r.blob() : Promise.reject(); })
+        .then(function(blob) { return createImageBitmap(blob); })
+        .then(function(bitmap) { frames[i] = bitmap; onFrameReady(i); })
+        .catch(function() { onFrameReady(i); });
     }
 
     function preload() {
-      // Throttled pool of 6 — matches browser per-origin HTTP/1.1 cap so the
-      // loader bar advances smoothly instead of stalling behind 121 parallel
-      // requests. ScrollTrigger is only created once all frames have loaded.
-      var POOL = 6;
-      var nextIdx = 0;
-      var order = [0];
+      // POOL of 12 — Railway/Fastly serve HTTP/2 in production (one TCP
+      // connection with multiplexing, no 6-per-origin cap), so we can
+      // dispatch more frames in parallel. In HTTP/1.1 dev fallback the
+      // browser queues beyond 6 automatically, no harm done.
+      var POOL = 12;
+      order = [0];
       for (var j = 1; j < FRAME_COUNT; j++) order.push(j);
-
-      function dispatchNext() {
-        if (nextIdx >= order.length) return;
-        var i = order[nextIdx++];
-        var img = new Image();
-        img.decoding = 'async';
-        img.src = frameUrl(i);
-        frames[i] = img;
-        img.onload = img.onerror = function() {
-          loaded++;
-          loaderBar.style.width = ((loaded / FRAME_COUNT) * 100) + '%';
-          if (i === 0 && currentFrame < 0) drawFrame(0);
-          if (loaded === FRAME_COUNT) {
-            loader.classList.add('scroll-video__loader--hidden');
-            if (currentFrame < 0) drawFrame(0);
-            ScrollTrigger.create({
-              trigger: section,
-              start: 'top top',
-              end: 'bottom bottom',
-              pin: sticky,
-              scrub: 1,
-              onUpdate: function(self) {
-                var idx = Math.min(Math.floor(self.progress * FRAME_COUNT), FRAME_COUNT - 1);
-                if (idx !== currentFrame) drawFrame(idx);
-              }
-            });
-          } else {
-            dispatchNext();
-          }
-        };
-      }
+      nextIdx = 0;
 
       for (var p = 0; p < POOL && p < order.length; p++) dispatchNext();
     }

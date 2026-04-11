@@ -18,7 +18,7 @@
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
        instant the moment the section enters the viewport. Tiny (~14KB)
        and zero-cost on cold visits. -->
-  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp" type="image/webp">
+  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=2" type="image/webp">
 
 {% endblock %}
 
@@ -1196,6 +1196,12 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     var FRAME_PATH  = '/static/assets/video-frames/frame-';
     var FRAME_EXT   = '.webp';
     var FRAME_PAD   = 4;
+    // Bump FRAME_VER whenever the scroll-video frames are rebuilt, so
+    // browsers that cached the previous frame set (30-day static cache)
+    // are forced to re-fetch. MUST match the `<link rel="preload">` href
+    // in <head> — otherwise the preload becomes a dead fetch and the JS
+    // refetches the same file.
+    var FRAME_VER   = '?v=2';
 
     var section   = document.querySelector('.scroll-video');
     if (!section) return;
@@ -1215,7 +1221,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
 
     function frameUrl(i) {
       var num = String(i + 1).padStart(FRAME_PAD, '0');
-      return FRAME_PATH + num + FRAME_EXT;
+      return FRAME_PATH + num + FRAME_EXT + FRAME_VER;
     }
 
     function sizeCanvas() {

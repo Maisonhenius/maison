@@ -672,7 +672,7 @@
     .scroll-video {
       position: relative;
       height: 400vh;
-      background: #fff;
+      background: #000;
     }
 
     .scroll-video__sticky {
@@ -680,6 +680,7 @@
       width: 100%;
       height: 100dvh;
       overflow: hidden;
+      background: #000;
     }
 
     .scroll-video__canvas {
@@ -690,9 +691,6 @@
       height: 100%;
     }
 
-    /* No gradient needed - About and scroll-video share same bg (#faf9f6) */
-
-    /* Thin gold loader bar */
     .scroll-video__loader {
       position: absolute;
       bottom: 3rem;
@@ -700,7 +698,7 @@
       transform: translateX(-50%);
       width: 120px;
       height: 1px;
-      background: rgba(184, 164, 78, 0.15);
+      background: rgba(233, 219, 144, 0.2);
       z-index: 5;
       transition: opacity 0.6s ease;
     }
@@ -713,40 +711,21 @@
     .scroll-video__loader-bar {
       height: 100%;
       width: 0%;
-      background: #b8a44e;
+      background: #e9db90;
       transition: width 0.1s linear;
     }
 
-    /* Reduced motion: collapse and show poster */
-    @media (prefers-reduced-motion: reduce) {
-      .scroll-video {
-        height: auto;
-      }
-
-      .scroll-video__sticky {
-        position: relative;
-        height: auto;
-        aspect-ratio: 1440 / 800;
-      }
-
-    }
-
+    /* On phones the 16:9 video is cropped to its center column by the
+       cover-fit drawing math, so we just shorten the scroll distance — a
+       3-screen-tall scrub feels interminable on a small device. */
     @media (max-width: 768px) {
-      .scroll-video {
-        height: 300vh;
-      }
-
-      .scroll-video__loader {
-        bottom: 2rem;
-        width: 80px;
-      }
+      .scroll-video { height: 300vh; }
     }
 
     @media (max-width: 480px) {
-      .scroll-video {
-        height: 250vh;
-      }
+      .scroll-video { height: 250vh; }
     }
+
   </style>
 {% endblock %}
 
@@ -1209,12 +1188,9 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
      ═══════════════════════════════════════ */
   ;(function() {
     var FRAME_COUNT = 121;
-    var FRAME_START = 0;   // Start at frame 1 — cap alone, floating high, before the bottle reveals
-    var isMobile    = window.innerWidth < 768;
-    var FRAME_PATH  = isMobile ? '/static/assets/video-frames/mobile/frame-' : '/static/assets/video-frames/frame-';
+    var FRAME_PATH  = '/static/assets/video-frames/frame-';
     var FRAME_EXT   = '.webp';
-    var STEP        = 1;
-    var TOTAL       = FRAME_COUNT;
+    var FRAME_PAD   = 4;
 
     var section   = document.querySelector('.scroll-video');
     if (!section) return;
@@ -1225,12 +1201,15 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     var loader    = section.querySelector('.scroll-video__loader');
     var loaderBar = section.querySelector('.scroll-video__loader-bar');
 
-    var frames       = new Array(TOTAL);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+
+    var frames       = new Array(FRAME_COUNT);
     var loaded       = 0;
     var currentFrame = -1;
 
     function frameUrl(i) {
-      var num = String((i * STEP) + 1).padStart(4, '0');
+      var num = String(i + 1).padStart(FRAME_PAD, '0');
       return FRAME_PATH + num + FRAME_EXT;
     }
 
@@ -1241,11 +1220,13 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
       canvas.style.width  = sticky.clientWidth  + 'px';
       canvas.style.height = sticky.clientHeight + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       if (currentFrame >= 0) drawFrame(currentFrame);
     }
 
     function drawFrame(idx) {
-      if (idx < 0 || idx >= TOTAL) return;
+      if (idx < 0 || idx >= FRAME_COUNT) return;
       var img = frames[idx];
       if (!img || !img.complete || !img.naturalWidth) return;
       currentFrame = idx;
@@ -1255,7 +1236,10 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
       var iw = img.naturalWidth;
       var ih = img.naturalHeight;
 
-      var scale = Math.min(cw / iw, ch / ih);
+      // Cover: fill the entire sticky container, crop the overflowing sides.
+      // The Seedance composition keeps the bottle centered with generous
+      // negative space, so edge cropping doesn't cut into important content.
+      var scale = Math.max(cw / iw, ch / ih);
       var dw = iw * scale;
       var dh = ih * scale;
       var dx = (cw - dw) / 2;
@@ -1266,21 +1250,13 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     }
 
     function preload() {
-      // Throttled preloader: keep a small pool of concurrent requests instead of
-      // firing all 121 at once (which was saturating the browser's 6-per-origin
-      // connection limit and making the loader feel frozen on slow networks).
-      //
-      // Priority order: FRAME_START first (so the cap-floating reveal can draw
-      // immediately), then the rest in order. We also draw FRAME_START the
-      // moment it lands — no more blank canvas waiting for all 121 frames.
-      //
-      // ScrollTrigger.create() is still deferred until ALL frames are loaded so
-      // the scroll animation never starts incomplete (same contract as before).
-      var POOL = 6;           // matches browser per-origin HTTP/1.1 cap
-      var nextIdx = 0;        // next frame index to dispatch
-      var order = [];
-      order.push(FRAME_START);
-      for (var j = 0; j < TOTAL; j++) { if (j !== FRAME_START) order.push(j); }
+      // Throttled pool of 6 — matches browser per-origin HTTP/1.1 cap so the
+      // loader bar advances smoothly instead of stalling behind 121 parallel
+      // requests. ScrollTrigger is only created once all frames have loaded.
+      var POOL = 6;
+      var nextIdx = 0;
+      var order = [0];
+      for (var j = 1; j < FRAME_COUNT; j++) order.push(j);
 
       function dispatchNext() {
         if (nextIdx >= order.length) return;
@@ -1291,15 +1267,11 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
         frames[i] = img;
         img.onload = img.onerror = function() {
           loaded++;
-          loaderBar.style.width = ((loaded / TOTAL) * 100) + '%';
-          // Draw FRAME_START as soon as it's ready — user sees the cap-floating
-          // reveal instantly instead of blank canvas while the rest stream in.
-          if (i === FRAME_START && currentFrame < 0) drawFrame(FRAME_START);
-          if (loaded === TOTAL) {
+          loaderBar.style.width = ((loaded / FRAME_COUNT) * 100) + '%';
+          if (i === 0 && currentFrame < 0) drawFrame(0);
+          if (loaded === FRAME_COUNT) {
             loader.classList.add('scroll-video__loader--hidden');
-            // Ensure FRAME_START is drawn (defensive — normally already drawn above)
-            if (currentFrame < 0) drawFrame(FRAME_START);
-            // Create the scrub ScrollTrigger after all frames loaded
+            if (currentFrame < 0) drawFrame(0);
             ScrollTrigger.create({
               trigger: section,
               start: 'top top',
@@ -1307,7 +1279,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
               pin: sticky,
               scrub: 1,
               onUpdate: function(self) {
-                var idx = Math.min(FRAME_START + Math.floor(self.progress * (TOTAL - FRAME_START)), TOTAL - 1);
+                var idx = Math.min(Math.floor(self.progress * FRAME_COUNT), FRAME_COUNT - 1);
                 if (idx !== currentFrame) drawFrame(idx);
               }
             });
@@ -1317,11 +1289,9 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
         };
       }
 
-      // Kick off the pool
       for (var p = 0; p < POOL && p < order.length; p++) dispatchNext();
     }
 
-    // Lazy init: preload when section approaches
     ScrollTrigger.create({
       trigger: section,
       start: 'top bottom+=200',
@@ -1330,16 +1300,14 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
         preload();
         sizeCanvas();
         window.addEventListener('resize', sizeCanvas);
-        // Track this listener globally so we can remove it on Turbo navigation away
-        // (otherwise stale listeners pointing at detached canvas nodes accumulate
-        // every back-and-forth visit, eventually degrading scroll responsiveness).
+        // Tracked globally so the Turbo before-render handler can detach it
+        // on navigation away — stale listeners on detached canvases otherwise
+        // accumulate across back-and-forth visits.
         window._maisonScrollVideoResize = sizeCanvas;
       }
     });
   })();
 
-  // Remove the scroll-video resize listener on Turbo navigation away from landing.
-  // Registers ONCE per JS load (guard) so we don't accumulate cleanup listeners.
   if (!window._scrollVideoCleanupBound) {
     window._scrollVideoCleanupBound = true;
     document.addEventListener('turbo:before-render', function() {

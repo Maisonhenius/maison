@@ -97,6 +97,11 @@ class CacheControlMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         if response.headers.get("cache-control"):
             return response
+        # Never apply long-lived cache headers to error responses. A 404 today
+        # might be a valid asset tomorrow (e.g. frames added after first visit)
+        # and the client must re-request, not serve a stale 404 from cache.
+        if not 200 <= response.status_code < 300:
+            return response
         path = request.url.path
         if path.startswith(("/static/css/", "/static/js/", "/static/admin/")):
             response.headers["cache-control"] = "public, max-age=31536000, immutable"

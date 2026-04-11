@@ -59,7 +59,7 @@ assets/
   images/logo.svg         <- Gold monogram logo (#E9DB90)
   music/music.mp3         <- Background audio loop (19s, 192kbps)
   videos/web/             <- Web-optimized hero videos (H.264, ~3MB each)
-  video-frames/           <- Scroll video WebP frames (121 desktop, 121 mobile, gitignored)
+  video-frames/           <- Scroll video WebP frames (121 at 1280x720, ~2.4MB, tracked in git)
   pictures/               <- Product photography, landscapes, olfactory pyramids
   pictures/ingredients/   <- 32 ingredient WebP photos (800px, ~170KB each). 4K PNG originals are gitignored
 ```
@@ -219,28 +219,27 @@ Site is mobile-first. Key patterns to preserve:
 - Turbo lifecycle: kill ScrollTriggers on `turbo:before-render`, reinit Lenis on `turbo:load`
 - **Global error logger** (`application.js`): `window.error` + `unhandledrejection` listeners log as `[maison] uncaught error: ...` / `[maison] unhandled promise rejection: ...`. If a page freezes or animation breaks, check console for these tags first.
 - **Lenis cleanup is defensive** — `lenis.destroy()`, `gsap.ticker.remove()`, `ScrollTrigger.kill()` are all wrapped in try/catch in `application.js`. The cleanup runs on `turbo:before-render` AND at the start of `turbo:load` (idempotent — kills any leftover state before re-creating).
+- **Scroll-video uses cover-fit (`Math.max` scale), not contain-fit.** The 121-frame canvas sequencer in `index.html` scales each frame to fill the full sticky container, cropping the overflowing dimension. This eliminates letterbox bands top/bottom (which otherwise showed as distinct visual seams between the pure-black video content and any surrounding section color). Bottle is centered in the Seedance composition, so side crop is invisible. Don't flip back to `Math.min` without also matching the sticky's background to the video content color.
 
 ## Scroll Video (Canvas Frame Sequencer)
 
-121 WebP frames from `scrollvideo.mp4` (desktop) and `scrollvideo-mobile.mp4` (portrait).
-Frames ARE committed to the repo (`assets/video-frames/`, ~19MB). Source MP4s are gitignored.
+121 WebP frames at 1280×720 from `assets/videos/scrollvideo-2.mp4` — a 5.06s Seedance-generated cap-onto-bottle reveal on a pure `#000` void background. Source MP4 is gitignored; frames are committed (~2.4MB total — black-void content compresses aggressively).
 
-- **`FRAME_START = 0`** in `index.html` (around line 1226) — frame 1 shows the gold ornate cap floating high alone (intentional, the cap-design reveal moment the user explicitly approved). Frames 2-30 show the cap descending while the bottle body fades in. Frames 31+ are the assembled bottle with ingredients. Don't raise this — frame 1 alone is the highlight shot.
-- **Mobile video lacks ingredients reveal** — desktop frame 121 shows the ingredient flatlay; mobile frame 121 only shows the bottle. Content limitation, not a code bug.
+- **Desktop + mobile share one frame set.** The JS draws them to a `<canvas>` with **cover-fit math** (`Math.max(cw/iw, ch/ih)`), so on desktop the 16:9 video fills the full sticky container with minor side crop, and on portrait mobile the same frames render as a centered vertical strip (middle ~26% of the video width, which is where the cap and bottle live the entire 5 seconds). There is no separate `mobile/` frame set — the old `assets/video-frames/mobile/` folder is gone.
+- **Scroll distance is tapered:** `400vh` desktop, `300vh` under 768px, `250vh` under 480px (3-screen-tall scrubs feel interminable on a phone).
+- **Section + sticky backgrounds are pure `#000`** (not brand `#0a0a08`) so any residual letterbox area at the bottom edge of cover-fit is visually indistinguishable from the video content.
+- **`FRAME_START = 0`** — frame 1 shows the gold ornate cap floating alone in the void, the cap-design reveal moment. Frames ~2–60 show the cap descending as the bottle fades in; frames ~60–121 are the assembled bottle. Don't raise FRAME_START — frame 1 alone is the highlight shot.
+- **No `prefers-reduced-motion` fallback.** Intentionally removed — the scroll scrub is brand-critical and runs for all viewers regardless of OS "Reduce motion" setting. WCAG 2.3.3 AAA non-compliance is a conscious choice for this site.
+- **`ctx.imageSmoothingQuality = 'high'`** is set on the 2D context for retina-sharpness (the default is `'low'` on most browsers and looks muddy on 2x+ displays).
 
 If frames are missing, re-extract:
 
 ```bash
-# Desktop
-ffmpeg -y -i assets/videos/scrollvideo.mp4 -q:v 2 /tmp/frames-%04d.jpg
-for f in /tmp/frames-*.jpg; do cwebp -q 90 -quiet "$f" -o "assets/video-frames/$(basename ${f%.jpg}.webp)"; done
-
-# Mobile
-ffmpeg -y -i assets/videos/scrollvideo-mobile.mp4 -q:v 2 /tmp/mframes-%04d.jpg
-for f in /tmp/mframes-*.jpg; do cwebp -q 90 -quiet "$f" -o "assets/video-frames/mobile/$(basename ${f%.jpg}.webp)"; done
+ffmpeg -y -i assets/videos/scrollvideo-2.mp4 -q:v 2 /tmp/frames-%04d.jpg
+for f in /tmp/frames-*.jpg; do cwebp -q 92 -quiet "$f" -o "assets/video-frames/$(basename ${f%.jpg}.webp)"; done
 ```
 
-ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert with `cwebp`.
+ffmpeg has no WebP encoder on this machine — extract JPEG first, then convert with `cwebp`. Quality 92 (not 90) keeps the subtle gold specular detail on the cap.
 
 ## Testing
 
@@ -297,6 +296,7 @@ ffmpeg has no WebP encoder on this machine - extract JPEG first, then convert wi
 - **First checkout auto-saves to profile**: `/api/checkout/create-session` checks if the user has zero saved addresses; if so, the address they typed in checkout is auto-inserted into the `addresses` table with `is_default=true`. So the second time they checkout, the address is already saved + can be reused. Wrapped in try/except so a save failure doesn't block payment. Address shows in `/profile` immediately on next visit. Trigger condition: `address.line1 AND address.city` must be present (ignores partial submissions).
 - **`/checkout/success` is self-healing** — the route uses Stripe API to verify the session, then calls `_create_order_from_stripe_session()` (the same helper the webhook uses) to create the order + clear the server cart. Idempotent via existing-order check. If you change the webhook order-creation logic, change the helper, not the webhook handler — both code paths flow through it.
 - **Don't change middleware order in `app.py`** — `CacheControlMiddleware` must be added BEFORE `GZipMiddleware`. Starlette runs `add_middleware()` calls in reverse order on responses, so the last one added is the outermost. GZip needs to wrap CacheControl so `Vary: Accept-Encoding` lands after the cache headers are set.
+- **`CacheControlMiddleware` MUST skip error responses (4xx/5xx)** — the middleware sets `Cache-Control: public, max-age=2592000` on static assets by PATH, but without a status-code guard it will happily slap that header on a 404 too, poisoning the client cache for 30 days. If a visitor hits a missing `/static/assets/...` URL once, their browser serves the cached 404 until the header expires — even after you add the asset. There's a guard at `app.py:100-103` (`if not 200 <= status < 300: return response`). Don't remove it. 2xx responses (including 206 partial-content for video range requests) still get cached — the guard uses a range check, not a strict `== 200`.
 - **Always check image dimensions before encoding** — `cwebp` doesn't auto-resize. If you forget `-resize WIDTH 0`, you'll ship a 4K image that displays at 600px and wastes ~1 MB per file (we did this with cards originally). Run `webpinfo file.webp` to verify dimensions after encoding.
 - **Square images — NEVER use `aspect-ratio`**: CSS `aspect-ratio: 1` breaks in flex containers, inline-block, and when HTML width/height attributes are present. Use explicit `width` + `height` (same value) on the container + `overflow: hidden`, then `width: 100%; height: 100%; object-fit: cover` on the `<img>`. Remove HTML `width`/`height` attributes from the `<img>` tag when using this pattern. The `aspect-ratio` approach has failed repeatedly — don't retry it.
 - **Scroll-video preloader is throttled on purpose** — `preload()` in `index.html` uses a concurrency pool of 6 (matches browser per-origin HTTP/1.1 cap) and draws `FRAME_START` the instant it arrives, rather than waiting for all 121 frames. Do NOT "simplify" this back to a tight `for (i=0; i<TOTAL; i++) new Image()` loop — that was the original P0 perf bug (blank canvas for 15+ seconds on slow networks). The `ScrollTrigger.create()` call is still deferred until all frames load, so the scroll animation contract is unchanged.

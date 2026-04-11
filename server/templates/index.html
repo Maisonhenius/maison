@@ -18,7 +18,7 @@
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
        instant the moment the section enters the viewport. Tiny (~14KB)
        and zero-cost on cold visits. -->
-  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=2" type="image/webp">
+  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=3" type="image/webp">
 
 {% endblock %}
 
@@ -697,6 +697,11 @@
     }
 
     .scroll-video__loader {
+      /* Hidden permanently — preload now kicks off on page load (not on
+         section enter), so by the time any user reaches this section the
+         frames are already cached, and a visible loader bar during the
+         rare slow-network edge case is worse than no UI at all. */
+      display: none;
       position: absolute;
       bottom: 3rem;
       left: 50%;
@@ -1201,7 +1206,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     // are forced to re-fetch. MUST match the `<link rel="preload">` href
     // in <head> — otherwise the preload becomes a dead fetch and the JS
     // refetches the same file.
-    var FRAME_VER   = '?v=2';
+    var FRAME_VER   = '?v=3';
 
     var section   = document.querySelector('.scroll-video');
     if (!section) return;
@@ -1312,20 +1317,20 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
       for (var p = 0; p < POOL && p < order.length; p++) dispatchNext();
     }
 
-    ScrollTrigger.create({
-      trigger: section,
-      start: 'top bottom+=200',
-      once: true,
-      onEnter: function() {
-        preload();
-        sizeCanvas();
-        window.addEventListener('resize', sizeCanvas);
-        // Tracked globally so the Turbo before-render handler can detach it
-        // on navigation away — stale listeners on detached canvases otherwise
-        // accumulate across back-and-forth visits.
-        window._maisonScrollVideoResize = sizeCanvas;
-      }
-    });
+    // Preload the 121 frames IMMEDIATELY on page load, not when the user
+    // scrolls near the section. This gives the browser the full hero-video
+    // + story-section scroll time to download frames in the background, so
+    // a fast-scrolling first-time visitor finds them already cached by the
+    // time they reach the scroll-video. Total payload is ~2.4 MB and runs
+    // in parallel with hero-video playback over HTTP/2 — no measurable LCP
+    // impact because the scroll-video is below the fold.
+    preload();
+    sizeCanvas();
+    window.addEventListener('resize', sizeCanvas);
+    // Tracked globally so the Turbo before-render handler can detach it
+    // on navigation away — stale listeners on detached canvases otherwise
+    // accumulate across back-and-forth visits.
+    window._maisonScrollVideoResize = sizeCanvas;
   })();
 
   if (!window._scrollVideoCleanupBound) {

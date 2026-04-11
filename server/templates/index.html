@@ -15,6 +15,13 @@
   <meta property="og:site_name" content="Maison Henius">
   <meta name="twitter:card" content="summary">
 
+  <!-- Preload the hero video with HIGH priority so it wins the LCP race
+       against the 121 scroll-video frame fetches (which run at LOW priority,
+       see scroll-video IIFE). Chrome otherwise assigns videos LOW by default,
+       and on HTTP/2 the JS-driven fetches stretch the video's tail by ~1.4s
+       on mobile Slow 4G, slipping LCP from ~3s to ~4.6s. Measured on Lighthouse. -->
+  <link rel="preload" as="video" href="/static/assets/videos/web/4.mp4" type="video/mp4" fetchpriority="high">
+
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
        instant the moment the section enters the viewport. Tiny (~14KB)
        and zero-cost on cold visits. -->
@@ -1297,7 +1304,15 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
       // fetch → blob → createImageBitmap decodes off the main thread in a
       // worker, keeping the scroll loop free and avoiding decode stalls on
       // mid-tier mobile. Same pixels, same fidelity — just faster arrival.
-      fetch(frameUrl(i))
+      //
+      // `priority: 'low'` is CRITICAL for LCP: the hero <video> is LCP and
+      // it's boosted to HIGH via <link rel=preload fetchpriority=high> in
+      // <head>. If we let these 121 scroll-frame fetches default to HIGH
+      // (which fetch() does for same-origin resources), they steal HTTP/2
+      // bandwidth from the hero video on slow connections, stretching LCP
+      // by ~1.4s on mobile Slow 4G. Marking them LOW yields the race.
+      // Browsers without fetch-priority support ignore the hint harmlessly.
+      fetch(frameUrl(i), { priority: 'low' })
         .then(function(r) { return r.ok ? r.blob() : Promise.reject(); })
         .then(function(blob) { return createImageBitmap(blob); })
         .then(function(bitmap) { frames[i] = bitmap; onFrameReady(i); })

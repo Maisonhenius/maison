@@ -15,18 +15,18 @@
   <meta property="og:site_name" content="Maison Henius">
   <meta name="twitter:card" content="summary">
 
+  <!-- LCP ELEMENT. The hero <video> carries a `poster` attribute, and web-vitals
+       spec says when a video has a poster, LCP measures when the POSTER paints,
+       not the first video frame. Preloading the poster at HIGH priority gives
+       us ~1500-2000ms LCP on mobile Slow 4G vs ~4700ms waiting for 4.mp4 to
+       download + decode + render. After the first playing event, JS removes
+       the poster attribute so subsequent playlist swaps (4→1→2→3) don't flash
+       the static still image during the ~200ms gap between ended and playing. -->
+  <link rel="preload" as="image" href="/static/assets/videos/web/4-poster.webp" type="image/webp" fetchpriority="high">
+
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
        instant the moment the section enters the viewport. Tiny (~14KB)
-       and zero-cost on cold visits.
-
-       Note: we do NOT `<link rel=preload as=video>` the hero 4.mp4 — Chrome
-       does not honor `fetchpriority` on `as=video`, and issuing a preload
-       link for the same URL that the <video> element already fetches can
-       cause a duplicate download that doesn't share with the video element's
-       media pipeline. The LCP win comes from fix #2 instead (marking the
-       scroll-video frame fetches as priority:low so they stop stealing
-       H2 bandwidth from the hero video). Verified in Lighthouse: 4.mp4
-       download completes ~1 second faster even without this preload. -->
+       and zero-cost on cold visits. -->
   <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=3" type="image/webp">
 
 {% endblock %}
@@ -756,7 +756,8 @@
   <h1 class="sr-only">Maison Henius - Luxury Perfume House</h1>
 
   <section class="hero">
-    <video class="hero__video" autoplay muted playsinline preload="auto">
+    <video class="hero__video" autoplay muted playsinline preload="auto"
+           poster="/static/assets/videos/web/4-poster.webp">
       <source src="/static/assets/videos/web/4.mp4" type="video/mp4">
     </video>
 
@@ -1055,6 +1056,13 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     heroVideo.src = heroVideos[videoIndex];
     heroVideo.play().catch(function() {});
   });
+  // Drop the poster attr once the first frame is actually playing. LCP has
+  // already fired against the preloaded poster image at this point, and
+  // leaving the poster attached would flash it during the ~200ms gap between
+  // `ended` and `playing` every time the playlist swaps (4→1→2→3 cycle).
+  heroVideo.addEventListener('playing', function() {
+    heroVideo.removeAttribute('poster');
+  }, { once: true });
 
   var bgMusic = document.getElementById('bgMusic');
   var soundToggle = document.getElementById('soundToggle');

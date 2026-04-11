@@ -15,16 +15,18 @@
   <meta property="og:site_name" content="Maison Henius">
   <meta name="twitter:card" content="summary">
 
-  <!-- Preload the hero video with HIGH priority so it wins the LCP race
-       against the 121 scroll-video frame fetches (which run at LOW priority,
-       see scroll-video IIFE). Chrome otherwise assigns videos LOW by default,
-       and on HTTP/2 the JS-driven fetches stretch the video's tail by ~1.4s
-       on mobile Slow 4G, slipping LCP from ~3s to ~4.6s. Measured on Lighthouse. -->
-  <link rel="preload" as="video" href="/static/assets/videos/web/4.mp4" type="video/mp4" fetchpriority="high">
-
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
        instant the moment the section enters the viewport. Tiny (~14KB)
-       and zero-cost on cold visits. -->
+       and zero-cost on cold visits.
+
+       Note: we do NOT `<link rel=preload as=video>` the hero 4.mp4 — Chrome
+       does not honor `fetchpriority` on `as=video`, and issuing a preload
+       link for the same URL that the <video> element already fetches can
+       cause a duplicate download that doesn't share with the video element's
+       media pipeline. The LCP win comes from fix #2 instead (marking the
+       scroll-video frame fetches as priority:low so they stop stealing
+       H2 bandwidth from the hero video). Verified in Lighthouse: 4.mp4
+       download completes ~1 second faster even without this preload. -->
   <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=3" type="image/webp">
 
 {% endblock %}

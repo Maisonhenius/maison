@@ -241,13 +241,13 @@
     flex: 1; text-align: center;
   }
   .product-comp__note-img {
-    width: 100%; height: auto; aspect-ratio: 1;
+    width: 75%; height: auto; aspect-ratio: 1;
     object-fit: cover; border-radius: 12px;
-    margin-bottom: 0.8rem;
+    margin: 0 auto 0.8rem;
   }
   .product-comp__note-name {
     font-family: 'Cormorant Garamond', serif; font-weight: 300;
-    font-style: italic; font-size: clamp(0.9rem, 1.2vw, 1.05rem);
+    font-style: italic; font-size: clamp(1.05rem, 1.5vw, 1.25rem);
     color: #f5f0e8; letter-spacing: 0.02em;
   }
 
@@ -264,7 +264,7 @@
     color: #b8a44e; margin-bottom: 2rem;
   }
   .product-bottle__img {
-    width: clamp(280px, 42vw, 480px); height: auto;
+    max-height: 70vh; width: auto; max-width: 90%;
     margin: 0 auto 2rem; display: block;
     border-radius: 8px;
     box-shadow: 0 24px 60px -20px rgba(60,40,10,0.18), 0 8px 20px -8px rgba(60,40,10,0.10);
@@ -421,7 +421,10 @@
     <hr class="product-essence__divider">
     <span class="product-essence__label">The Essence</span>
     <p class="product-essence__character">
-      {{ product.character }}
+      Our Essence does not seek to impress.
+    </p>
+    <p class="product-essence__character">
+      It seeks to resonate.
     </p>
     <p class="product-essence__intro">
       {{ product.description }}
@@ -484,7 +487,7 @@
     <img class="product-bottle__img"
          src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.bottle_image | replace(' ', '%20') }}"
          alt="{{ product.name }} - Maison Henius bottle"
-         width="1200" height="1490" loading="lazy" decoding="async">
+         loading="lazy" decoding="async">
     <div class="product-bottle__details">Eau de Parfum · 100ml</div>
     <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
     <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart - ${{ product.price }}</button>

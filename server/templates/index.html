@@ -748,7 +748,7 @@
 
   <section class="hero">
     <video class="hero__video" autoplay muted playsinline preload="auto">
-      <source src="/static/assets/videos/web/4.mp4" type="video/mp4">
+      <source src="/static/assets/videos/web/1.mp4" type="video/mp4">
     </video>
 
     <div class="hero__overlay"></div>
@@ -1039,7 +1039,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
      0. HERO VIDEO CYCLE + SOUND TOGGLE
      ═══════════════════════════════════════ */
 
-  var heroVideos = ['/static/assets/videos/web/4.mp4', '/static/assets/videos/web/1.mp4', '/static/assets/videos/web/2.mp4', '/static/assets/videos/web/3.mp4'];
+  var heroVideos = ['/static/assets/videos/web/1.mp4', '/static/assets/videos/web/2.mp4', '/static/assets/videos/web/3.mp4'];
   var videoIndex = 0;
   heroVideo.addEventListener('ended', function() {
     videoIndex = (videoIndex + 1) % heroVideos.length;

@@ -252,7 +252,7 @@ PRODUCTS = {
             {"name": "Sentimental", "desc": "Treasures memories like jewels of the soul"}
         ],
         "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Oud - Saffron - Aldehydes", "desc": "The opening blends the intensity of oud and saffron with luminous aldehydic notes that bring brightness to the composition.", "images": ["oud", "saffron", "amber"]},
+            "top": {"label": "Opening - Top Notes", "names": "Oud - Saffron - Aldehydes", "desc": "The opening blends the intensity of oud and saffron with luminous aldehydic notes that bring brightness to the composition.", "images": ["oud", "saffron", "aldehydes"]},
             "heart": {"label": "Heart - Middle Notes", "names": "Rose - Leather - Cypriol", "desc": "The heart reveals a refined accord of rose and leather, structured by cypriol which reinforces the woody and elegant character of the fragrance.", "images": ["rose", "leather", "cypriol"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Amber - Vetiver - Vanilla", "desc": "The base combines amber, vetiver, cedarwood and vanilla to create a deep, warm and sophisticated trail.", "images": ["amber", "vetiver", "vanilla"]}
         },

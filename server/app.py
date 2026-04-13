@@ -186,7 +186,7 @@ PRODUCTS = {
             {"name": "Provocative", "desc": "Leaves an addictive, unforgettable trail"}
         ],
         "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Lemon - Nutmeg - Cool Spices", "desc": "The opening is bright and energizing with lemon, nutmeg and cool spices - a spark that cuts through the air.", "images": ["lemon", "nutmeg", "star-anise"]},
+            "top": {"label": "Opening - Top Notes", "names": "Lemon - Nutmeg - Cool Spices", "desc": "The opening is bright and energizing with lemon, nutmeg and cool spices - a spark that cuts through the air.", "images": ["lemon", "nutmeg", "cool-spices"]},
             "heart": {"label": "Heart - Middle Notes", "names": "Fig - Coconut - Freesia", "desc": "The heart reveals a creamy and slightly fruity facet built around fig, coconut and freesia - an unexpected softness.", "images": ["fig", "coconut", "freesia"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Patchouli - Fruity Musk - Sandalwood", "desc": "The base blends patchouli, sandalwood and fruity musk to create a sensual, elegant and addictive trail.", "images": ["patchouli", "sandalwood", "musk"]}
         },
@@ -208,7 +208,7 @@ PRODUCTS = {
             {"name": "Timeless", "desc": "Classic elegance that never fades"}
         ],
         "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Coffee with Cream - Grapefruit - Red Berries", "desc": "The opening combines the freshness of grapefruit and red berries with a gourmand coffee-with-cream facet.", "images": ["coffee", "grapefruit", "red-berries"]},
+            "top": {"label": "Opening - Top Notes", "names": "Coffee with Cream - Grapefruit - Red Berries", "desc": "The opening combines the freshness of grapefruit and red berries with a gourmand coffee-with-cream facet.", "images": ["coffee-with-cream", "grapefruit", "red-berries"]},
             "heart": {"label": "Heart - Middle Notes", "names": "Rose - Peony - Jasmine", "desc": "The heart reveals a refined floral bouquet composed of rose, peony and jasmine, bringing softness and romance.", "images": ["rose", "peony", "jasmine"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Croissant - Almond - Musk", "desc": "The base unfolds into a comforting gourmand accord of croissant, almond and musk, creating a soft and creamy signature.", "images": ["croissant", "almond", "musk"]}
         },
@@ -275,7 +275,7 @@ PRODUCTS = {
         ],
         "notes": {
             "top": {"label": "Opening - Top Notes", "names": "Grapefruit - Bergamot - Passion Fruit", "desc": "The opening draws inspiration from the freshness of citrus and exotic fruits: grapefruit, bergamot and passion fruit bring an immediate and modern dynamism.", "images": ["grapefruit", "bergamot", "passion-fruit"]},
-            "heart": {"label": "Heart - Middle Notes", "names": "Moldavian Rose - Patchouli - Vetiver", "desc": "The heart revolves around Moldavian rose absolute, combined with patchouli and vetiver, reinforcing the woody and earthy structure of the composition.", "images": ["rose", "patchouli", "vetiver"]},
+            "heart": {"label": "Heart - Middle Notes", "names": "Moldavian Rose - Patchouli - Vetiver", "desc": "The heart revolves around Moldavian rose absolute, combined with patchouli and vetiver, reinforcing the woody and earthy structure of the composition.", "images": ["moldavian-rose", "patchouli", "vetiver"]},
             "base": {"label": "Dry Down - Base Notes", "names": "Sandalwood - Oud - Leather", "desc": "The base reveals a noble and long-lasting accord of sandalwood, oud, leather and Orcanox, leaving a warm, enveloping and elegant trail.", "images": ["sandalwood", "oud", "leather"]}
         },
         "card_image": "card-oud-passion.webp",

@@ -325,6 +325,14 @@ async def product_detail(request: Request, slug: str):
 async def story(request: Request):
     return templates.TemplateResponse(request=request, name="story.html", context=get_context())
 
+@app.get("/terms", response_class=HTMLResponse)
+async def terms(request: Request):
+    return templates.TemplateResponse(request=request, name="terms.html", context=get_context())
+
+@app.get("/accessibility", response_class=HTMLResponse)
+async def accessibility(request: Request):
+    return templates.TemplateResponse(request=request, name="accessibility.html", context=get_context())
+
 @app.get("/cart", response_class=HTMLResponse)
 async def cart(request: Request):
     return templates.TemplateResponse(request=request, name="cart.html", context=get_context())

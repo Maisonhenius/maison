@@ -444,6 +444,28 @@ body {
   color: #e9db90;
 }
 
+.footer__links {
+  display: flex;
+  gap: 2rem;
+  justify-content: center;
+  margin-bottom: 1.2rem;
+}
+
+.footer__links a {
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 300;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: rgba(245, 240, 232, 0.35);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.footer__links a:hover {
+  color: #e9db90;
+}
+
 .footer__legal {
   font-family: 'Montserrat', sans-serif;
   font-weight: 300;
@@ -705,6 +727,17 @@ body {
   }
 
   .footer__social {
+    gap: 1rem;
+  }
+
+  .footer__links a {
+    padding: 0.8rem 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+  }
+
+  .footer__links {
     gap: 1rem;
   }
 }

@@ -1,0 +1,325 @@
+{% extends "layout.html" %}
+
+{% block title %}Terms &amp; Conditions - Maison Henius{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Terms and Conditions of Sale for Maison Henius. Read our policies on orders, payments, delivery, returns, and warranty.">
+{% endblock %}
+
+{% block styles %}
+<style>
+  /* ═══════════════════════════════════════
+     LEGAL PAGES - SHARED DESIGN SYSTEM
+     ═══════════════════════════════════════ */
+  .legal-hero {
+    background: #0a0a08;
+    padding: clamp(7rem, 14vw, 11rem) clamp(1.5rem, 5vw, 4rem) clamp(4rem, 8vw, 6rem);
+    text-align: center;
+  }
+
+  .legal-hero__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.74rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 1.5rem;
+  }
+
+  .legal-hero__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .legal-hero__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(0.78rem, 1vw, 0.85rem);
+    letter-spacing: 0.12em;
+    color: rgba(245, 240, 232, 0.45);
+  }
+
+  /* ── Body ── */
+  .legal-body {
+    background: #faf9f6;
+    padding: clamp(3.5rem, 7vw, 6rem) clamp(1.5rem, 5vw, 4rem);
+  }
+
+  .legal-body__inner {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .legal-notice {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.82rem, 1vw, 0.88rem);
+    line-height: 1.9;
+    color: rgba(10, 10, 8, 0.72);
+    letter-spacing: 0.02em;
+    margin-bottom: clamp(2.5rem, 4vw, 3.5rem);
+    padding-bottom: clamp(2.5rem, 4vw, 3.5rem);
+    border-bottom: 1px solid rgba(184, 164, 78, 0.18);
+  }
+
+  .legal-section {
+    margin-bottom: clamp(2.5rem, 4vw, 3.5rem);
+  }
+
+  .legal-section__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+    color: #0a0a08;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+  }
+
+  .legal-section__divider {
+    display: block;
+    width: 30px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin-bottom: 1.4rem;
+  }
+
+  .legal-section__list {
+    list-style: none;
+    counter-reset: legal-item;
+    padding: 0;
+    margin: 0;
+  }
+
+  .legal-section__list > li {
+    counter-increment: legal-item;
+    position: relative;
+    padding-left: 1.8rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.85rem, 1.02vw, 0.92rem);
+    line-height: 1.85;
+    color: rgba(10, 10, 8, 0.8);
+    letter-spacing: 0.02em;
+    margin-bottom: 0.8rem;
+  }
+
+  .legal-section__list > li::before {
+    content: counter(legal-item) ".";
+    position: absolute;
+    left: 0;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 500;
+    font-size: 0.95rem;
+    color: #b8a44e;
+  }
+
+  .legal-section__text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.85rem, 1.02vw, 0.92rem);
+    line-height: 1.85;
+    color: rgba(10, 10, 8, 0.8);
+    letter-spacing: 0.02em;
+  }
+
+  /* ── Closing ── */
+  .legal-closing {
+    text-align: center;
+    padding-top: clamp(2rem, 4vw, 3rem);
+    border-top: 1px solid rgba(184, 164, 78, 0.18);
+    margin-top: clamp(1rem, 2vw, 2rem);
+  }
+
+  .legal-closing__brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(1.1rem, 1.6vw, 1.3rem);
+    color: #b8a44e;
+    letter-spacing: 0.08em;
+  }
+
+  /* ═══════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════ */
+  @media (max-width: 768px) {
+    .legal-section__list > li {
+      padding-left: 1.5rem;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .legal-hero {
+      padding-top: 6rem;
+      padding-bottom: 3rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <section class="legal-hero">
+    <h1 class="legal-hero__title">Terms &amp; Conditions</h1>
+    <p class="legal-hero__sub">Last updated April 2026</p>
+  </section>
+
+  <!-- ═══════════ BODY ═══════════ -->
+  <section class="legal-body">
+    <div class="legal-body__inner">
+
+      <!-- Legal Notice -->
+      <div class="legal-notice">
+        <p>These Terms and Conditions of Sale ("Terms") govern the purchase of our products on our website www.maisonhenius.com (the "Site") worldwide.</p>
+        <br>
+        <p>Maison Henius is a registered brand name, managed by a registered trade licence 100340, unit 35, 3rd floor, building 10 Duqe Square Business Centre Quarter Deck, QE2, Mina Rashid, Gate Village, Dubai &mdash; United Arab Emirates.</p>
+      </div>
+
+      <!-- Introduction -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Introduction</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>These Terms and Conditions of Sale apply to all orders and purchases made on our Site.</li>
+          <li>Our products are intended for end customers who are over the age of 18 and are consumers (individuals buying for personal use, not for commercial purposes).</li>
+          <li>We offer products for sale only to countries listed in the "List of Countries" on our Site.</li>
+          <li>We reserve the right not to fulfil orders from non-consumers, persons under 18, or from countries not included in the "List of Countries," or any order that does not comply with our commercial policy.</li>
+          <li>These Terms do not apply to products or services sold by third parties linked on our Site.</li>
+        </ol>
+      </div>
+
+      <!-- Placing Orders -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Placing Orders</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>To buy products, add them to your cart, proceed to checkout, and complete the online order form.</li>
+          <li>Purchase orders can be made in English.</li>
+          <li>You may create an account or purchase as a guest, providing necessary personal details during the order process.</li>
+          <li>The order form includes information on prices (including taxes and duties), accepted payment methods, delivery options, shipping costs, return conditions, and the right of cancellation.</li>
+          <li>You must read and accept these Terms and Conditions of Sale before placing an order. Any order placed is deemed acceptance of our Terms and Conditions with all policies stated on the website.</li>
+          <li>Before submitting your order, you can review and correct any errors in the order form.</li>
+          <li>By submitting your order, you agree to pay the stated price.</li>
+          <li>After accepting the order form, we will email you a purchase order receipt.</li>
+        </ol>
+      </div>
+
+      <!-- Product Details -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Product Details</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>We offer only original products from Maison Henius and authorised partner brands.</li>
+          <li>Product details, including images and colours, are displayed on the Site. Actual colours may differ due to browser and monitor settings.</li>
+          <li>Each product is sold with an identification tag that is an integral part of the product.</li>
+        </ol>
+      </div>
+
+      <!-- Payments -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Payments</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>Product prices are stated in USD, including applicable taxes and duties but excluding shipping costs, which will be indicated during checkout.</li>
+          <li>Prices may change, so please review the final price before submitting your order.</li>
+          <li>Accepted payment methods can be found on the payment page on our Site.</li>
+          <li>The payment will be debited when the products are shipped.</li>
+          <li>Credit card payments are securely processed, and your information will not be used for any other purpose.</li>
+          <li>Customs charges are the responsibility of the customer.</li>
+        </ol>
+      </div>
+
+      <!-- Product Delivery -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Product Delivery</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>Products will be delivered by courier, and delivery details are available on the "Delivery" page of our Site and the order form.</li>
+          <li>Delivery times refer to working days, excluding non-working days.</li>
+          <li>Ensure your order is placed from the relevant country section on our Site.</li>
+          <li>We cannot deliver to certain addresses (e.g., PO boxes, "Hold Mail" addresses) or specific locations.</li>
+          <li>For more information, contact our Customer Service.</li>
+        </ol>
+      </div>
+
+      <!-- Returns and Cancellation -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Returns &amp; Cancellation</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>Customers have the right to cancel the unopened order within 3 days after receiving the product, with no reason needed.</li>
+          <li>To exercise the right of cancellation, send written notice to our Customer Service.</li>
+          <li>Customers are responsible for returning products unopened and in their original condition.</li>
+          <li>After receiving the returned products and confirming their conformity, we will refund the payment.</li>
+          <li>For recurring orders, customers may change or deactivate the option at any time in their account settings.</li>
+        </ol>
+      </div>
+
+      <!-- Legal Warranty -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Legal Warranty of Conformity</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>We provide a legal guarantee of conformity for 2 years from the delivery date.</li>
+          <li>Customers may exercise their right to the guarantee by contacting Customer Service.</li>
+        </ol>
+      </div>
+
+      <!-- Privacy -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Privacy</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>We value your privacy; please refer to our Privacy Policy for more information.</li>
+        </ol>
+      </div>
+
+      <!-- Governing Law -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Governing Law &amp; Dispute Resolution</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>These Terms are governed by UAE laws.</li>
+          <li>In case of disputes, you can use Dubai Commission's online dispute resolution platform.</li>
+        </ol>
+      </div>
+
+      <!-- Amendments -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Amendments to Terms &amp; Conditions</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>We may amend these Terms at any time, and the updated version will be effective from the date of publication on our Site.</li>
+        </ol>
+      </div>
+
+      <!-- Customer Service -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Customer Service</h2>
+        <hr class="legal-section__divider">
+        <ol class="legal-section__list">
+          <li>For any assistance, contact our Customer Service through the contact details provided on our Site.</li>
+        </ol>
+      </div>
+
+      <!-- Closing -->
+      <div class="legal-closing">
+        <span class="legal-closing__brand">Maison Henius</span>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+{% endblock %}

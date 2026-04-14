@@ -1,0 +1,285 @@
+{% extends "layout.html" %}
+
+{% block title %}Accessibility Statement - Maison Henius{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Maison Henius accessibility statement. Learn about our commitment to making our website accessible to all users.">
+{% endblock %}
+
+{% block styles %}
+<style>
+  /* ═══════════════════════════════════════
+     LEGAL PAGES - SHARED DESIGN SYSTEM
+     ═══════════════════════════════════════ */
+  .legal-hero {
+    background: #0a0a08;
+    padding: clamp(7rem, 14vw, 11rem) clamp(1.5rem, 5vw, 4rem) clamp(4rem, 8vw, 6rem);
+    text-align: center;
+  }
+
+  .legal-hero__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.74rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 1.5rem;
+  }
+
+  .legal-hero__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .legal-hero__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(0.78rem, 1vw, 0.85rem);
+    letter-spacing: 0.12em;
+    color: rgba(245, 240, 232, 0.45);
+  }
+
+  /* ── Body ── */
+  .legal-body {
+    background: #faf9f6;
+    padding: clamp(3.5rem, 7vw, 6rem) clamp(1.5rem, 5vw, 4rem);
+  }
+
+  .legal-body__inner {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .legal-section {
+    margin-bottom: clamp(2.5rem, 4vw, 3.5rem);
+  }
+
+  .legal-section__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+    color: #0a0a08;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+  }
+
+  .legal-section__divider {
+    display: block;
+    width: 30px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin-bottom: 1.4rem;
+  }
+
+  .legal-section__text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.85rem, 1.02vw, 0.92rem);
+    line-height: 1.85;
+    color: rgba(10, 10, 8, 0.8);
+    letter-spacing: 0.02em;
+  }
+
+  .legal-section__text p + p {
+    margin-top: 1rem;
+  }
+
+  .legal-section__text a {
+    color: #b8a44e;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(184, 164, 78, 0.3);
+    transition: border-color 0.3s ease;
+  }
+
+  .legal-section__text a:hover {
+    border-color: #b8a44e;
+  }
+
+  /* Feature list */
+  .legal-features {
+    list-style: none;
+    padding: 0;
+    margin: 1.2rem 0 0;
+  }
+
+  .legal-features > li {
+    position: relative;
+    padding-left: 1.4rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.85rem, 1.02vw, 0.92rem);
+    line-height: 1.85;
+    color: rgba(10, 10, 8, 0.8);
+    letter-spacing: 0.02em;
+    margin-bottom: 0.5rem;
+  }
+
+  .legal-features > li::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.7em;
+    width: 6px;
+    height: 1px;
+    background: #b8a44e;
+  }
+
+  /* Intro block — slightly larger, poetic treatment */
+  .legal-intro {
+    text-align: center;
+    margin-bottom: clamp(3rem, 5vw, 4rem);
+    padding-bottom: clamp(2.5rem, 4vw, 3.5rem);
+    border-bottom: 1px solid rgba(184, 164, 78, 0.18);
+  }
+
+  .legal-intro__text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.88rem, 1.05vw, 0.95rem);
+    line-height: 1.9;
+    color: rgba(10, 10, 8, 0.78);
+    letter-spacing: 0.02em;
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  .legal-intro__text p + p {
+    margin-top: 1rem;
+  }
+
+  /* WCAG badge */
+  .legal-badge {
+    display: inline-block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    border: 1px solid rgba(184, 164, 78, 0.3);
+    padding: 0.5rem 1.2rem;
+    margin-top: 1.5rem;
+  }
+
+  /* ── Closing ── */
+  .legal-closing {
+    text-align: center;
+    padding-top: clamp(2rem, 4vw, 3rem);
+    border-top: 1px solid rgba(184, 164, 78, 0.18);
+    margin-top: clamp(1rem, 2vw, 2rem);
+  }
+
+  .legal-closing__brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(1.1rem, 1.6vw, 1.3rem);
+    color: #b8a44e;
+    letter-spacing: 0.08em;
+  }
+
+  /* ═══════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════ */
+  @media (max-width: 480px) {
+    .legal-hero {
+      padding-top: 6rem;
+      padding-bottom: 3rem;
+    }
+
+    .legal-intro {
+      text-align: left;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <section class="legal-hero">
+    <h1 class="legal-hero__title">Accessibility Statement</h1>
+    <p class="legal-hero__sub">True luxury is inclusive</p>
+  </section>
+
+  <!-- ═══════════ BODY ═══════════ -->
+  <section class="legal-body">
+    <div class="legal-body__inner">
+
+      <!-- Intro -->
+      <div class="legal-intro">
+        <div class="legal-intro__text">
+          <p>At Maison Henius, we believe that true luxury is inclusive. Our commitment to craftsmanship, beauty, and storytelling extends to the digital experience we offer to every visitor &mdash; without exception.</p>
+          <p>We are dedicated to ensuring that our website is accessible to all users, including individuals with disabilities, and that everyone can explore our world of fragrance with ease, comfort, and confidence.</p>
+        </div>
+      </div>
+
+      <!-- Our Commitment -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Our Commitment to Accessibility</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>We strive to provide an online experience that reflects the same attention to detail and excellence found in our creations. Our website is designed with accessibility in mind and follows recognised international best practices.</p>
+          <p>We aim to align with the Web Content Accessibility Guidelines (WCAG) 2.1, Level AA, as established by the World Wide Web Consortium (W3C), to support accessibility for users with visual, auditory, motor, and cognitive differences.</p>
+        </div>
+        <span class="legal-badge">WCAG 2.1 &middot; Level AA</span>
+      </div>
+
+      <!-- Features -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Accessibility Features</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>Our ongoing efforts include:</p>
+        </div>
+        <ul class="legal-features">
+          <li>Clear, structured content for improved readability</li>
+          <li>Compatibility with screen readers and assistive technologies</li>
+          <li>Keyboard-accessible navigation</li>
+          <li>Optimised contrast and scalable typography</li>
+          <li>Descriptive text alternatives for visual elements</li>
+        </ul>
+        <div class="legal-section__text" style="margin-top: 1.2rem;">
+          <p>We continuously refine our digital experience to ensure it remains inclusive, elegant, and intuitive.</p>
+        </div>
+      </div>
+
+      <!-- Continuous Improvement -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Continuous Improvement</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>Accessibility is an evolving journey. We regularly review our website and implement enhancements to meet changing standards and user needs, ensuring an elevated experience for all visitors.</p>
+        </div>
+      </div>
+
+      <!-- Contact -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Contact &amp; Assistance</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>If you encounter any difficulty accessing our website or wish to share feedback, we warmly invite you to contact us at <a href="mailto:info@maisonhenius.com">info@maisonhenius.com</a>.</p>
+          <p>We are committed to responding promptly and providing assistance whenever possible.</p>
+        </div>
+      </div>
+
+      <!-- Closing -->
+      <div class="legal-closing">
+        <span class="legal-closing__brand">Maison Henius</span>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+{% endblock %}

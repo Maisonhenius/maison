@@ -142,6 +142,29 @@
       cursor: not-allowed;
     }
 
+    /* ── Terms agreement ── */
+    .auth__agree {
+      font-weight: 300;
+      font-size: 0.65rem;
+      color: rgba(245, 240, 232, 0.35);
+      letter-spacing: 0.02em;
+      line-height: 1.7;
+      margin-top: 1.2rem;
+      text-align: center;
+    }
+
+    .auth__agree a {
+      color: rgba(233, 219, 144, 0.6);
+      text-decoration: none;
+      border-bottom: 1px solid rgba(233, 219, 144, 0.2);
+      transition: color 0.3s ease, border-color 0.3s ease;
+    }
+
+    .auth__agree a:hover {
+      color: #e9db90;
+      border-color: #e9db90;
+    }
+
     /* ── Error message ── */
     .auth__error {
       font-weight: 300;
@@ -213,6 +236,7 @@
       <input class="auth__input" type="password" name="password" placeholder="Password" required autocomplete="new-password">
       <input class="auth__input" type="password" name="confirm_password" placeholder="Confirm password" required autocomplete="new-password">
       <button type="submit" class="auth__btn" id="signupBtn">Create Account</button>
+      <p class="auth__agree">By creating an account, you agree to our <a href="/terms" target="_blank">Terms &amp; Conditions</a> and <a href="/accessibility" target="_blank">Accessibility Statement</a>.</p>
     </form>
 
     <p class="auth__error" id="signupError"></p>

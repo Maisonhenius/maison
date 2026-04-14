@@ -205,6 +205,7 @@ Site is mobile-first. Key patterns to preserve:
 - **Touch targets ≥ 44×44 px** (WCAG 2.5.5 + Apple HIG). Currently enforced at: header nav icons, hamburger, cart qty buttons (`width: 44px; height: 44px` on mobile media query), auth submit buttons (`min-height: 48px`), profile address Edit/Delete actions (negative-margin trick to keep visible size small but tap area ~44px), product hero Add to Cart (full-width on mobile).
 - **Viewport safety**: every page has `<meta name="viewport" content="width=device-width, initial-scale=1.0">`. Never add `user-scalable=no` (accessibility violation).
 - **`body { overflow-x: hidden }`** is the global safety net against horizontal scroll. Any new section that needs full-bleed should use `width: 100%` (NOT `100vw` — `100vw` includes scrollbar width and overflows on desktop).
+- **Global `img { border-radius: 12px }` in `style.css`**: Applies to ALL images. Full-bleed sections (`.product-mood__img`, `.story-hero__img`) need explicit `border-radius: 0` to override. Check this when adding any new edge-to-edge image section.
 - **Hamburger nav < 768px**: `.nav__hamburger` shown, `.nav__left` hidden. Nav switches from flex to **CSS grid** (`grid-template-columns: 1fr auto 1fr`) to center the logo regardless of left/right content width. The hamburger is `justify-self: start`, logo is `justify-self: center`, right icons are `justify-self: end`. Pattern lives in `style.css` `@media (max-width: 768px)`.
 - **Scroll-to-top FAB hidden < 480px**: `.scroll-top { display: none }` on small screens. Was added because the FAB overlapped pillar descriptions on `/story` at narrow widths. JS still adds the `is-visible` class on scroll, but CSS overrides — pages are short enough on a phone that the FAB doesn't add value.
 - **Product hero CTA stacks vertically < 480px**: `.product-hero__bar` becomes `flex-direction: column`, price + Add to Cart full-width. Don't try to fit them side-by-side — at 320px the price gets crushed.
@@ -307,6 +308,7 @@ ffmpeg has no WebP encoder on this machine — extract JPEG first, then convert 
 - **`CacheControlMiddleware` MUST skip error responses (4xx/5xx)** — the middleware sets `Cache-Control: public, max-age=2592000` on static assets by PATH, but without a status-code guard it will happily slap that header on a 404 too, poisoning the client cache for 30 days. If a visitor hits a missing `/static/assets/...` URL once, their browser serves the cached 404 until the header expires — even after you add the asset. There's a guard at `app.py:100-103` (`if not 200 <= status < 300: return response`). Don't remove it. 2xx responses (including 206 partial-content for video range requests) still get cached — the guard uses a range check, not a strict `== 200`.
 - **Always check image dimensions before encoding** — `cwebp` doesn't auto-resize. If you forget `-resize WIDTH 0`, you'll ship a 4K image that displays at 600px and wastes ~1 MB per file (we did this with cards originally). Run `webpinfo file.webp` to verify dimensions after encoding.
 - **Square images — NEVER use `aspect-ratio`**: CSS `aspect-ratio: 1` breaks in flex containers, inline-block, and when HTML width/height attributes are present. Use explicit `width` + `height` (same value) on the container + `overflow: hidden`, then `width: 100%; height: 100%; object-fit: cover` on the `<img>`. Remove HTML `width`/`height` attributes from the `<img>` tag when using this pattern. The `aspect-ratio` approach has failed repeatedly — don't retry it.
+- **Square containers in CSS grid — use padding-bottom trick**: `aspect-ratio: 1` on a grid child inflates the track and causes overflow. Instead: set `padding-bottom: 100%; position: relative; overflow: hidden` on the wrapper, then `position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover` on the `<img>`. This is what `.product-explore__card-img` uses.
 - **Scroll-video preloader is throttled on purpose** — `preload()` in `index.html` uses a concurrency pool of **12** (Railway/Fastly serve HTTP/2 in production with multiplexing, so we're not bound by the HTTP/1.1 6-per-origin cap; dev HTTP/1.1 fallback queues the extras harmlessly). It draws `FRAME_START` the instant it arrives, rather than waiting for all 121 frames. Do NOT "simplify" by: (a) dropping POOL back to 6 "to match browser limits" — that's the HTTP/1.1 era, we're on HTTP/2 now; (b) reverting `fetch → blob → createImageBitmap()` to `new Image() + img.onload` — that moves WebP decoding back onto the main thread and causes frame drops during scroll on mid-tier mobile; (c) firing all 121 requests in a tight unthrottled loop — that was the original P0 perf bug (blank canvas 15+ seconds on slow networks). The `ScrollTrigger.create()` call is still deferred until all frames load, so the scroll animation contract is unchanged.
 - **Cart badge offset on mobile**: `.nav__cart` gets `padding: 13px` for touch targets on mobile, which shifts the absolutely-positioned `.cart-badge` away from the icon. The mobile breakpoint in `style.css` overrides badge position to `top: 2px; right: 0px` to compensate. If you change the padding, recalculate the badge offset.
 - **GSAP `fromTo` + lazy images flicker**: Don't use `gsap.fromTo(el, {opacity:0}, {opacity:1})` on images with `loading="lazy"` or `decoding="async"`. The browser renders the image visible, GSAP resets to opacity:0 (disappears), then animates back (reappears) — visible flicker. Fix: set initial hidden state in CSS (`opacity: 0`), remove `loading="lazy"`, and use `gsap.to()` instead of `fromTo`. Applied on `.product-bottle__img`.
@@ -338,8 +340,8 @@ ffmpeg has no WebP encoder on this machine — extract JPEG first, then convert 
    FROM python:3.11-slim
    RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
    WORKDIR /app
-   # Cache-bust: vN (bump to force fresh clone)
-   RUN git clone --depth 1 https://github.com/Maisonhenius/maison.git .
+   ARG CACHEBUST=1
+   RUN git clone --depth 1 https://github.com/Maisonhenius/maison.git . && echo "bust=$CACHEBUST"
    RUN pip install --no-cache-dir -r requirements.txt
    WORKDIR /app/server
    EXPOSE 3000
@@ -438,6 +440,14 @@ The wins from the cache headers come from **browser caching**, not edge caching:
 - TTFB on first hit is still ~600ms (network + origin), but the asset payload is gzipped → ~70% smaller transfer
 
 For real edge caching across multiple users, the move is **Cloudflare in front of Railway** when the custom domain is set up — Cloudflare will respect our cache headers and serve hot assets from PoPs in 200+ cities.
+
+### Lighthouse Baseline (2026-04-14)
+
+- **Accessibility: 100**, **Best Practices: 100**, **SEO: 100** — zero failed audits
+- **LCP: ~1.1s** (logo SVG, bottleneck is Railway TTFB ~415ms + render delay ~565ms)
+- **CLS: 0.00** — no layout shift
+- **Key fixes applied**: `aria-label` on cart/auth links, `fetchpriority="high"` on logo, footer contrast ≥ 4.5:1, scroll FAB debounced with rAF
+- **Remaining**: TTFB only improvable via Cloudflare CDN in front of Railway
 
 ## Stripe (current state)
 

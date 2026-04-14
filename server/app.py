@@ -191,6 +191,7 @@ PRODUCTS = {
             "base": {"label": "Dry Down - Base Notes", "names": "Patchouli - Fruity Musk - Sandalwood", "desc": "The base blends patchouli, sandalwood and fruity musk to create a sensual, elegant and addictive trail.", "images": ["patchouli", "sandalwood", "musk"]}
         },
         "card_image": "card-out-of-control.webp",
+        "mood_image": "mood-out-of-control.webp",
         "explore_image": "card-out-of-control-square.webp",
         "bottle_image": "bottle-out-of-control.webp",
         "video": "1.mp4"
@@ -214,6 +215,7 @@ PRODUCTS = {
             "base": {"label": "Dry Down - Base Notes", "names": "Croissant - Almond - Musk", "desc": "The base unfolds into a comforting gourmand accord of croissant, almond and musk, creating a soft and creamy signature.", "images": ["croissant", "almond", "musk"]}
         },
         "card_image": "card-parisian.webp",
+        "mood_image": "mood-parisian.webp",
         "explore_image": "card-parisian-square.webp",
         "bottle_image": "bottle-parisian.webp",
         "video": "2.mp4"
@@ -237,6 +239,7 @@ PRODUCTS = {
             "base": {"label": "Dry Down - Base Notes", "names": "Musk - Cedarwood - Vetiver", "desc": "The base settles on a woody and musky foundation composed of cedarwood, moss and vetiver, leaving a warm, elegant and enveloping trail.", "images": ["musk", "cedarwood", "vetiver"]}
         },
         "card_image": "card-velvet-waterfall.webp",
+        "mood_image": "mood-velvet-waterfall.webp",
         "explore_image": "card-velvet-waterfall-square.webp",
         "bottle_image": "bottle-velvet-waterfall.webp",
         "video": "3.mp4"
@@ -260,6 +263,7 @@ PRODUCTS = {
             "base": {"label": "Dry Down - Base Notes", "names": "Amber - Vetiver - Vanilla", "desc": "The base combines amber, vetiver, cedarwood and vanilla to create a deep, warm and sophisticated trail.", "images": ["amber", "vetiver", "vanilla"]}
         },
         "card_image": "card-oh-my-dear.webp",
+        "mood_image": "mood-oh-my-dear.webp",
         "explore_image": "card-oh-my-dear-square.webp",
         "bottle_image": "bottle-oh-my-dear.webp",
         "video": "1.mp4"
@@ -283,6 +287,7 @@ PRODUCTS = {
             "base": {"label": "Dry Down - Base Notes", "names": "Sandalwood - Oud - Leather", "desc": "The base reveals a noble and long-lasting accord of sandalwood, oud, leather and Orcanox, leaving a warm, enveloping and elegant trail.", "images": ["sandalwood", "oud", "leather"]}
         },
         "card_image": "card-oud-passion.webp",
+        "mood_image": "mood-oud-passion.webp",
         "explore_image": "card-oud-passion-square.webp",
         "bottle_image": "bottle-oud-passion.webp",
         "video": "2.mp4"

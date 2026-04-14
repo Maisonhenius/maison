@@ -7,9 +7,15 @@
 <meta property="og:type" content="product">
 <meta property="og:title" content="{{ product.name }} - Maison Henius">
 <meta property="og:description" content="{{ product.character }}">
-<meta property="og:image" content="https://maisonhenius.com/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}">
-<meta property="og:url" content="https://maisonhenius.com/products/{{ product.slug }}">
+<meta property="og:url" content="https://web-production-cc74a0.up.railway.app/products/{{ product.slug }}">
+{% endblock %}
+
+{% block og %}
+<meta property="og:image" content="https://web-production-cc74a0.up.railway.app/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="1200">
 <meta property="og:site_name" content="Maison Henius">
+<meta name="twitter:card" content="summary_large_image">
 {% endblock %}
 
 {% block nav_class %}header header--product{% endblock %}

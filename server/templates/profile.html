@@ -351,12 +351,46 @@
   }
 
   /* -- Mobile -- */
+  @media (max-width: 768px) {
+    .profile__address-input {
+      font-size: 16px !important;
+    }
+  }
   @media (max-width: 600px) {
     .profile { padding: 3rem 1.2rem 4rem; }
     .profile__info-row { flex-direction: column; gap: 0.2rem; }
     .profile__address-row { flex-direction: column; }
     .profile__address-row .profile__address-input { border-right: 1px solid rgba(10, 10, 8, 0.12); }
-    .profile__orders-table { font-size: 0.65rem; }
+    .profile__orders-table { font-size: 0.7rem; }
+    .profile__orders-table th { font-size: 0.6rem; }
+    .profile__logout {
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .profile__address-btn {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .profile__address-action {
+      padding: 0.7rem 0.5rem;
+      margin: -0.7rem -0.5rem;
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .profile__section-action {
+      min-height: 44px;
+      min-width: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
   }
 </style>
 {% endblock %}

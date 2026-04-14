@@ -74,7 +74,7 @@
   .story-hero__sub {
     font-family: 'Montserrat', sans-serif;
     font-weight: 300;
-    font-size: clamp(0.7rem, 1.1vw, 0.85rem);
+    font-size: clamp(0.8rem, 1.1vw, 0.85rem);
     letter-spacing: 0.15em;
     color: rgba(245, 240, 232, 0.6);
   }
@@ -200,6 +200,7 @@
     height: 635px;
     max-width: 90vw;
     overflow: hidden;
+    margin: 0 auto;
   }
 
   .story-craft__img-frame::before {
@@ -454,12 +455,24 @@
       border-radius: 8px;
     }
 
+    .story-craft {
+      overflow: hidden;
+    }
+
     .story-craft__inner {
       grid-template-columns: 1fr;
     }
 
     .story-craft__image {
       order: 1;
+      padding: 2rem 0;
+    }
+
+    .story-craft__img-frame {
+      width: 100%;
+      max-width: 340px;
+      height: auto;
+      aspect-ratio: 420 / 635;
     }
 
     .story-craft__text {

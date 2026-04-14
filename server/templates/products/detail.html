@@ -268,6 +268,8 @@
     margin: 0 auto 2rem; display: block;
     border-radius: 8px;
     box-shadow: 0 24px 60px -20px rgba(60,40,10,0.18), 0 8px 20px -8px rgba(60,40,10,0.10);
+    opacity: 0;
+    transform: scale(0.9);
   }
   .product-bottle__details {
     font-family: 'Cormorant Garamond', serif; font-weight: 300;
@@ -436,7 +438,7 @@
     <img class="product-mood__img"
          src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}"
          alt="{{ product.name }} - ingredients and bottle on travertine"
-         width="1200" height="1200" loading="lazy" decoding="async">
+         width="1920" height="1072" loading="lazy" decoding="async">
   </section>
 
   <!-- ═══ THE WEARER ═══ -->
@@ -486,8 +488,7 @@
     <span class="product-bottle__label">The Bottle</span>
     <img class="product-bottle__img"
          src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.bottle_image | replace(' ', '%20') }}"
-         alt="{{ product.name }} - Maison Henius bottle"
-         loading="lazy" decoding="async">
+         alt="{{ product.name }} - Maison Henius bottle">
     <div class="product-bottle__details">Eau de Parfum · 100ml</div>
     <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
     <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart - ${{ product.price }}</button>
@@ -588,10 +589,9 @@
           { opacity: 1, y: 0, scale: 1, duration: 0.7, stagger: 0.12 }, '-=0.3');
       });
 
-      /* Bottle: scale reveal */
+      /* Bottle: scale reveal (initial hidden state is in CSS to prevent flash) */
       if (document.querySelector('.product-bottle')) {
-        gsap.fromTo('.product-bottle__img',
-          { opacity: 0, scale: 0.9 },
+        gsap.to('.product-bottle__img',
           { opacity: 1, scale: 1, duration: 1.0,
             scrollTrigger: { trigger: '.product-bottle', start: 'top 70%', once: true }
           }

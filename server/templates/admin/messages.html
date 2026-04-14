@@ -136,6 +136,22 @@
     color: #888;
     margin-bottom: 1rem;
   }
+
+  @media (max-width: 600px) {
+    .message-card {
+      padding: 1.2rem;
+    }
+    .filter-btn {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .message-card__header {
+      flex-direction: column;
+      gap: 0.3rem;
+    }
+  }
 </style>
 {% endblock %}
 

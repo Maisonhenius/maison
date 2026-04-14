@@ -444,16 +444,6 @@ body {
   color: #e9db90;
 }
 
-.footer__markets {
-  font-family: 'Montserrat', sans-serif;
-  font-weight: 300;
-  font-size: 0.65rem;
-  letter-spacing: 0.2em;
-  text-transform: uppercase;
-  color: rgba(245, 240, 232, 0.45);
-  margin-bottom: 1.5rem;
-}
-
 .footer__legal {
   font-family: 'Montserrat', sans-serif;
   font-weight: 300;
@@ -465,6 +455,9 @@ body {
 @media (max-width: 480px) {
   .footer {
     padding: 3rem 1.5rem;
+  }
+  .footer__logo {
+    height: 160px;
   }
 }
 
@@ -651,8 +644,21 @@ body {
 
 /* ── Shared mobile breakpoint ── */
 @media (max-width: 768px) {
+  .header {
+    padding: 1.5rem;
+  }
+
+  /* Grid layout centers logo regardless of left/right content width */
+  .nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 0;
+  }
+
   .nav__hamburger {
     display: flex;
+    justify-self: start;
   }
 
   .nav__left {
@@ -663,20 +669,19 @@ body {
     display: none !important;
   }
 
-  .nav__right {
-    flex: none;
-    gap: 0.5rem;
-  }
-
   .logo {
-    flex: 1;
+    justify-self: center;
     margin: 0;
-    display: flex;
-    justify-content: center;
   }
 
   .logo__img {
     height: clamp(42px, 6vw, 55px);
+  }
+
+  .nav__right {
+    justify-self: end;
+    flex: none;
+    gap: 0.5rem;
   }
 
   /* Increase touch targets for icons */
@@ -685,9 +690,18 @@ body {
     padding: 13px;
   }
 
+  /* Offset badge position to account for mobile padding */
+  .cart-badge {
+    top: 2px;
+    right: 0px;
+  }
+
   /* Footer social: larger touch targets */
   .footer__social a {
-    padding: 0.8rem 0.5rem;
+    padding: 1rem 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
   }
 
   .footer__social {

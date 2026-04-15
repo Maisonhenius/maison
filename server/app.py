@@ -329,9 +329,9 @@ async def story(request: Request):
 async def terms(request: Request):
     return templates.TemplateResponse(request=request, name="terms.html", context=get_context())
 
-@app.get("/accessibility", response_class=HTMLResponse)
-async def accessibility(request: Request):
-    return templates.TemplateResponse(request=request, name="accessibility.html", context=get_context())
+@app.get("/privacy", response_class=HTMLResponse)
+async def privacy(request: Request):
+    return templates.TemplateResponse(request=request, name="privacy.html", context=get_context())
 
 @app.get("/cart", response_class=HTMLResponse)
 async def cart(request: Request):

@@ -31,7 +31,7 @@ server/
     products/detail.html  <- single product template (data from route param, serves all 5)
     story.html            <- Our Story / Universe page (centered text + image sections)
     terms.html            <- Terms & Conditions (extends layout, `.legal-*` CSS)
-    accessibility.html    <- Accessibility Statement (extends layout, `.legal-*` CSS)
+    privacy.html          <- Privacy Policy (extends layout, `.legal-*` CSS)
     cart.html             <- Cart page (MaisonCart localStorage)
     checkout.html         <- Checkout (requires login, creates Stripe Checkout Session)
     checkout-success.html <- Order confirmation after Stripe payment
@@ -145,7 +145,7 @@ profile, addresses, orders = await asyncio.gather(
 | Route | Method | Auth | Purpose |
 |-------|--------|------|---------|
 | `/terms` | GET | None | Terms & Conditions page |
-| `/accessibility` | GET | None | Accessibility Statement page |
+| `/privacy` | GET | None | Privacy Policy page |
 | `/api/auth/login` | POST | None | Customer email/password login |
 | `/api/auth/signup` | POST | None | Customer registration + profile creation |
 | `/api/auth/forgot-password` | POST | None | Send password reset email |
@@ -326,9 +326,9 @@ ffmpeg has no WebP encoder on this machine — extract JPEG first, then convert 
 - **`cart.js` localStorage items include `serverId`** (not just product `id`). When a logged-in user adds/updates/removes items, the cached `serverId` lets mutations go through in 1 round-trip instead of 2 (old pattern was GET-then-DELETE/PATCH). Legacy items without `serverId` still work via a one-off GET fallback in `_findServerItemId()`. Don't strip the field thinking it's dead code.
 - **`.product-bottle__img` uses `box-shadow` + `border-radius`, NOT `filter: drop-shadow`** — the bottle hero images (`bottle-{slug}.webp`) are full-frame photos with their own cream backdrop, so they render as a framed rectangular photo with a soft warm shadow below. The old `drop-shadow` filter was designed for cutout bottle-alone shots on white. If you ever swap back to cutout-style bottle images, revert to `filter: drop-shadow(0 12px 32px rgba(0,0,0,0.15))` — leaving `box-shadow` on a cutout PNG will render a weird rectangular halo around transparent pixels. Display width is `clamp(280px, 42vw, 480px)` to give the pedestal-and-props composition room to breathe.
 
-- **Footer has three rows**: `.footer__social` (Instagram/TikTok) → `.footer__links` (Terms/Accessibility) → `.footer__legal` (copyright). When adding footer links, use `.footer__links`, not `.footer__social`.
-- **Signup terms agreement**: `signup.html` has `.auth__agree` text below the submit button linking to `/terms` and `/accessibility`. If adding new legal pages, consider whether they should be linked here too.
-- **Legal pages share `.legal-*` CSS**: Both `terms.html` and `accessibility.html` define identical `.legal-hero` / `.legal-body` / `.legal-section` styles inline. If adding a third legal page (e.g. Privacy Policy), copy the same class system for visual consistency.
+- **Footer has three rows**: `.footer__social` (Instagram/TikTok) → `.footer__links` (Terms/Privacy Policy) → `.footer__legal` (copyright). When adding footer links, use `.footer__links`, not `.footer__social`.
+- **Signup terms agreement**: `signup.html` has `.auth__agree` text below the submit button linking to `/terms` and `/privacy`. If adding new legal pages, consider whether they should be linked here too.
+- **Legal pages share `.legal-*` CSS**: Both `terms.html` and `privacy.html` define identical `.legal-hero` / `.legal-body` / `.legal-section` styles inline. If adding another legal page, copy the same class system for visual consistency.
 - **`style.css` cache-bust is at `?v=6`** — bump when editing `style.css`.
 
 ## Deployment (Railway)

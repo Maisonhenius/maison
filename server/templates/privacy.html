@@ -1,0 +1,273 @@
+{% extends "layout.html" %}
+
+{% block title %}Privacy Policy - Maison Henius{% endblock %}
+
+{% block meta %}
+<meta name="description" content="Maison Henius privacy policy. Learn how we collect, use, and protect your personal information.">
+{% endblock %}
+
+{% block styles %}
+<style>
+  /* ═══════════════════════════════════════
+     LEGAL PAGES - SHARED DESIGN SYSTEM
+     ═══════════════════════════════════════ */
+  .legal-hero {
+    background: #0a0a08;
+    padding: clamp(7rem, 14vw, 11rem) clamp(1.5rem, 5vw, 4rem) clamp(4rem, 8vw, 6rem);
+    text-align: center;
+  }
+
+  .legal-hero__label {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.74rem;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: #e9db90;
+    margin-bottom: 1.5rem;
+  }
+
+  .legal-hero__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: clamp(2.2rem, 5vw, 3.6rem);
+    color: #f5f0e8;
+    letter-spacing: 0.02em;
+    line-height: 1.15;
+    margin-bottom: 1rem;
+  }
+
+  .legal-hero__sub {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: clamp(0.78rem, 1vw, 0.85rem);
+    letter-spacing: 0.12em;
+    color: rgba(245, 240, 232, 0.45);
+  }
+
+  /* ── Body ── */
+  .legal-body {
+    background: #faf9f6;
+    padding: clamp(3.5rem, 7vw, 6rem) clamp(1.5rem, 5vw, 4rem);
+  }
+
+  .legal-body__inner {
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  .legal-section {
+    margin-bottom: clamp(2.5rem, 4vw, 3.5rem);
+  }
+
+  .legal-section__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-size: clamp(1.2rem, 1.8vw, 1.5rem);
+    color: #0a0a08;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+  }
+
+  .legal-section__divider {
+    display: block;
+    width: 30px;
+    height: 1px;
+    background: #e9db90;
+    border: none;
+    margin-bottom: 1.4rem;
+  }
+
+  .legal-section__text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.85rem, 1.02vw, 0.92rem);
+    line-height: 1.85;
+    color: rgba(10, 10, 8, 0.8);
+    letter-spacing: 0.02em;
+  }
+
+  .legal-section__text p + p {
+    margin-top: 1rem;
+  }
+
+  .legal-section__text a {
+    color: #b8a44e;
+    text-decoration: none;
+    border-bottom: 1px solid rgba(184, 164, 78, 0.3);
+    transition: border-color 0.3s ease;
+  }
+
+  .legal-section__text a:hover {
+    border-color: #b8a44e;
+  }
+
+  /* Intro block */
+  .legal-intro {
+    text-align: center;
+    margin-bottom: clamp(3rem, 5vw, 4rem);
+    padding-bottom: clamp(2.5rem, 4vw, 3.5rem);
+    border-bottom: 1px solid rgba(184, 164, 78, 0.18);
+  }
+
+  .legal-intro__text {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+    font-size: clamp(0.88rem, 1.05vw, 0.95rem);
+    line-height: 1.9;
+    color: rgba(10, 10, 8, 0.78);
+    letter-spacing: 0.02em;
+    max-width: 580px;
+    margin: 0 auto;
+  }
+
+  .legal-intro__text p + p {
+    margin-top: 1rem;
+  }
+
+  /* ── Closing ── */
+  .legal-closing {
+    text-align: center;
+    padding-top: clamp(2rem, 4vw, 3rem);
+    border-top: 1px solid rgba(184, 164, 78, 0.18);
+    margin-top: clamp(1rem, 2vw, 2rem);
+  }
+
+  .legal-closing__brand {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(1.1rem, 1.6vw, 1.3rem);
+    color: #b8a44e;
+    letter-spacing: 0.08em;
+  }
+
+  /* ═══════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════ */
+  @media (max-width: 480px) {
+    .legal-hero {
+      padding-top: 6rem;
+      padding-bottom: 3rem;
+    }
+
+    .legal-intro {
+      text-align: left;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<main>
+
+  <!-- ═══════════ HERO ═══════════ -->
+  <section class="legal-hero">
+    <h1 class="legal-hero__title">Privacy Policy</h1>
+    <p class="legal-hero__sub">Your privacy, our commitment</p>
+  </section>
+
+  <!-- ═══════════ BODY ═══════════ -->
+  <section class="legal-body">
+    <div class="legal-body__inner">
+
+      <!-- Intro -->
+      <div class="legal-intro">
+        <div class="legal-intro__text">
+          <p>This Privacy Policy governs the collection, use, and disclosure of your personal information on our website <a href="https://www.maisonhenius.com">www.maisonhenius.com</a> in Europe, the USA and the other regions of the world.</p>
+        </div>
+      </div>
+
+      <!-- 1. Information We Collect -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">1. Information We Collect</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>1.1. Personal information you provide to us, such as your name, email address, postal address, phone number, and payment information.</p>
+          <p>1.2. Information we collect automatically when you use our Site, such as your IP address, browser type, device information, and browsing history.</p>
+          <p>1.3. Information we receive from third parties, such as social media platforms when you link them to our Site.</p>
+        </div>
+      </div>
+
+      <!-- 2. How We Use Your Information -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">2. How We Use Your Information</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>2.1. To provide, maintain, and improve our Site and services.</p>
+          <p>2.2. To process transactions and send you related information, including confirmations and invoices.</p>
+          <p>2.3. To send you technical notices, updates, security alerts, and support and administrative messages.</p>
+          <p>2.4. To respond to your comments, questions, and requests and provide customer service.</p>
+          <p>2.5. To communicate with you about products, services, offers, promotions, and events offered by Maison Henius and others, and provide news and information we think will be of interest to you.</p>
+        </div>
+      </div>
+
+      <!-- 3. Sharing of Information -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">3. Sharing of Information</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>3.1. With vendors, consultants, and other service providers who need access to such information to carry out work on our behalf.</p>
+          <p>3.2. In response to a request for information if we believe disclosure is in accordance with, or required by, any applicable law, regulation, or legal process.</p>
+          <p>3.3. If we believe your actions are inconsistent with our user agreements or policies, or to protect the rights, property, and safety of Maison Henius or others.</p>
+          <p>3.4. In connection with, or during negotiations of, any merger, sale of company assets, financing or acquisition of all or a portion of our business by another company.</p>
+        </div>
+      </div>
+
+      <!-- Security -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Security</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>Maison Henius takes reasonable measures to help protect information about you from loss, theft, misuse, and unauthorized access, disclosure, alteration, and destruction.</p>
+        </div>
+      </div>
+
+      <!-- Your Choices -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Your Choices</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>You may update, correct or delete information about you at any time by logging into your online account. If you wish to delete or deactivate your account, please note that we may retain certain information as required by law or for legitimate business purposes.</p>
+        </div>
+      </div>
+
+      <!-- Cookies -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Cookies</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>We use cookies and similar technologies to enhance your experience with our services. You can control or opt out of the use of cookies at any time.</p>
+        </div>
+      </div>
+
+      <!-- Changes -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Changes to This Privacy Policy</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>Maison Henius may change this Privacy Policy from time to time. If we make changes, we will notify you by revising the date at the top of the policy and, in some cases, we may provide you with additional notice.</p>
+        </div>
+      </div>
+
+      <!-- Contact -->
+      <div class="legal-section">
+        <h2 class="legal-section__heading">Contact Us</h2>
+        <hr class="legal-section__divider">
+        <div class="legal-section__text">
+          <p>If you have any questions about this Privacy Policy, please contact us at <a href="mailto:info@maisonhenius.com">info@maisonhenius.com</a>.</p>
+        </div>
+      </div>
+
+      <!-- Closing -->
+      <div class="legal-closing">
+        <span class="legal-closing__brand">Maison Henius</span>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+{% endblock %}

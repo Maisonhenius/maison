@@ -15,7 +15,7 @@
   <!-- Preload the first scroll-video frame so the cap-alone reveal feels
        instant the moment the section enters the viewport. Tiny (~14KB)
        and zero-cost on cold visits. -->
-  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=3" type="image/webp">
+  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=4" type="image/webp">
 
 {% endblock %}
 
@@ -1209,7 +1209,17 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     // are forced to re-fetch. MUST match the `<link rel="preload">` href
     // in <head> — otherwise the preload becomes a dead fetch and the JS
     // refetches the same file.
-    var FRAME_VER   = '?v=3';
+    var FRAME_VER   = '?v=4';
+
+    // Portrait-viewport cover-fit multiplier. 1.0 = pure cover-fit (current
+    // desktop + landscape behavior). Lower values shrink the drawn frame so
+    // more of its horizontal content is visible on a tall phone — the cap +
+    // bottle subjects in this video sit slightly right of frame-center and
+    // span more width than a straight cover crop shows on a 375-wide phone.
+    // Dial down if subjects still clip on very tall viewports. The sticky
+    // background is pure #000 matching the video's void, so the letterbox
+    // bars this introduces top/bottom are visually invisible.
+    var MOBILE_SCALE = 0.72;
 
     var section   = document.querySelector('.scroll-video');
     if (!section) return;
@@ -1256,9 +1266,17 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
       var ih = bitmap.height;
 
       // Cover: fill the entire sticky container, crop the overflowing sides.
-      // The Seedance composition keeps the bottle centered with generous
-      // negative space, so edge cropping doesn't cut into important content.
       var scale = Math.max(cw / iw, ch / ih);
+
+      // Portrait viewports (phones, tablets held vertically): a 16:9 source
+      // into a portrait container + straight cover-fit shows only ~26% of
+      // frame width, which clips the cap + bottle on the early/mid frames.
+      // Pull the frame in via MOBILE_SCALE so the full subject is visible.
+      // The pure-#000 sticky background hides the resulting letterbox bars.
+      if (ch > cw) {
+        scale *= MOBILE_SCALE;
+      }
+
       var dw = iw * scale;
       var dh = ih * scale;
       var dx = (cw - dw) / 2;

@@ -763,14 +763,3 @@ body {
   }
 }
 
-/* ─────────────────────────────────────────────────────────────
-   MOBILE: hide scroll-to-top FAB on narrow screens
-   At <480px the FAB overlaps long-form text on /story (covers
-   pillar descriptions). Pages are short enough on small phones
-   that the FAB doesn't add value — content is one swipe up.
-   ───────────────────────────────────────────────────────────── */
-@media (max-width: 480px) {
-  .scroll-top {
-    display: none !important;
-  }
-}

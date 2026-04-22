@@ -750,8 +750,9 @@
   <h1 class="sr-only">Maison Henius - Luxury Perfume House</h1>
 
   <section class="hero">
-    <video class="hero__video" autoplay muted playsinline preload="auto">
-      <source src="/static/assets/videos/web/1.mp4" type="video/mp4">
+    <video class="hero__video" autoplay muted loop playsinline preload="auto">
+      <source src="/static/assets/videos/web/brand-film.webm" type="video/webm">
+      <source src="/static/assets/videos/web/brand-film.mp4" type="video/mp4">
     </video>
 
     <div class="hero__overlay"></div>
@@ -795,13 +796,6 @@
     <div class="scroll-indicator">
       <div class="scroll-indicator__line"></div>
     </div>
-
-    <!-- preload="none": music is muted by default, only plays if the user clicks the
-         sound toggle. Most visitors never click it, so we were shipping ~452 KB on every
-         cold visit for nothing. `none` defers the download until user interaction. -->
-    <audio id="bgMusic" loop preload="none">
-      <source src="/static/assets/music/music.mp3" type="audio/mpeg">
-    </audio>
 
     <button class="sound-toggle" id="soundToggle" aria-label="Toggle sound">
       <svg id="iconMuted" viewBox="0 0 24 24">
@@ -1039,29 +1033,21 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
   if (!heroVideo) return;
 
   /* ═══════════════════════════════════════
-     0. HERO VIDEO CYCLE + SOUND TOGGLE
+     0. HERO VIDEO SOUND TOGGLE
      ═══════════════════════════════════════ */
 
-  var heroVideos = ['/static/assets/videos/web/1.mp4', '/static/assets/videos/web/2.mp4', '/static/assets/videos/web/3.mp4'];
-  var videoIndex = 0;
-  heroVideo.addEventListener('ended', function() {
-    videoIndex = (videoIndex + 1) % heroVideos.length;
-    heroVideo.src = heroVideos[videoIndex];
-    heroVideo.play().catch(function() {});
-  });
-
-  var bgMusic = document.getElementById('bgMusic');
   var soundToggle = document.getElementById('soundToggle');
   var iconMuted = document.getElementById('iconMuted');
   var iconPlaying = document.getElementById('iconPlaying');
   if (soundToggle) {
     soundToggle.addEventListener('click', function() {
-      if (bgMusic.paused) {
-        bgMusic.play();
+      if (heroVideo.muted) {
+        heroVideo.muted = false;
+        heroVideo.play().catch(function() {});
         iconMuted.style.display = 'none';
         iconPlaying.style.display = 'block';
       } else {
-        bgMusic.pause();
+        heroVideo.muted = true;
         iconMuted.style.display = 'block';
         iconPlaying.style.display = 'none';
       }

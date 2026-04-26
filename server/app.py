@@ -44,6 +44,12 @@ async def _to_thread(callable_, *args, **kwargs):
 # (was being served as text/plain). Must run BEFORE any StaticFiles mount.
 mimetypes.add_type("image/webp", ".webp")
 
+# Register M4A audio MIME type. The Python default emits "audio/mp4a-latm"
+# (a low-overhead-AAC subtype) which Safari and Chrome accept but is not the
+# spec-blessed type. "audio/mp4" is the standard for AAC-in-MP4-container.
+# Used by the hero <audio> element pointing at brand-film-audio.m4a.
+mimetypes.add_type("audio/mp4", ".m4a")
+
 # Load environment variables
 load_dotenv(Path(__file__).resolve().parent.parent / '.env.local')
 

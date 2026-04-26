@@ -15,7 +15,9 @@ body {
 /* Layout */
 .admin {
   display: flex;
+  /* iOS Safari toolbar collapse fix — see public templates for context. */
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* Sidebar */
@@ -26,6 +28,7 @@ body {
   top: 0;
   left: 0;
   height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   z-index: 100;
@@ -103,6 +106,7 @@ body {
   margin-left: 240px;
   flex: 1;
   min-height: 100vh;
+  min-height: 100dvh;
 }
 
 .admin__header {

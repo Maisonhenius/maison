@@ -32,7 +32,10 @@
 
     html, body {
       width: 100%;
+      /* iOS Safari toolbar collapse fix — keep min-height: 100vh fallback
+         and override with 100dvh on supported browsers. */
       min-height: 100vh;
+      min-height: 100dvh;
       background: #0a0a08;
       font-family: 'Montserrat', sans-serif;
     }

@@ -12,11 +12,6 @@
   <meta property="og:description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
   <meta property="og:url" content="https://web-production-cc74a0.up.railway.app/">
 
-  <!-- Preload the first scroll-video frame so the cap-alone reveal feels
-       instant the moment the section enters the viewport. Tiny (~14KB)
-       and zero-cost on cold visits. -->
-  <link rel="preload" as="image" href="/static/assets/video-frames/frame-0001.webp?v=4" type="image/webp">
-
 {% endblock %}
 
 {% block styles %}
@@ -25,7 +20,13 @@
     .hero {
       position: relative;
       width: 100%;
+      /* iOS Safari shows the URL/toolbar on first paint, then collapses it.
+         100vh is the LARGE viewport (toolbar collapsed) → hero gets cut off
+         while toolbar is still visible. 100dvh is the DYNAMIC viewport that
+         adjusts as toolbar shows/hides. dvh is supported in Safari 15.4+ /
+         Chrome 108+ — older browsers fall back to the 100vh line above. */
       height: 100vh;
+      height: 100dvh;
       overflow: hidden;
       z-index: 1;
     }
@@ -686,46 +687,41 @@
     .scroll-video__sticky {
       position: relative;
       width: 100%;
+      /* 100vh fallback for browsers without dvh support (Safari < 15.4). */
+      height: 100vh;
       height: 100dvh;
       overflow: hidden;
       background: #000;
     }
 
-    .scroll-video__canvas {
+    .scroll-video__media {
       position: absolute;
-      top: 0;
-      left: 0;
+      inset: 0;
       width: 100%;
       height: 100%;
-    }
-
-    .scroll-video__loader {
-      /* Hidden permanently — preload now kicks off on page load (not on
-         section enter), so by the time any user reaches this section the
-         frames are already cached, and a visible loader bar during the
-         rare slow-network edge case is worse than no UI at all. */
-      display: none;
-      position: absolute;
-      bottom: 3rem;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 120px;
-      height: 1px;
-      background: rgba(233, 219, 144, 0.2);
-      z-index: 5;
-      transition: opacity 0.6s ease;
-    }
-
-    .scroll-video__loader--hidden {
-      opacity: 0;
+      object-fit: cover;
+      object-position: center;
       pointer-events: none;
+      /* Override the global img { border-radius: 12px } in style.css. The
+         scroll cinematic is full-bleed on a pure-#000 sticky container —
+         any rounded corner would expose the underlying section background
+         in the corners. */
+      border-radius: 0;
+      background: #000;
     }
 
-    .scroll-video__loader-bar {
-      height: 100%;
-      width: 0%;
-      background: #e9db90;
-      transition: width 0.1s linear;
+    /* MOBILE_SCALE = 0.72 — same multiplier the canvas implementation used.
+       Cover-fit on a portrait viewport into a 16:9 source crops the cap +
+       bottle off the sides, so we shrink the rendered video by 28% to keep
+       the full subject visible. The sticky container background is pure
+       #000 (matches the video's void), so the resulting bands top/bottom
+       are visually invisible. Don't lower this further than ~0.65 — the
+       cap detail starts feeling small on a tall phone. */
+    @media (orientation: portrait) {
+      .scroll-video__media {
+        transform: scale(0.72);
+        transform-origin: center;
+      }
     }
 
     /* On phones the 16:9 video is cropped to its center column by the
@@ -751,9 +747,18 @@
 
   <section class="hero">
     <video class="hero__video" autoplay muted loop playsinline preload="auto">
-      <source src="/static/assets/videos/web/brand-film.webm" type="video/webm">
-      <source src="/static/assets/videos/web/brand-film.mp4" type="video/mp4">
+      <source src="/static/assets/videos/web/brand-film-silent.mp4" type="video/mp4">
+      <source src="/static/assets/videos/web/brand-film-silent.webm" type="video/webm">
     </video>
+    <!-- Hero audio is a SEPARATE element (not the video's audio track) because
+         macOS Safari blocks autoplay of any video that contains an audio track,
+         even when `muted` is set. Stripping the audio from the video unblocks
+         autoplay everywhere; the sound toggle below plays/pauses this audio
+         element instead. The two loop independently (~62s each) — minor drift
+         after the first cycle is imperceptible for ambient brand music. -->
+    <audio id="heroAudio" loop preload="auto">
+      <source src="/static/assets/videos/web/brand-film-audio.m4a" type="audio/mp4">
+    </audio>
 
     <div class="hero__overlay"></div>
 
@@ -874,10 +879,15 @@
        ═══════════════════════════════════════ -->
   <section id="cinematic" class="scroll-video">
     <div class="scroll-video__sticky">
-      <canvas class="scroll-video__canvas" aria-hidden="true"></canvas>
-      <div class="scroll-video__loader">
-        <div class="scroll-video__loader-bar"></div>
-      </div>
+      <video class="scroll-video__media"
+             muted
+             playsinline
+             webkit-playsinline
+             preload="auto"
+             disableRemotePlayback
+             aria-hidden="true">
+        <source src="/static/assets/videos/web/scroll-cinematic.mp4" type="video/mp4">
+      </video>
     </div>
   </section>
 
@@ -1033,22 +1043,58 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
   if (!heroVideo) return;
 
   /* ═══════════════════════════════════════
-     0. HERO VIDEO SOUND TOGGLE
-     ═══════════════════════════════════════ */
+     0a. HERO VIDEO — FORCE EARLY AUTOPLAY
+     ═══════════════════════════════════════
+     macOS Safari + iOS Safari are conservative with the autoplay attribute
+     alone — even on muted+playsinline video they sometimes wait for
+     `canplaythrough` (enough buffered for uninterrupted playback) instead
+     of `canplay` (first frame ready), which delays start by several seconds
+     on a 9.87 MB hero film. Explicit play() fires as soon as the first
+     frame is decodable and the .catch() lets us fall back to the browser's
+     play-button UI gracefully if engagement-gauge or LPM blocks us. */
+  function tryHeroPlay() {
+    try {
+      var p = heroVideo.play();
+      if (p && p.catch) p.catch(function() {});
+    } catch (e) {}
+  }
+  if (heroVideo.readyState >= 2) {
+    tryHeroPlay();
+  } else {
+    heroVideo.addEventListener('loadeddata', tryHeroPlay, { once: true });
+  }
 
+  /* ═══════════════════════════════════════
+     0b. HERO SOUND TOGGLE
+     ═══════════════════════════════════════
+     The hero <video> element has no audio track (stripped to unblock macOS
+     Safari autoplay — see comment near the <audio> element above). The
+     sound toggle now plays/pauses a separate <audio id="heroAudio"> that
+     loops the brand audio independently. On first activation we sync the
+     audio's currentTime to the video's, so the sound starts at the visual
+     moment the user is currently seeing. */
+
+  var heroAudio   = document.getElementById('heroAudio');
   var soundToggle = document.getElementById('soundToggle');
-  var iconMuted = document.getElementById('iconMuted');
+  var iconMuted   = document.getElementById('iconMuted');
   var iconPlaying = document.getElementById('iconPlaying');
-  if (soundToggle) {
+  if (soundToggle && heroAudio) {
     soundToggle.addEventListener('click', function() {
-      if (heroVideo.muted) {
-        heroVideo.muted = false;
-        heroVideo.play().catch(function() {});
-        iconMuted.style.display = 'none';
+      if (heroAudio.paused) {
+        // Sync audio to whatever moment the video is currently showing
+        try {
+          var dur = heroAudio.duration;
+          if (isFinite(dur) && dur > 0) {
+            heroAudio.currentTime = heroVideo.currentTime % dur;
+          }
+        } catch (e) {}
+        var p = heroAudio.play();
+        if (p && p.catch) p.catch(function() {});
+        iconMuted.style.display   = 'none';
         iconPlaying.style.display = 'block';
       } else {
-        heroVideo.muted = true;
-        iconMuted.style.display = 'block';
+        heroAudio.pause();
+        iconMuted.style.display   = 'block';
         iconPlaying.style.display = 'none';
       }
     });
@@ -1183,177 +1229,98 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
   );
 
   /* ═══════════════════════════════════════
-     3. SCROLL VIDEO - CANVAS + SCROLLTRIGGER
+     3. SCROLL VIDEO - <video> currentTime SCRUB
      ═══════════════════════════════════════ */
+  // Architecture: the scroll cinematic uses a native <video> element with
+  // `video.currentTime = scrollProgress * duration`. The hardware H.264
+  // decoder owns the frame buffer (~15 MB peak, browser-managed, can be
+  // reclaimed under memory pressure). The prior canvas+ImageBitmap design
+  // held ~1 GB of decoded RGBA in JS heap and crashed iOS Safari tabs
+  // ("A problem repeatedly occurred"). Same source video, same 1920×1080
+  // pixels, same 5-second cap-onto-bottle reveal, same scrub feel — just
+  // bulletproof on every device. Cover-fit + portrait MOBILE_SCALE are
+  // handled in CSS now (`object-fit: cover` + `transform: scale(0.72)`
+  // under `@media (orientation: portrait)`), not in JS canvas math.
   ;(function() {
-    var FRAME_COUNT = 121;
-    var FRAME_PATH  = '/static/assets/video-frames/frame-';
-    var FRAME_EXT   = '.webp';
-    var FRAME_PAD   = 4;
-    // Bump FRAME_VER whenever the scroll-video frames are rebuilt, so
-    // browsers that cached the previous frame set (30-day static cache)
-    // are forced to re-fetch. MUST match the `<link rel="preload">` href
-    // in <head> — otherwise the preload becomes a dead fetch and the JS
-    // refetches the same file.
-    var FRAME_VER   = '?v=4';
-
-    // Portrait-viewport cover-fit multiplier. 1.0 = pure cover-fit (current
-    // desktop + landscape behavior). Lower values shrink the drawn frame so
-    // more of its horizontal content is visible on a tall phone — the cap +
-    // bottle subjects in this video sit slightly right of frame-center and
-    // span more width than a straight cover crop shows on a 375-wide phone.
-    // Dial down if subjects still clip on very tall viewports. The sticky
-    // background is pure #000 matching the video's void, so the letterbox
-    // bars this introduces top/bottom are visually invisible.
-    var MOBILE_SCALE = 0.72;
-
-    var section   = document.querySelector('.scroll-video');
+    var section = document.querySelector('.scroll-video');
     if (!section) return;
 
-    var sticky    = section.querySelector('.scroll-video__sticky');
-    var canvas    = section.querySelector('.scroll-video__canvas');
-    var ctx       = canvas.getContext('2d');
-    var loader    = section.querySelector('.scroll-video__loader');
-    var loaderBar = section.querySelector('.scroll-video__loader-bar');
+    var sticky = section.querySelector('.scroll-video__sticky');
+    var video  = section.querySelector('.scroll-video__media');
+    if (!video) return;
 
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
+    var trigger     = null;
+    var rafScheduled = false;
+    var targetTime  = 0;
 
-    var frames       = new Array(FRAME_COUNT);
-    var loaded       = 0;
-    var currentFrame = -1;
-
-    function frameUrl(i) {
-      var num = String(i + 1).padStart(FRAME_PAD, '0');
-      return FRAME_PATH + num + FRAME_EXT + FRAME_VER;
-    }
-
-    function sizeCanvas() {
-      var dpr = Math.min(window.devicePixelRatio || 1, 3);
-      canvas.width  = sticky.clientWidth  * dpr;
-      canvas.height = sticky.clientHeight * dpr;
-      canvas.style.width  = sticky.clientWidth  + 'px';
-      canvas.style.height = sticky.clientHeight + 'px';
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      if (currentFrame >= 0) drawFrame(currentFrame);
-    }
-
-    function drawFrame(idx) {
-      if (idx < 0 || idx >= FRAME_COUNT) return;
-      var bitmap = frames[idx];
-      if (!bitmap) return;
-      currentFrame = idx;
-
-      var cw = sticky.clientWidth;
-      var ch = sticky.clientHeight;
-      var iw = bitmap.width;
-      var ih = bitmap.height;
-
-      // Cover: fill the entire sticky container, crop the overflowing sides.
-      var scale = Math.max(cw / iw, ch / ih);
-
-      // Portrait viewports (phones, tablets held vertically): a 16:9 source
-      // into a portrait container + straight cover-fit shows only ~26% of
-      // frame width, which clips the cap + bottle on the early/mid frames.
-      // Pull the frame in via MOBILE_SCALE so the full subject is visible.
-      // The pure-#000 sticky background hides the resulting letterbox bars.
-      if (ch > cw) {
-        scale *= MOBILE_SCALE;
+    function applyScrub() {
+      rafScheduled = false;
+      // iOS Safari: avoid no-op currentTime sets that re-trigger seeking
+      // and waste decode cycles. Only update on a meaningful delta.
+      if (Math.abs(video.currentTime - targetTime) > 0.001) {
+        try { video.currentTime = targetTime; } catch (e) {}
       }
-
-      var dw = iw * scale;
-      var dh = ih * scale;
-      var dx = (cw - dw) / 2;
-      var dy = (ch - dh) / 2;
-
-      ctx.clearRect(0, 0, cw, ch);
-      ctx.drawImage(bitmap, dx, dy, dw, dh);
     }
 
-    function onFrameReady(i) {
-      loaded++;
-      loaderBar.style.width = ((loaded / FRAME_COUNT) * 100) + '%';
-      if (i === 0 && currentFrame < 0) drawFrame(0);
-      if (loaded === FRAME_COUNT) {
-        loader.classList.add('scroll-video__loader--hidden');
-        if (currentFrame < 0) drawFrame(0);
-        ScrollTrigger.create({
-          trigger: section,
-          start: 'top top',
-          end: 'bottom bottom',
-          pin: sticky,
-          scrub: 1,
-          onUpdate: function(self) {
-            var idx = Math.min(Math.floor(self.progress * FRAME_COUNT), FRAME_COUNT - 1);
-            if (idx !== currentFrame) drawFrame(idx);
+    function setupTrigger() {
+      if (!isFinite(video.duration) || video.duration <= 0) return;
+      if (trigger) return;
+
+      trigger = ScrollTrigger.create({
+        trigger: section,
+        start: 'top top',
+        end: 'bottom bottom',
+        pin: sticky,
+        scrub: 1,
+        onUpdate: function(self) {
+          targetTime = self.progress * video.duration;
+          if (!rafScheduled) {
+            rafScheduled = true;
+            requestAnimationFrame(applyScrub);
           }
-        });
-      } else {
-        dispatchNext();
-      }
+        }
+      });
     }
 
-    var nextIdx = 0;
-    var order;
-
-    function dispatchNext() {
-      if (nextIdx >= order.length) return;
-      var i = order[nextIdx++];
-      // fetch → blob → createImageBitmap decodes off the main thread in a
-      // worker, keeping the scroll loop free and avoiding decode stalls on
-      // mid-tier mobile. Same pixels, same fidelity — just faster arrival.
-      //
-      // `priority: 'low'` is CRITICAL for LCP: the hero <video> is LCP and
-      // it's boosted to HIGH via <link rel=preload fetchpriority=high> in
-      // <head>. If we let these 121 scroll-frame fetches default to HIGH
-      // (which fetch() does for same-origin resources), they steal HTTP/2
-      // bandwidth from the hero video on slow connections, stretching LCP
-      // by ~1.4s on mobile Slow 4G. Marking them LOW yields the race.
-      // Browsers without fetch-priority support ignore the hint harmlessly.
-      fetch(frameUrl(i), { priority: 'low' })
-        .then(function(r) { return r.ok ? r.blob() : Promise.reject(); })
-        .then(function(blob) { return createImageBitmap(blob); })
-        .then(function(bitmap) { frames[i] = bitmap; onFrameReady(i); })
-        .catch(function() { onFrameReady(i); });
+    // First-frame paint: nudging currentTime by a tiny epsilon forces iOS
+    // Safari to decode + render the first frame BEFORE any scroll happens.
+    // Without this, the <video> element shows transparent until the first
+    // user-driven scroll triggers the first currentTime update.
+    function showFirstFrame() {
+      try { video.currentTime = 0.001; } catch (e) {}
     }
 
-    function preload() {
-      // POOL of 12 — Railway/Fastly serve HTTP/2 in production (one TCP
-      // connection with multiplexing, no 6-per-origin cap), so we can
-      // dispatch more frames in parallel. In HTTP/1.1 dev fallback the
-      // browser queues beyond 6 automatically, no harm done.
-      var POOL = 12;
-      order = [0];
-      for (var j = 1; j < FRAME_COUNT; j++) order.push(j);
-      nextIdx = 0;
-
-      for (var p = 0; p < POOL && p < order.length; p++) dispatchNext();
+    if (video.readyState >= 2) {
+      // HAVE_CURRENT_DATA — first frame is already decodable
+      showFirstFrame();
+    } else {
+      video.addEventListener('loadeddata', showFirstFrame, { once: true });
     }
 
-    // Preload the 121 frames IMMEDIATELY on page load, not when the user
-    // scrolls near the section. This gives the browser the full hero-video
-    // + story-section scroll time to download frames in the background, so
-    // a fast-scrolling first-time visitor finds them already cached by the
-    // time they reach the scroll-video. Total payload is ~2.4 MB and runs
-    // in parallel with hero-video playback over HTTP/2 — no measurable LCP
-    // impact because the scroll-video is below the fold.
-    preload();
-    sizeCanvas();
-    window.addEventListener('resize', sizeCanvas);
-    // Tracked globally so the Turbo before-render handler can detach it
-    // on navigation away — stale listeners on detached canvases otherwise
-    // accumulate across back-and-forth visits.
-    window._maisonScrollVideoResize = sizeCanvas;
+    if (video.readyState >= 1 && isFinite(video.duration)) {
+      // HAVE_METADATA — duration is known
+      setupTrigger();
+    } else {
+      video.addEventListener('loadedmetadata', setupTrigger, { once: true });
+    }
+
+    // Track for Turbo cleanup so a back-navigation kill-and-recreate cycle
+    // doesn't leave a stale ScrollTrigger pinning a stale video element.
+    window._maisonScrollVideoTrigger = trigger;
+    window._maisonScrollVideoCleanup = function() {
+      if (trigger) { try { trigger.kill(); } catch (e) {} }
+      try { video.removeEventListener('loadeddata', showFirstFrame); } catch (e) {}
+      try { video.removeEventListener('loadedmetadata', setupTrigger); } catch (e) {}
+      trigger = null;
+    };
   })();
 
   if (!window._scrollVideoCleanupBound) {
     window._scrollVideoCleanupBound = true;
     document.addEventListener('turbo:before-render', function() {
-      if (window._maisonScrollVideoResize) {
-        try { window.removeEventListener('resize', window._maisonScrollVideoResize); } catch (e) {}
-        window._maisonScrollVideoResize = null;
+      if (window._maisonScrollVideoCleanup) {
+        try { window._maisonScrollVideoCleanup(); } catch (e) {}
+        window._maisonScrollVideoCleanup = null;
       }
     });
   }

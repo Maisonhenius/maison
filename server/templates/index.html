@@ -12,6 +12,15 @@
   <meta property="og:description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
   <meta property="og:url" content="https://web-production-cc74a0.up.railway.app/">
 
+  <!-- High-priority preload of the hero video. Without this, browsers wait
+       to fetch the video until they parse the <video> tag in <body>; with
+       this, the fetch starts the moment the HTML head is parsed, ~500-1000
+       ms earlier on first paint. Using `as="video"` and `type="video/mp4"`
+       ensures only the MP4 is preloaded (Safari uses MP4; Chrome/Firefox
+       handle MP4 fine too). The faststart-encoded moov atom is at the
+       front of the file, so the first ~1 MB is enough to start playback. -->
+  <link rel="preload" as="video" type="video/mp4" href="/static/assets/videos/web/brand-film-silent.mp4" fetchpriority="high">
+
 {% endblock %}
 
 {% block styles %}

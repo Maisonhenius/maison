@@ -1261,65 +1261,88 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
     var trigger     = null;
     var rafScheduled = false;
     var targetTime  = 0;
+    var primed      = false;
 
     function applyScrub() {
       rafScheduled = false;
-      // iOS Safari: avoid no-op currentTime sets that re-trigger seeking
-      // and waste decode cycles. Only update on a meaningful delta.
-      if (Math.abs(video.currentTime - targetTime) > 0.001) {
+      if (!isFinite(video.duration) || video.duration <= 0) return;
+      // iOS Safari: avoid no-op currentTime sets that re-trigger seeking.
+      if (Math.abs(video.currentTime - targetTime) > 0.01) {
         try { video.currentTime = targetTime; } catch (e) {}
       }
     }
 
-    function setupTrigger() {
-      if (!isFinite(video.duration) || video.duration <= 0) return;
-      if (trigger) return;
+    // Prime the video: force-load + briefly play+pause. This is REQUIRED
+    // for two reasons:
+    //   1. The hero <link rel="preload" fetchpriority="high"> grabs all
+    //      bandwidth on first load, leaving this scroll-cinematic stuck
+    //      with metadata never arriving. video.load() forces a fetch.
+    //   2. iOS Safari does NOT render currentTime updates on a video that
+    //      has never played. Calling play().then(pause()) "primes" the
+    //      decoder so subsequent currentTime sets actually paint frames.
+    function primeVideo() {
+      if (primed) return;
+      primed = true;
+      try { video.load(); } catch (e) {}
+      var p = video.play();
+      if (p && p.then) {
+        p.then(function() {
+          try { video.pause(); video.currentTime = 0.001; } catch (e) {}
+        }).catch(function() {
+          // Autoplay rejected — fallback nudge. May not paint on iOS but
+          // ScrollTrigger pinning still works; user just sees a black
+          // frame until they scroll past.
+          try { video.currentTime = 0.001; } catch (e) {}
+        });
+      } else {
+        try { video.pause(); video.currentTime = 0.001; } catch (e) {}
+      }
+    }
 
-      trigger = ScrollTrigger.create({
-        trigger: section,
-        start: 'top top',
-        end: 'bottom bottom',
-        pin: sticky,
-        scrub: 1,
-        onUpdate: function(self) {
+    // Create ScrollTrigger IMMEDIATELY — DO NOT wait for video metadata.
+    // Pinning works regardless of video load state. Scrubbing kicks in
+    // automatically once `video.duration` becomes a finite number. If we
+    // wait for `loadedmetadata` (which may take 5-15s when the hero is
+    // hogging bandwidth), the section scrolls past unpinned and the user
+    // never sees the cinematic at all.
+    trigger = ScrollTrigger.create({
+      trigger: section,
+      start: 'top top',
+      end: 'bottom bottom',
+      pin: sticky,
+      scrub: 1,
+      onUpdate: function(self) {
+        if (isFinite(video.duration) && video.duration > 0) {
           targetTime = self.progress * video.duration;
           if (!rafScheduled) {
             rafScheduled = true;
             requestAnimationFrame(applyScrub);
           }
         }
-      });
-    }
+      }
+    });
 
-    // First-frame paint: nudging currentTime by a tiny epsilon forces iOS
-    // Safari to decode + render the first frame BEFORE any scroll happens.
-    // Without this, the <video> element shows transparent until the first
-    // user-driven scroll triggers the first currentTime update.
-    function showFirstFrame() {
-      try { video.currentTime = 0.001; } catch (e) {}
-    }
-
-    if (video.readyState >= 2) {
-      // HAVE_CURRENT_DATA — first frame is already decodable
-      showFirstFrame();
+    // Prime the video when the section approaches the viewport (one
+    // viewport before entering). This kicks the load + decoder priming
+    // exactly when needed, NOT eagerly on page load (where it would
+    // compete with the hero's high-priority preload).
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function(entries) {
+        entries.forEach(function(entry) {
+          if (entry.isIntersecting) {
+            primeVideo();
+            observer.disconnect();
+          }
+        });
+      }, { rootMargin: '100% 0px' });
+      observer.observe(section);
     } else {
-      video.addEventListener('loadeddata', showFirstFrame, { once: true });
+      primeVideo();
     }
 
-    if (video.readyState >= 1 && isFinite(video.duration)) {
-      // HAVE_METADATA — duration is known
-      setupTrigger();
-    } else {
-      video.addEventListener('loadedmetadata', setupTrigger, { once: true });
-    }
-
-    // Track for Turbo cleanup so a back-navigation kill-and-recreate cycle
-    // doesn't leave a stale ScrollTrigger pinning a stale video element.
-    window._maisonScrollVideoTrigger = trigger;
+    // Cleanup hook for Turbo navigation
     window._maisonScrollVideoCleanup = function() {
       if (trigger) { try { trigger.kill(); } catch (e) {} }
-      try { video.removeEventListener('loadeddata', showFirstFrame); } catch (e) {}
-      try { video.removeEventListener('loadedmetadata', setupTrigger); } catch (e) {}
       trigger = null;
     };
   })();

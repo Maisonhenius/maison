@@ -227,7 +227,9 @@ Site is mobile-first. Key patterns to preserve:
 
 ## Scroll Cinematic (`<video>` element + `currentTime` scrub)
 
-`assets/videos/web/scroll-cinematic.mp4` — a ~5s Seedance-generated cap-onto-bottle reveal on a pure `#000` void background. 1920×1080 H.264 Main profile / yuv420p / faststart / no audio / 844 KB. Re-encoded from the gitignored source `assets/videos/scroll-video-3.mp4`. The MP4 is committed; the source MP4 is gitignored.
+`assets/videos/web/scroll-cinematic.mp4` — a ~5s Seedance-generated cap-onto-bottle reveal on a pure `#000` void background. 1920×1080 H.264 High profile / yuv420p / faststart / no audio / **all-intra (every frame is a keyframe)** / 3.33 MB. Re-encoded from the gitignored source `assets/videos/scroll-video-3.mp4`. The MP4 is committed; the source MP4 is gitignored.
+
+- **All-intra encoding is REQUIRED, not optional.** With default H.264 GOP (1 keyframe per file), every `currentTime` seek forces the decoder to walk forward from t=0 — 30-80ms per seek on mid-tier hardware, visible as scroll glitching / frame-stick / "video doesn't track scroll smoothly." With every-frame-keyframe encoding, each seek decodes one independent I-frame in <1ms regardless of position. File grows ~4× (~3 MB vs ~800 KB) but it's a 5-second clip. **Use the recipe below; don't omit `keyint=1:min-keyint=1:scenecut=0`.**
 
 **Why `<video>` + `currentTime` and NOT canvas + frames:** the prior canvas implementation preloaded all 121 WebP frames as ImageBitmaps in JS heap (1920×1080 × 4 bytes × 121 = ~1 GB of decoded RGBA). iOS Safari per-tab memory budget is ~120-400 MB depending on device, so EVERY iPhone OOM-killed the tab and showed "A problem repeatedly occurred" (or Chrome iOS's "Can't open this page" — Chrome iOS is WebKit too). The video element pushes decoding into the browser's hardware video pipeline, capping memory at ~30 MB regardless of length. Same source video, same 1920×1080 pixels, same 5-second timeline, same scrub feel — bulletproof on every device.
 
@@ -246,8 +248,9 @@ If you need to re-encode the cinematic from the source MP4:
 ```bash
 ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
   -c:v libx264 -preset slow -crf 22 \
-  -profile:v main -level 4.0 \
+  -profile:v high -level 4.0 \
   -pix_fmt yuv420p \
+  -x264-params keyint=1:min-keyint=1:scenecut=0 \
   -an \
   -movflags +faststart \
   assets/videos/web/scroll-cinematic.mp4
@@ -319,6 +322,9 @@ ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
 - **Square images — NEVER use `aspect-ratio`**: CSS `aspect-ratio: 1` breaks in flex containers, inline-block, and when HTML width/height attributes are present. Use explicit `width` + `height` (same value) on the container + `overflow: hidden`, then `width: 100%; height: 100%; object-fit: cover` on the `<img>`. Remove HTML `width`/`height` attributes from the `<img>` tag when using this pattern. The `aspect-ratio` approach has failed repeatedly — don't retry it.
 - **Square containers in CSS grid — use padding-bottom trick**: `aspect-ratio: 1` on a grid child inflates the track and causes overflow. Instead: set `padding-bottom: 100%; position: relative; overflow: hidden` on the wrapper, then `position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover` on the `<img>`. This is what `.product-explore__card-img` uses.
 - **Scroll cinematic uses native `<video>` + `currentTime` scrub, not canvas + ImageBitmap.** See the Scroll Cinematic section above for the architecture. The previous canvas-based implementation (121 WebP frames preloaded as ImageBitmaps) crashed iOS Safari tabs with OOM. **Don't revert.** If scroll smoothness regresses, debug the `requestAnimationFrame` coalescing in the `applyScrub` function — don't swap back to frame extraction.
+- **`<video>` + `currentTime` scrub: ScrollTrigger MUST be created synchronously**, NOT gated on `loadedmetadata`. If you wait for the video to load before creating the trigger, a starved video (e.g. hero LCP preload hogging bandwidth) means metadata never arrives, the section never pins, and the user scrolls right past the cinematic. Pattern: create the ScrollTrigger immediately on IIFE run; inside `onUpdate`, guard `targetTime` math with `isFinite(video.duration) && video.duration > 0`. Pinning works without video; scrubbing kicks in once duration becomes finite. See the scroll-video IIFE in `index.html`.
+- **iOS Safari does NOT render `currentTime` updates on a paused video that has never played.** WebKit ignores frame updates from seek operations until the video has been kicked into "play mode" once. Workaround: `video.play().then(() => { video.pause(); video.currentTime = 0.001; })`. The scroll-video IIFE primes the video this way via IntersectionObserver one viewport before the section approaches (avoids competing with hero LCP autoplay). Without this prime, iOS users see the section pin but the video stays on frame 0 forever.
+- **`<link rel="preload" as="video" fetchpriority="high">` can starve other below-fold videos** of bandwidth on first load — the preload scanner serializes resource fetches when a high-priority asset is in flight. Symptom: the hero loads fine but the scroll-cinematic's `loadedmetadata` event never fires until the hero finishes. Mitigations are above (sync ScrollTrigger create, IntersectionObserver-driven prime). DON'T add high-priority preloads for both hero and scroll-cinematic — pick one.
 - **Cart badge offset on mobile**: `.nav__cart` gets `padding: 13px` for touch targets on mobile, which shifts the absolutely-positioned `.cart-badge` away from the icon. The mobile breakpoint in `style.css` overrides badge position to `top: 2px; right: 0px` to compensate. If you change the padding, recalculate the badge offset.
 - **GSAP `fromTo` + lazy images flicker**: Don't use `gsap.fromTo(el, {opacity:0}, {opacity:1})` on images with `loading="lazy"` or `decoding="async"`. The browser renders the image visible, GSAP resets to opacity:0 (disappears), then animates back (reappears) — visible flicker. Fix: set initial hidden state in CSS (`opacity: 0`), remove `loading="lazy"`, and use `gsap.to()` instead of `fromTo`. Applied on `.product-bottle__img`.
 - **Pseudo-element overflow on mobile**: `.story-craft__image::before` has `inset: -10% -5%` for a gold halo glow. On mobile, the 5% horizontal bleed extends beyond the viewport and causes horizontal scroll. `.story-craft` gets `overflow: hidden` at `< 768px` to contain it. Check for similar pseudo-element bleed on any section with decorative `::before`/`::after` that uses negative inset.
@@ -364,6 +370,8 @@ ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
    ```
 3. Deploy: `cd /tmp/claude/maison-docker-deploy && railway up --project f45a16f9-e777-4cce-abd1-dcd08c2ccb56 --environment b99a4d18-a9fc-4742-b874-c0b4d38e5ade --service web --ci -m "<message>"`
 4. Verify: `railway logs -n 15` — should show `Uvicorn running on http://0.0.0.0:8080`
+
+**CRITICAL: bump `ARG CACHEBUST=` to a NEW value every deploy.** Docker layer-caches the `RUN git clone` step keyed on the ARG value. If `CACHEBUST` doesn't change between deploys, Docker reuses the previous git clone — your latest commit won't ship and `railway up` will silently deploy stale code. Use a date+suffix string (e.g. `2026-04-26-v3`) so it's always unique and self-documenting. Symptoms when missed: `curl prod | grep <new-thing>` returns nothing, or production file size doesn't match local.
 
 ### Still needed before custom domain
 

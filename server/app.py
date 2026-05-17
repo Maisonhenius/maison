@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Form, Request
+from fastapi import FastAPI, Form, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
@@ -13,6 +13,7 @@ import os
 import re
 import json
 import time
+import uuid
 import mimetypes
 import traceback
 from stripe import StripeClient, Webhook, SignatureVerificationError
@@ -69,6 +70,15 @@ stripe_client = StripeClient(STRIPE_SECRET_KEY) if STRIPE_SECRET_KEY else None
 
 # Allowed emails for admin magic link login
 ALLOWED_EMAILS = ["osamah96@gmail.com", "husein.aldarawish@gmail.com"]
+
+# --- Admin upload constraints ---
+# Two Supabase Storage buckets gated by the admin endpoints below:
+#   product-images: hero / card / mood / bottle / ingredient images
+#   page-media:     editable CMS images + short videos for Main + Universe pages
+ALLOWED_BUCKETS = {"product-images", "page-media"}
+ALLOWED_IMAGE_TYPES = {"image/webp", "image/jpeg", "image/png"}
+ALLOWED_VIDEO_TYPES = {"video/mp4", "video/webm"}
+MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB hard ceiling — matches bucket policy
 
 app = FastAPI(title="Maison Henius")
 
@@ -176,129 +186,124 @@ async def root_static_files(filename: str):
 # Templates
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
 
-# Product data (hardcoded — authoritative source for prices + validation)
-PRODUCTS = {
-    "out-of-control": {
-        "slug": "out-of-control",
-        "name": "Out of Control",
-        "family": "Fruity-Floral",
-        "price": 270,
-        "mood": "Bold, daring, provocative",
-        "character": "A scent for those who turn every moment into a declaration of freedom. Fresh and seductive, inspired by a modern Prince Charming.",
-        "description": "At Maison Henius, each fragrance is a signature of emotion and memory, crafted with noble ingredients and timeless artistry. Every scent is a journey - an intimate companion to your moments, a bridge to feeling, and an expression of elegance lived.",
-        "wearer": [
-            {"name": "Bold", "desc": "Unapologetically present in every room"},
-            {"name": "Daring", "desc": "Lives for the unexpected, thrives in the night"},
-            {"name": "Provocative", "desc": "Leaves an addictive, unforgettable trail"}
-        ],
-        "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Lemon - Nutmeg - Cool Spices", "desc": "The opening is bright and energizing with lemon, nutmeg and cool spices - a spark that cuts through the air.", "images": ["lemon", "nutmeg", "cool-spices"]},
-            "heart": {"label": "Heart - Middle Notes", "names": "Fig - Coconut - Freesia", "desc": "The heart reveals a creamy and slightly fruity facet built around fig, coconut and freesia - an unexpected softness.", "images": ["fig", "coconut", "freesia"]},
-            "base": {"label": "Dry Down - Base Notes", "names": "Patchouli - Fruity Musk - Sandalwood", "desc": "The base blends patchouli, sandalwood and fruity musk to create a sensual, elegant and addictive trail.", "images": ["patchouli", "sandalwood", "musk"]}
-        },
-        "card_image": "card-out-of-control.webp",
-        "mood_image": "mood-out-of-control.webp",
-        "explore_image": "card-out-of-control-square.webp",
-        "bottle_image": "bottle-out-of-control.webp",
-        "video": "1.mp4"
-    },
-    "parisian": {
-        "slug": "parisian",
-        "name": "Parisian",
-        "family": "Floral-Gourmand",
-        "price": 270,
-        "mood": "Sophisticated, romantic, timeless",
-        "character": "A scent for those who embody elegance in every step, and savor life like a Parisian. This fragrance celebrates the French art of living, inspired by an elegant Parisian breakfast.",
-        "description": "At Maison Henius, each fragrance is a signature of emotion and memory, crafted with noble ingredients and timeless artistry. Every scent is a journey - an intimate companion to your moments, a bridge to feeling, and an expression of elegance lived.",
-        "wearer": [
-            {"name": "Sophisticated", "desc": "Effortlessly refined in taste and manner"},
-            {"name": "Romantic", "desc": "Finds beauty in every small moment"},
-            {"name": "Timeless", "desc": "Classic elegance that never fades"}
-        ],
-        "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Coffee with Cream - Grapefruit - Red Berries", "desc": "The opening combines the freshness of grapefruit and red berries with a gourmand coffee-with-cream facet.", "images": ["coffee-with-cream", "grapefruit", "red-berries"]},
-            "heart": {"label": "Heart - Middle Notes", "names": "Rose - Peony - Jasmine", "desc": "The heart reveals a refined floral bouquet composed of rose, peony and jasmine, bringing softness and romance.", "images": ["rose", "peony", "jasmine"]},
-            "base": {"label": "Dry Down - Base Notes", "names": "Croissant - Almond - Musk", "desc": "The base unfolds into a comforting gourmand accord of croissant, almond and musk, creating a soft and creamy signature.", "images": ["croissant", "almond", "musk"]}
-        },
-        "card_image": "card-parisian.webp",
-        "mood_image": "mood-parisian.webp",
-        "explore_image": "card-parisian-square.webp",
-        "bottle_image": "bottle-parisian.webp",
-        "video": "2.mp4"
-    },
-    "velvet-waterfall": {
-        "slug": "velvet-waterfall",
-        "name": "Velvet Waterfall",
-        "family": "Floral-Woody",
-        "price": 270,
-        "mood": "Flowing, sensual, luminous",
-        "character": "A scent for those who discover beauty in balance, and elegance in every motion. This fragrance is inspired by the camel, a symbol of calm, resilience and elegance within the vastness of the desert.",
-        "description": "At Maison Henius, each fragrance is a signature of emotion and memory, crafted with noble ingredients and timeless artistry. Every scent is a journey - an intimate companion to your moments, a bridge to feeling, and an expression of elegance lived.",
-        "wearer": [
-            {"name": "Flowing", "desc": "Moves with effortless grace through life"},
-            {"name": "Sensual", "desc": "Embraces warmth and natural beauty"},
-            {"name": "Luminous", "desc": "Radiates quiet, confident light"}
-        ],
-        "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Pepper - Saffron - Incense", "desc": "The opening reveals warm and spicy notes of pepper and saffron, enriched with animalic touches of civet and incense that evoke the mineral depth of desert landscapes.", "images": ["pepper", "saffron", "incense"]},
-            "heart": {"label": "Heart - Middle Notes", "names": "Rose - Violet - Lily of the Valley", "desc": "The floral heart combines rose, violet and lily of the valley, bringing a luminous and refined dimension to the composition.", "images": ["rose", "violet", "lily-of-the-valley"]},
-            "base": {"label": "Dry Down - Base Notes", "names": "Musk - Cedarwood - Vetiver", "desc": "The base settles on a woody and musky foundation composed of cedarwood, moss and vetiver, leaving a warm, elegant and enveloping trail.", "images": ["musk", "cedarwood", "vetiver"]}
-        },
-        "card_image": "card-velvet-waterfall.webp",
-        "mood_image": "mood-velvet-waterfall.webp",
-        "explore_image": "card-velvet-waterfall-square.webp",
-        "bottle_image": "bottle-velvet-waterfall.webp",
-        "video": "3.mp4"
-    },
-    "oh-my-dear": {
-        "slug": "oh-my-dear",
-        "name": "Oh My Dear!",
-        "family": "Woody-Amber",
-        "price": 270,
-        "mood": "Intimate, graceful, sentimental",
-        "character": "A scent for those who treasure elegance in the everyday and carry their memories like jewels of the soul. This fragrance explores a soft and enveloping suede accord evoking the texture of skin.",
-        "description": "At Maison Henius, each fragrance is a signature of emotion and memory, crafted with noble ingredients and timeless artistry. Every scent is a journey - an intimate companion to your moments, a bridge to feeling, and an expression of elegance lived.",
-        "wearer": [
-            {"name": "Intimate", "desc": "Creates deep connections through presence"},
-            {"name": "Graceful", "desc": "Carries elegance in the everyday"},
-            {"name": "Sentimental", "desc": "Treasures memories like jewels of the soul"}
-        ],
-        "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Oud - Saffron - Aldehydes", "desc": "The opening blends the intensity of oud and saffron with luminous aldehydic notes that bring brightness to the composition.", "images": ["oud", "saffron", "aldehydes"]},
-            "heart": {"label": "Heart - Middle Notes", "names": "Rose - Leather - Cypriol", "desc": "The heart reveals a refined accord of rose and leather, structured by cypriol which reinforces the woody and elegant character of the fragrance.", "images": ["rose", "leather", "cypriol"]},
-            "base": {"label": "Dry Down - Base Notes", "names": "Amber - Vetiver - Vanilla", "desc": "The base combines amber, vetiver, cedarwood and vanilla to create a deep, warm and sophisticated trail.", "images": ["amber", "vetiver", "vanilla"]}
-        },
-        "card_image": "card-oh-my-dear.webp",
-        "mood_image": "mood-oh-my-dear.webp",
-        "explore_image": "card-oh-my-dear-square.webp",
-        "bottle_image": "bottle-oh-my-dear.webp",
-        "video": "1.mp4"
-    },
-    "oud-passion": {
-        "slug": "oud-passion",
-        "name": "Oud Passion",
-        "family": "Woody-Amber (Oud)",
-        "price": 270,
-        "mood": "Powerful, sophisticated, magnetic",
-        "character": "A scent for those who wear confidence like a second skin. This fragrance is built around a balance between luminous freshness and woody depth.",
-        "description": "At Maison Henius, each fragrance is a signature of emotion and memory, crafted with noble ingredients and timeless artistry. Every scent is a journey - an intimate companion to your moments, a bridge to feeling, and an expression of elegance lived.",
-        "wearer": [
-            {"name": "Powerful", "desc": "Commands attention without saying a word"},
-            {"name": "Sophisticated", "desc": "Knows the art of restraint and presence"},
-            {"name": "Magnetic", "desc": "Draws people in with quiet intensity"}
-        ],
-        "notes": {
-            "top": {"label": "Opening - Top Notes", "names": "Grapefruit - Bergamot - Passion Fruit", "desc": "The opening draws inspiration from the freshness of citrus and exotic fruits: grapefruit, bergamot and passion fruit bring an immediate and modern dynamism.", "images": ["grapefruit", "bergamot", "passion-fruit"]},
-            "heart": {"label": "Heart - Middle Notes", "names": "Moldavian Rose - Patchouli - Vetiver", "desc": "The heart revolves around Moldavian rose absolute, combined with patchouli and vetiver, reinforcing the woody and earthy structure of the composition.", "images": ["moldavian-rose", "patchouli", "vetiver"]},
-            "base": {"label": "Dry Down - Base Notes", "names": "Sandalwood - Oud - Leather", "desc": "The base reveals a noble and long-lasting accord of sandalwood, oud, leather and Orcanox, leaving a warm, enveloping and elegant trail.", "images": ["sandalwood", "oud", "leather"]}
-        },
-        "card_image": "card-oud-passion.webp",
-        "mood_image": "mood-oud-passion.webp",
-        "explore_image": "card-oud-passion-square.webp",
-        "bottle_image": "bottle-oud-passion.webp",
-        "video": "2.mp4"
+
+# --- Image URL resolution filters ---
+# Image fields in the products + page_content tables can hold EITHER:
+#   1. a legacy filename (`card-out-of-control.webp`) → prepend static path
+#   2. an absolute path (`/static/...`) → use as-is
+#   3. an absolute URL (`https://...supabase.co/storage/v1/...`) from admin upload
+# Filters resolve all three to a browser-fetchable URL. Templates use:
+#   <img src="{{ product.card_image | product_image }}">
+#   <img src="{{ img | ingredient_image }}">
+#   <img src="{{ value | page_media }}">
+
+def _resolve_url(value: str, static_prefix: str, default_ext: str = "") -> str:
+    if not value:
+        return ""
+    if value.startswith(("http://", "https://", "/")):
+        return value
+    # Legacy bare filename — prepend the known static directory.
+    if default_ext and not value.endswith(default_ext):
+        value = f"{value}{default_ext}"
+    return f"{static_prefix}{value}"
+
+
+def jinja_product_image(value: str) -> str:
+    return _resolve_url(value, "/static/assets/pictures/Collection & Fragrances/")
+
+
+def jinja_ingredient_image(value: str) -> str:
+    # Ingredients are stored as bare slugs (e.g. "lemon") with no extension.
+    return _resolve_url(value, "/static/assets/pictures/ingredients/", default_ext=".webp")
+
+
+def jinja_page_media(value: str) -> str:
+    return _resolve_url(value, "/static/assets/")
+
+
+templates.env.filters["product_image"] = jinja_product_image
+templates.env.filters["ingredient_image"] = jinja_ingredient_image
+templates.env.filters["page_media"] = jinja_page_media
+
+
+# Product catalog — loaded from Supabase `products` table at app startup and
+# cached in-memory. Admin mutations call `reload_products_cache()` to invalidate.
+# Use the get_product()/get_products_dict() helpers — never read _PRODUCTS_CACHE
+# directly so we can swap caching strategies later without rewriting every call.
+
+_PRODUCTS_CACHE: dict = {}
+
+# JSON-able product fields the public site + cart + checkout rely on.
+PRODUCT_FIELDS = (
+    "slug", "name", "family", "price", "mood", "character", "description",
+    "wearer", "notes", "card_image", "mood_image", "explore_image",
+    "bottle_image", "video", "is_hidden", "display_order",
+)
+
+
+def _row_to_product(row: dict) -> dict:
+    """Normalize a Supabase products row to the dict shape templates + routes expect.
+
+    Price is converted to float (DB returns Decimal; Stripe + JS want a plain number).
+    JSONB columns (`wearer`, `notes`) come back as native Python list/dict already.
+    """
+    return {
+        "slug": row.get("slug") or row.get("id", ""),
+        "name": row.get("name", ""),
+        "family": row.get("family", ""),
+        "price": float(row.get("price") or 0),
+        "mood": row.get("mood", ""),
+        "character": row.get("character", ""),
+        "description": row.get("description", ""),
+        "wearer": row.get("wearer") or [],
+        "notes": row.get("notes") or {},
+        "card_image": row.get("card_image", ""),
+        "mood_image": row.get("mood_image", ""),
+        "explore_image": row.get("explore_image", ""),
+        "bottle_image": row.get("bottle_image", ""),
+        "video": row.get("video", ""),
+        "is_hidden": bool(row.get("is_hidden", False)),
+        "display_order": int(row.get("display_order") or 0),
     }
-}
+
+
+async def reload_products_cache() -> None:
+    """Refresh in-memory products cache from DB. Call after any admin mutation."""
+    global _PRODUCTS_CACHE
+    result = await _db(
+        supabase.table("products").select("*").order("display_order")
+    )
+    _PRODUCTS_CACHE = {row["id"]: _row_to_product(row) for row in (result.data or [])}
+
+
+def get_product(product_id: str, *, include_hidden: bool = False) -> Optional[dict]:
+    """Look up one product by id (slug). Hidden products are filtered for public callers."""
+    p = _PRODUCTS_CACHE.get(product_id)
+    if p is None:
+        return None
+    if not include_hidden and p["is_hidden"]:
+        return None
+    return p
+
+
+def get_products_dict(*, include_hidden: bool = False) -> dict:
+    """Return all products as {slug: product} dict, in display_order. Same shape as old PRODUCTS."""
+    if include_hidden:
+        return dict(_PRODUCTS_CACHE)
+    return {k: v for k, v in _PRODUCTS_CACHE.items() if not v["is_hidden"]}
+
+
+@app.on_event("startup")
+async def _load_products_on_startup():
+    """Populate the products cache before serving traffic."""
+    try:
+        await reload_products_cache()
+        print(f"[startup] Loaded {len(_PRODUCTS_CACHE)} products from DB")
+    except Exception as e:
+        # Never let a transient Supabase blip block server boot — log and continue
+        # with an empty cache. Routes that depend on products will 404 until next reload.
+        print(f"[startup] FAILED to load products: {e}")
+
 
 # --- Shared template context ---
 
@@ -312,24 +317,60 @@ def get_context():
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
-    return templates.TemplateResponse(request=request, name="index.html", context={**get_context(), "products": PRODUCTS})
+    content_map = await load_page_content("main")
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={
+            **get_context(),
+            "products": get_products_dict(),
+            "content": _make_content_helper(content_map),
+        },
+    )
 
 @app.get("/products", response_class=HTMLResponse)
 @app.get("/products/", response_class=HTMLResponse)
 async def products_index():
-    return RedirectResponse("/#fragrances", status_code=302)
+    return RedirectResponse("/shop", status_code=302)
+
+
+@app.get("/shop", response_class=HTMLResponse)
+async def shop(request: Request):
+    """E-commerce grid showing all visible products with filter + sort."""
+    products = get_products_dict()
+    # Distinct families preserving display_order; templates iterate this for filter chips.
+    families = []
+    seen = set()
+    for p in products.values():
+        fam = p.get("family", "").strip()
+        if fam and fam not in seen:
+            seen.add(fam)
+            families.append(fam)
+    return templates.TemplateResponse(
+        request=request,
+        name="shop.html",
+        context={**get_context(), "products": products, "families": families},
+    )
 
 @app.get("/products/{slug}", response_class=HTMLResponse)
 async def product_detail(request: Request, slug: str):
-    product = PRODUCTS.get(slug)
+    product = get_product(slug)
     if not product:
         return HTMLResponse("Product not found", status_code=404)
-    others = {k: v for k, v in PRODUCTS.items() if k != slug}
+    others = {k: v for k, v in get_products_dict().items() if k != slug}
     return templates.TemplateResponse(request=request, name="products/detail.html", context={**get_context(), "product": product, "others": others})
 
 @app.get("/story", response_class=HTMLResponse)
 async def story(request: Request):
-    return templates.TemplateResponse(request=request, name="story.html", context=get_context())
+    content_map = await load_page_content("universe")
+    return templates.TemplateResponse(
+        request=request,
+        name="story.html",
+        context={
+            **get_context(),
+            "content": _make_content_helper(content_map),
+        },
+    )
 
 @app.get("/terms", response_class=HTMLResponse)
 async def terms(request: Request):
@@ -378,6 +419,50 @@ async def admin_orders(request: Request):
 @app.get("/admin/messages", response_class=HTMLResponse)
 async def admin_messages(request: Request):
     return templates.TemplateResponse(request=request, name="admin/messages.html", context=get_context())
+
+@app.get("/admin/products", response_class=HTMLResponse)
+async def admin_products_page(request: Request):
+    """Admin products list. Auth handled client-side via admin/layout.html guard."""
+    return templates.TemplateResponse(request=request, name="admin/products.html", context=get_context())
+
+@app.get("/admin/products/new", response_class=HTMLResponse)
+async def admin_products_new(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/product_form.html",
+        context={**get_context(), "mode": "create", "product_id": "", "product_json": "{}"},
+    )
+
+@app.get("/admin/products/{product_id}/edit", response_class=HTMLResponse)
+async def admin_products_edit(request: Request, product_id: str):
+    p = get_product(product_id, include_hidden=True)
+    if not p:
+        return HTMLResponse("Product not found", status_code=404)
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/product_form.html",
+        context={
+            **get_context(),
+            "mode": "edit",
+            "product_id": product_id,
+            "product_json": json.dumps(p),
+        },
+    )
+
+@app.get("/admin/content", response_class=HTMLResponse)
+async def admin_content_page(request: Request):
+    """Admin Content overview — links to Main + Universe page editors."""
+    return templates.TemplateResponse(request=request, name="admin/content.html", context=get_context())
+
+@app.get("/admin/content/{page}", response_class=HTMLResponse)
+async def admin_content_edit(request: Request, page: str):
+    if page not in ("main", "universe"):
+        return HTMLResponse("Unknown content page", status_code=404)
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/content_edit.html",
+        context={**get_context(), "page": page},
+    )
 
 @app.get("/admin/login", response_class=HTMLResponse)
 async def admin_login(request: Request):
@@ -631,12 +716,14 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
     else:
         meta = dict(raw_meta) if raw_meta else {}
 
-    # Recalculate from PRODUCTS dict (defense in depth — never trust client prices)
+    # Recalculate from product catalog (defense in depth — never trust client prices).
+    # include_hidden=True: this path reconstructs orders whose product was visible at
+    # checkout time but may have been hidden since. The customer already paid; serve them.
     items = json.loads(meta.get("items_json", "[]"))
     validated_items = []
     calculated_subtotal = 0
     for item in items:
-        product = PRODUCTS.get(item.get("id"))
+        product = get_product(item.get("id"), include_hidden=True)
         if product:
             qty = item.get("quantity", 1)
             validated_items.append({
@@ -714,13 +801,15 @@ async def create_checkout_session(request: Request):
 
     body = await request.json()
 
-    # Validate items against PRODUCTS dict — never trust client prices
+    # Validate items against product catalog — never trust client prices.
+    # Hidden products are rejected so the admin can pull a SKU instantly without
+    # leaving an open window for purchases.
     validated_items = []
     calculated_subtotal = 0
     line_items = []
 
     for item in body.get("items", []):
-        product = PRODUCTS.get(item.get("id"))
+        product = get_product(item.get("id"))
         if not product:
             return JSONResponse({"error": f"Unknown product: {item.get('id')}"}, status_code=400)
         qty = max(1, int(item.get("quantity", 1)))
@@ -1136,8 +1225,8 @@ async def add_to_cart(request: Request):
     user_id = str(user.id)
     product_id = body.get("product_id", "")
 
-    # Validate product exists and use authoritative price
-    product = PRODUCTS.get(product_id)
+    # Validate product exists and use authoritative price (rejects hidden products too)
+    product = get_product(product_id)
     if not product:
         return JSONResponse({"error": f"Unknown product: {product_id}"}, status_code=400)
 
@@ -1229,10 +1318,10 @@ async def sync_cart(request: Request):
         pid = local_item.get("id", "")  # localStorage uses "id" as product_id
         if pid in server_items:
             continue  # Server wins — keep server quantity
-        # Validate product exists and use authoritative price
-        product = PRODUCTS.get(pid)
+        # Validate product exists and use authoritative price (skip hidden too)
+        product = get_product(pid)
         if not product:
-            continue  # Skip unknown products silently during sync
+            continue  # Skip unknown/hidden products silently during sync
         rows_to_insert.append({
             "user_id": user_id,
             "product_id": pid,
@@ -1348,3 +1437,410 @@ async def mark_message_read(msg_id: str, request: Request):
         return JSONResponse({"error": "Admin access required"}, status_code=401)
     await _db(supabase.table("messages").update({"read": True}).eq("id", msg_id))
     return JSONResponse({"success": True})
+
+
+# ─── Admin Products CRUD ──────────────────────────────────────────────────
+# All endpoints gated by get_admin_user(). Cache is invalidated after any
+# mutation so the public site reflects changes within the same request cycle.
+
+SLUG_RE = re.compile(r"^[a-z0-9\-]+$")
+
+def _validate_product_payload(body: dict, *, require_all: bool):
+    """Validate and normalize a product payload. Returns (data, error_message)."""
+    out: dict = {}
+
+    if require_all or "slug" in body:
+        slug = (body.get("slug") or "").strip().lower()
+        if not slug or not SLUG_RE.fullmatch(slug):
+            return None, "Slug must be lowercase letters, numbers, and dashes only"
+        out["slug"] = slug
+
+    if require_all or "name" in body:
+        name = (body.get("name") or "").strip()
+        if not name:
+            return None, "Name is required"
+        out["name"] = name
+
+    if require_all or "family" in body:
+        out["family"] = (body.get("family") or "").strip()
+
+    if require_all or "price" in body:
+        try:
+            price = float(body.get("price") or 0)
+        except (ValueError, TypeError):
+            return None, "Price must be a number"
+        if price < 0:
+            return None, "Price cannot be negative"
+        out["price"] = price
+
+    for field in ("mood", "character", "description", "video"):
+        if field in body:
+            out[field] = body.get(field) or ""
+
+    for field in ("card_image", "bottle_image", "mood_image", "explore_image"):
+        if field in body:
+            out[field] = body.get(field) or ""
+
+    if "display_order" in body:
+        try:
+            out["display_order"] = int(body.get("display_order") or 0)
+        except (ValueError, TypeError):
+            return None, "display_order must be an integer"
+
+    if "is_hidden" in body:
+        out["is_hidden"] = bool(body.get("is_hidden"))
+
+    if "wearer" in body:
+        w = body.get("wearer") or []
+        if not isinstance(w, list):
+            return None, "wearer must be a list"
+        out["wearer"] = w
+
+    if "notes" in body:
+        n = body.get("notes") or {}
+        if not isinstance(n, dict):
+            return None, "notes must be an object"
+        out["notes"] = n
+
+    return out, None
+
+
+@app.get("/api/admin/products")
+async def admin_get_products(request: Request):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    result = await _db(
+        supabase.table("products").select("*").order("display_order")
+    )
+    return JSONResponse({"products": result.data or []})
+
+
+@app.post("/api/admin/products")
+async def admin_create_product(request: Request):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    body = await request.json()
+    data, error = _validate_product_payload(body, require_all=True)
+    if error or not data:
+        return JSONResponse({"error": error or "Invalid payload"}, status_code=400)
+    # PK and slug stay in lockstep.
+    data["id"] = data["slug"]
+    try:
+        result = await _db(supabase.table("products").insert(data))
+        await reload_products_cache()
+        product = (result.data or [None])[0]
+        return JSONResponse({"success": True, "product": product})
+    except Exception as e:
+        msg = str(e)
+        if "duplicate" in msg.lower() or "unique" in msg.lower():
+            return JSONResponse({"error": "A product with that slug already exists"}, status_code=409)
+        return JSONResponse({"error": msg}, status_code=400)
+
+
+@app.get("/api/admin/products/{product_id}")
+async def admin_get_one_product(request: Request, product_id: str):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    result = await _db(supabase.table("products").select("*").eq("id", product_id))
+    rows = result.data or []
+    if not rows:
+        return JSONResponse({"error": "Product not found"}, status_code=404)
+    return JSONResponse({"product": rows[0]})
+
+
+@app.patch("/api/admin/products/{product_id}")
+async def admin_update_product(request: Request, product_id: str):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    body = await request.json()
+    data, error = _validate_product_payload(body, require_all=False)
+    if error:
+        return JSONResponse({"error": error}, status_code=400)
+    # Slug is the PK — block renaming via PATCH (would orphan order_items).
+    data.pop("slug", None)
+    if not data:
+        return JSONResponse({"error": "No fields to update"}, status_code=400)
+    result = await _db(
+        supabase.table("products").update(data).eq("id", product_id)
+    )
+    await reload_products_cache()
+    rows = result.data or []
+    if not rows:
+        return JSONResponse({"error": "Product not found"}, status_code=404)
+    return JSONResponse({"success": True, "product": rows[0]})
+
+
+@app.delete("/api/admin/products/{product_id}")
+async def admin_delete_product(request: Request, product_id: str):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    # Block delete if product has orders — would orphan order_items. Use Hide instead.
+    refs = await _db(
+        supabase.table("order_items").select("id").eq("product_id", product_id).limit(1)
+    )
+    if refs.data:
+        return JSONResponse(
+            {"error": "This product has existing orders. Hide it instead of deleting."},
+            status_code=409,
+        )
+    await _db(supabase.table("products").delete().eq("id", product_id))
+    await reload_products_cache()
+    return JSONResponse({"success": True})
+
+
+@app.patch("/api/admin/products/{product_id}/visibility")
+async def admin_toggle_visibility(request: Request, product_id: str):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    body = await request.json()
+    is_hidden = bool(body.get("is_hidden", False))
+    await _db(
+        supabase.table("products").update({"is_hidden": is_hidden}).eq("id", product_id)
+    )
+    await reload_products_cache()
+    return JSONResponse({"success": True, "is_hidden": is_hidden})
+
+
+# ─── Admin file upload (Supabase Storage) ─────────────────────────────────
+
+@app.post("/api/admin/upload")
+async def admin_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    bucket: str = Form("product-images"),
+):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+
+    if bucket not in ALLOWED_BUCKETS:
+        return JSONResponse({"error": f"Invalid bucket: {bucket}"}, status_code=400)
+
+    content_type = (file.content_type or "application/octet-stream").lower()
+    if bucket == "product-images" and content_type not in ALLOWED_IMAGE_TYPES:
+        return JSONResponse(
+            {"error": "Only WebP / JPEG / PNG images are allowed for products"},
+            status_code=400,
+        )
+    if bucket == "page-media" and content_type not in (ALLOWED_IMAGE_TYPES | ALLOWED_VIDEO_TYPES):
+        return JSONResponse({"error": "Unsupported file type"}, status_code=400)
+
+    contents = await file.read()
+    if len(contents) > MAX_UPLOAD_SIZE:
+        return JSONResponse(
+            {"error": f"File too large (max {MAX_UPLOAD_SIZE // (1024*1024)} MB)"},
+            status_code=413,
+        )
+
+    # Compose a safe storage path. Original stem is kept for debuggability,
+    # uuid suffix guarantees uniqueness so re-uploads never overwrite by accident.
+    raw_stem = Path(file.filename or "upload").stem
+    safe_stem = re.sub(r"[^a-zA-Z0-9\-_]", "-", raw_stem)[:60].strip("-") or "upload"
+    extension = Path(file.filename or "").suffix.lower()
+    if not extension:
+        ext_map = {
+            "image/webp": ".webp", "image/jpeg": ".jpg", "image/png": ".png",
+            "video/mp4": ".mp4", "video/webm": ".webm",
+        }
+        extension = ext_map.get(content_type, "")
+
+    storage_path = f"{safe_stem}-{uuid.uuid4().hex[:8]}{extension}"
+
+    try:
+        await _to_thread(
+            supabase.storage.from_(bucket).upload,
+            storage_path,
+            contents,
+            {
+                "content-type": content_type,
+                "cache-control": "public, max-age=31536000, immutable",
+            },
+        )
+    except Exception as e:
+        return JSONResponse({"error": f"Upload failed: {e}"}, status_code=500)
+
+    public_url = supabase.storage.from_(bucket).get_public_url(storage_path)
+    if isinstance(public_url, str):
+        public_url = public_url.rstrip("?")  # supabase-py occasionally tacks on '?'
+    return JSONResponse({"url": public_url, "path": storage_path, "bucket": bucket})
+
+
+# ─── Admin Content (CMS for Main + Universe pages) ────────────────────────
+#
+# Content blocks for the Main + Universe pages live in the page_content table.
+# Templates pull values via the `content(section, field, fallback)` Jinja helper
+# which is injected into the home + story route contexts (see below).
+# The admin UI uses PAGE_CONTENT_SCHEMA to know what fields exist and how to
+# render them (text / longtext / image / video). To add a new editable block:
+#   1. Append an entry below.
+#   2. Reference it in the corresponding template with content('section', 'field', 'fallback').
+# The admin will pick it up automatically on next page load.
+
+ALLOWED_CONTENT_PAGES = {"main", "universe"}
+
+PAGE_CONTENT_SCHEMA = {
+    "main": [
+        # The House (brand quote on landing)
+        {"section": "about", "field": "quote", "type": "longtext",
+         "label": "Brand quote", "group": "The House"},
+        {"section": "about", "field": "subtext", "type": "longtext",
+         "label": "Brand description (paragraph below quote)", "group": "The House"},
+
+        # The Collection (heading above the 5-card grid)
+        {"section": "collection", "field": "label", "type": "text",
+         "label": "Collection — small label", "group": "The Collection"},
+        {"section": "collection", "field": "heading", "type": "text",
+         "label": "Collection — headline", "group": "The Collection"},
+
+        # Between Garden and Desert (story section at bottom)
+        {"section": "story", "field": "label", "type": "text",
+         "label": "Story — small label", "group": "Between Garden and Desert"},
+        {"section": "story", "field": "heading", "type": "text",
+         "label": "Story — headline", "group": "Between Garden and Desert"},
+        {"section": "story", "field": "col1", "type": "longtext",
+         "label": "Story — first paragraph", "group": "Between Garden and Desert"},
+        {"section": "story", "field": "col2", "type": "longtext",
+         "label": "Story — second paragraph", "group": "Between Garden and Desert"},
+        {"section": "story", "field": "image", "type": "image",
+         "label": "Story — image", "group": "Between Garden and Desert"},
+
+        # Contact
+        {"section": "contact", "field": "heading", "type": "text",
+         "label": "Contact — headline", "group": "Contact"},
+        {"section": "contact", "field": "subtext", "type": "text",
+         "label": "Contact — subtext", "group": "Contact"},
+    ],
+    "universe": [
+        # Hero
+        {"section": "hero", "field": "label", "type": "text",
+         "label": "Hero — small label", "group": "Hero"},
+        {"section": "hero", "field": "title", "type": "text",
+         "label": "Hero — main title", "group": "Hero"},
+
+        # The Beginning
+        {"section": "origin", "field": "label", "type": "text",
+         "label": "Beginning — small label", "group": "The Beginning"},
+        {"section": "origin", "field": "heading", "type": "text",
+         "label": "Beginning — headline", "group": "The Beginning"},
+        {"section": "origin", "field": "body", "type": "longtext",
+         "label": "Beginning — body", "group": "The Beginning"},
+        {"section": "origin", "field": "image", "type": "image",
+         "label": "Beginning — image", "group": "The Beginning"},
+
+        # The Craft
+        {"section": "craft", "field": "label", "type": "text",
+         "label": "Craft — small label", "group": "The Craft"},
+        {"section": "craft", "field": "heading", "type": "text",
+         "label": "Craft — headline", "group": "The Craft"},
+        {"section": "craft", "field": "body", "type": "longtext",
+         "label": "Craft — body", "group": "The Craft"},
+        {"section": "craft", "field": "image", "type": "image",
+         "label": "Craft — image", "group": "The Craft"},
+
+        # Our Pillars
+        {"section": "values", "field": "label", "type": "text",
+         "label": "Pillars — small label", "group": "Our Pillars"},
+        {"section": "values", "field": "heading", "type": "text",
+         "label": "Pillars — headline", "group": "Our Pillars"},
+    ],
+}
+
+
+def _make_content_helper(content_map: dict):
+    """Build a `content(section, field, fallback)` callable bound to a map of blocks.
+
+    Used as a Jinja global in the home + story routes so templates can do:
+        <h1>{{ content('hero', 'title', 'Maison Henius') }}</h1>
+    """
+    def lookup(section: str, field: str, fallback: str = "") -> str:
+        key = f"{section}.{field}"
+        block = content_map.get(key)
+        if block:
+            v = block.get("value")
+            if v:
+                return v
+        return fallback
+    return lookup
+
+
+async def load_page_content(page: str) -> dict:
+    """Fetch all content blocks for a page as a flat {'section.field': block} dict."""
+    if page not in ALLOWED_CONTENT_PAGES:
+        return {}
+    try:
+        result = await _db(supabase.table("page_content").select("*").eq("page", page))
+        return {f"{b['section']}.{b['field']}": b for b in (result.data or [])}
+    except Exception as e:
+        print(f"[content] failed to load {page}: {e}")
+        return {}
+
+@app.get("/api/admin/content/{page}")
+async def admin_get_content(request: Request, page: str):
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    if page not in ALLOWED_CONTENT_PAGES:
+        return JSONResponse({"error": "Unknown page"}, status_code=404)
+    result = await _db(
+        supabase.table("page_content").select("*").eq("page", page).order("display_order")
+    )
+    # Merge schema + saved values so admin UI knows every editable field
+    # (saved or not) and what type each one is.
+    saved = {f"{b['section']}.{b['field']}": b for b in (result.data or [])}
+    blocks = []
+    for entry in PAGE_CONTENT_SCHEMA.get(page, []):
+        key = f"{entry['section']}.{entry['field']}"
+        s = saved.get(key, {})
+        blocks.append({
+            "section": entry["section"],
+            "field": entry["field"],
+            "field_type": entry["type"],
+            "label": entry["label"],
+            "group": entry.get("group", ""),
+            "value": s.get("value", ""),
+        })
+    return JSONResponse({"page": page, "blocks": blocks})
+
+
+@app.put("/api/admin/content/{page}")
+async def admin_put_content(request: Request, page: str):
+    """Bulk upsert all content blocks for a page in a single round-trip."""
+    admin = await get_admin_user(request)
+    if not admin:
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    if page not in ALLOWED_CONTENT_PAGES:
+        return JSONResponse({"error": "Unknown page"}, status_code=404)
+    body = await request.json()
+    blocks = body.get("blocks") or []
+    if not isinstance(blocks, list):
+        return JSONResponse({"error": "blocks must be a list"}, status_code=400)
+    rows = []
+    for b in blocks:
+        if not isinstance(b, dict):
+            continue
+        section = (b.get("section") or "").strip()
+        field = (b.get("field") or "").strip()
+        field_type = (b.get("field_type") or "text").strip()
+        if not section or not field:
+            continue
+        rows.append({
+            "page": page,
+            "section": section,
+            "field": field,
+            "field_type": field_type,
+            "value": b.get("value") or "",
+            "display_order": int(b.get("display_order") or 0),
+        })
+    if not rows:
+        return JSONResponse({"success": True, "saved": 0})
+    # Upsert by composite unique key (page, section, field) — defined in 001 migration.
+    await _db(
+        supabase.table("page_content").upsert(rows, on_conflict="page,section,field")
+    )
+    return JSONResponse({"success": True, "saved": len(rows)})

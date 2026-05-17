@@ -11,7 +11,7 @@
 {% endblock %}
 
 {% block og %}
-<meta property="og:image" content="https://web-production-cc74a0.up.railway.app/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}">
+<meta property="og:image" content="https://web-production-cc74a0.up.railway.app{{ product.card_image | product_image }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="1200">
 <meta property="og:site_name" content="Maison Henius">
@@ -428,7 +428,7 @@
       </div>
       <div class="product-hero__actions">
         <span class="product-hero__price">${{ product.price }}</span>
-        <button class="product-hero__cart-btn" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart</button>
+        <button class="product-hero__cart-btn" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart</button>
       </div>
     </div>
   </section>
@@ -451,7 +451,7 @@
   <!-- ═══ THE MOOD (full-bleed photoshoot — fits viewport) ═══ -->
   <section class="product-mood">
     <img class="product-mood__img"
-         src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.mood_image }}"
+         src="{{ product.mood_image | product_image }}"
          alt="{{ product.name }} - ingredients and bottle on travertine"
          width="1920" height="1072" loading="lazy" decoding="async">
   </section>
@@ -489,7 +489,7 @@
       <div class="product-comp__notes">
         {% for img in group.images %}
         <div class="product-comp__note">
-          <img class="product-comp__note-img" src="/static/assets/pictures/ingredients/{{ img }}.webp" alt="{{ img | capitalize }}" width="800" height="800" loading="lazy" decoding="async">
+          <img class="product-comp__note-img" src="{{ img | ingredient_image }}" alt="{{ img | capitalize }}" width="800" height="800" loading="lazy" decoding="async">
           <div class="product-comp__note-name">{{ img | replace('-', ' ') | title }}</div>
         </div>
         {% endfor %}
@@ -502,11 +502,11 @@
   <section class="product-bottle">
     <span class="product-bottle__label">The Bottle</span>
     <img class="product-bottle__img"
-         src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.bottle_image | replace(' ', '%20') }}"
+         src="{{ product.bottle_image | product_image }}"
          alt="{{ product.name }} - Maison Henius bottle">
     <div class="product-bottle__details">Eau de Parfum · 100ml</div>
     <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
-    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'/static/assets/pictures/Collection%20%26%20Fragrances/{{ product.card_image }}'})">Add to Cart - ${{ product.price }}</button>
+    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart - ${{ product.price }}</button>
   </section>
 
   <!-- ═══ EXPLORE COLLECTION ═══ -->
@@ -519,7 +519,7 @@
       {% for slug, other in others.items() %}
       <a href="/products/{{ slug }}" class="product-explore__card">
         <div class="product-explore__card-img">
-          <img src="/static/assets/pictures/Collection%20%26%20Fragrances/{{ other.card_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
+          <img src="{{ other.card_image | product_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
         </div>
         <span class="product-explore__card-name">{{ other.name }}</span>
       </a>

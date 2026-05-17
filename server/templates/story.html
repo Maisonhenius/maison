@@ -530,8 +530,8 @@
     <img src="/static/assets/pictures/Jordan%20Landscape/Wadi%20Rum.webp" alt="Wadi Rum desert - the landscape that inspired Maison Henius" class="story-hero__img" width="1248" height="832">
     <div class="story-hero__overlay"></div>
     <div class="story-hero__content">
-      <span class="story-hero__label">Maison Henius</span>
-      <h1 class="story-hero__title">Our Story</h1>
+      <span class="story-hero__label">{{ content('hero', 'label', 'Maison Henius') }}</span>
+      <h1 class="story-hero__title">{{ content('hero', 'title', 'Our Story') }}</h1>
       <p class="story-hero__sub">Where Memory Becomes Fragrance</p>
     </div>
   </section>
@@ -540,17 +540,22 @@
   <section class="story-origin">
     <div class="story-origin__inner">
       <div class="story-origin__text">
-        <span class="story-origin__label">The Beginning</span>
-        <h2 class="story-origin__heading">Born Between Garden and Desert</h2>
+        <span class="story-origin__label">{{ content('origin', 'label', 'The Beginning') }}</span>
+        <h2 class="story-origin__heading">{{ content('origin', 'heading', 'Born Between Garden and Desert') }}</h2>
         <hr class="story-origin__divider">
         <div class="story-origin__body">
+          {% set origin_body = content('origin', 'body', '') %}
+          {% if origin_body %}
+            {% for para in origin_body.split('\n\n') %}<p>{{ para }}</p>{% endfor %}
+          {% else %}
           <p>Maison Henius was born where fragrant gardens meet the mineral vastness of the desert. Inspired by the landscapes of Jordan - where ochre sands hold the warmth of centuries and wild herbs perfume the evening air - the house creates fragrances shaped by nature, memory, and exceptional raw materials.</p>
           <p>This duality defines every creation. The lush, the arid. The fleeting, the eternal. Each composition reveals a subtle balance of freshness, depth, and character - a fragrance that gradually unfolds and leaves a unique impression on the skin and in the memory.</p>
           <p>The Maison exists between contrasts: life and silence, heritage and modernity, the intimate and the infinite. It is in this space that true elegance is found.</p>
+          {% endif %}
         </div>
       </div>
       <div class="story-origin__image">
-        <img src="/static/assets/pictures/Jordan%20Landscape/Maison%20Henius%20-%20universe.webp" alt="Triptych - Garden, canyon walk, and the Perfumer's Atelier" class="story-origin__img" width="4096" height="1738" loading="lazy" decoding="async">
+        <img src="{{ content('origin', 'image', '/static/assets/pictures/Jordan Landscape/Maison Henius - universe.webp') | page_media }}" alt="Triptych - Garden, canyon walk, and the Perfumer's Atelier" class="story-origin__img" width="4096" height="1738" loading="lazy" decoding="async">
       </div>
     </div>
   </section>
@@ -560,12 +565,12 @@
     <div class="story-craft__inner">
       <div class="story-craft__image">
         <div class="story-craft__img-frame">
-          <img src="/static/assets/pictures/Collection%20%26%20Fragrances/beyond-borders-collection.webp" alt="The Maison Henius Beyond Borders collection - five amber bottles on travertine pedestals" class="story-craft__img" loading="lazy" decoding="async">
+          <img src="{{ content('craft', 'image', '/static/assets/pictures/Collection & Fragrances/beyond-borders-collection.webp') | page_media }}" alt="The Maison Henius Beyond Borders collection - five amber bottles on travertine pedestals" class="story-craft__img" loading="lazy" decoding="async">
         </div>
       </div>
       <div class="story-craft__text">
-        <span class="story-craft__label">The Craft</span>
-        <h2 class="story-craft__heading">Every Detail, an Intention</h2>
+        <span class="story-craft__label">{{ content('craft', 'label', 'The Craft') }}</span>
+        <h2 class="story-craft__heading">{{ content('craft', 'heading', 'Every Detail, an Intention') }}</h2>
         <hr class="story-craft__divider">
         <div class="story-craft__body">
           <p>At Maison Henius, fragrance begins with raw material. Rare, Expressive. Uncompromised. Each composition is built around what matters most "the essence of the material itself", Nothing is added to distract. Nothing is softened to please.</p>
@@ -581,8 +586,8 @@
 
   <!-- ═══════════ VALUES ═══════════ -->
   <section class="story-values">
-    <span class="story-values__label">Our Pillars</span>
-    <h2 class="story-values__heading">What We Hold True</h2>
+    <span class="story-values__label">{{ content('values', 'label', 'Our Pillars') }}</span>
+    <h2 class="story-values__heading">{{ content('values', 'heading', 'What We Hold True') }}</h2>
     <hr class="story-values__divider">
     <div class="story-values__grid">
       <div class="story-value">

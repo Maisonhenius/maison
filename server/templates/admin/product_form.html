@@ -1,0 +1,814 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - {{ "New" if mode == "create" else "Edit" }} Product - Maison Henius{% endblock %}
+{% block nav_products %}admin__nav-item--active{% endblock %}
+{% block heading %}{{ "Add Product" if mode == "create" else "Edit Product" }}{% endblock %}
+
+{% block styles %}
+<style>
+  .form-page {
+    max-width: 920px;
+  }
+
+  .form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .form-header a {
+    font-size: 0.78rem;
+    color: #888;
+    text-decoration: none;
+    letter-spacing: 0.08em;
+  }
+
+  .form-header a:hover { color: #b8a44e; }
+
+  .form-section {
+    background: #fff;
+    border-radius: 8px;
+    padding: 1.8rem 1.8rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  }
+
+  .form-section__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 1.4rem;
+    color: #0a0a08;
+    margin: 0 0 0.4rem;
+  }
+
+  .form-section__sub {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0 0 1.4rem;
+    font-weight: 300;
+  }
+
+  .form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem 1.25rem;
+    margin-bottom: 1rem;
+  }
+
+  .form-row--single { grid-template-columns: 1fr; }
+  .form-row--triple { grid-template-columns: repeat(3, 1fr); }
+
+  .form-field { display: flex; flex-direction: column; gap: 0.35rem; }
+  .form-field--full { grid-column: 1 / -1; }
+
+  .form-field label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #888;
+  }
+
+  .form-field input[type="text"],
+  .form-field input[type="number"],
+  .form-field textarea {
+    width: 100%;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.7rem 0.85rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.9rem;
+    color: #0a0a08;
+    background: #fff;
+    transition: border-color 0.2s;
+    box-sizing: border-box;
+  }
+
+  .form-field textarea { resize: vertical; min-height: 80px; line-height: 1.55; }
+
+  .form-field input:focus,
+  .form-field textarea:focus {
+    outline: 0;
+    border-color: #b8a44e;
+  }
+
+  .form-field__hint {
+    font-size: 0.7rem;
+    color: #aaa;
+    font-style: italic;
+    margin-top: 0.15rem;
+  }
+
+  .form-field input[disabled] { background: #f7f7f5; color: #999; }
+
+  /* Image upload widget */
+  .img-upload {
+    display: grid;
+    grid-template-columns: 96px 1fr;
+    gap: 1rem;
+    align-items: start;
+  }
+
+  .img-upload__preview {
+    width: 96px;
+    height: 96px;
+    border-radius: 6px;
+    background: #f5f3ee;
+    overflow: hidden;
+    border: 1px dashed #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ccc;
+    font-size: 0.7rem;
+  }
+
+  .img-upload__preview img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    border-radius: 0;
+  }
+
+  .img-upload__controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+
+  .img-upload__url {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0.55rem 0.75rem;
+    word-break: break-all;
+    box-sizing: border-box;
+    width: 100%;
+  }
+
+  .img-upload__actions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+  }
+
+  .img-upload__file-btn {
+    display: inline-block;
+    padding: 0.4rem 0.85rem;
+    background: #f7f7f5;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.72rem;
+    color: #555;
+    letter-spacing: 0.05em;
+  }
+  .img-upload__file-btn:hover { background: #efeee9; }
+
+  .img-upload__file-btn input { display: none; }
+
+  .img-upload__status { font-size: 0.7rem; color: #888; }
+  .img-upload__status.err { color: #c33; }
+  .img-upload__status.ok { color: #587b3f; }
+
+  .note-block {
+    border: 1px solid #eee;
+    border-radius: 6px;
+    padding: 1.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .note-block h4 {
+    margin: 0 0 1rem;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: #0a0a08;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+
+  .note-ingredients {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-top: 0.8rem;
+  }
+
+  .wearer-block {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1rem;
+    margin-bottom: 0.6rem;
+  }
+
+  .checkbox-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+  }
+
+  .checkbox-field input[type="checkbox"] {
+    width: 18px; height: 18px;
+    accent-color: #b8a44e;
+    margin: 0;
+  }
+
+  .form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #eee;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.6rem;
+    background: #0a0a08;
+    color: #faf9f6;
+    border: 1px solid #0a0a08;
+    border-radius: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    min-height: 44px;
+  }
+  .btn:hover { background: #b8a44e; border-color: #b8a44e; }
+  .btn--ghost { background: transparent; color: #0a0a08; }
+  .btn--ghost:hover { background: #0a0a08; color: #faf9f6; }
+  .btn[disabled] { opacity: 0.5; cursor: wait; }
+
+  .save-status {
+    font-size: 0.85rem;
+    margin-right: auto;
+    align-self: center;
+  }
+  .save-status.ok { color: #587b3f; }
+  .save-status.err { color: #c33; }
+
+  @media (max-width: 768px) {
+    .form-row { grid-template-columns: 1fr; }
+    .form-row--triple { grid-template-columns: 1fr; }
+    .note-ingredients { grid-template-columns: 1fr; }
+    .wearer-block { grid-template-columns: 1fr; }
+    .img-upload { grid-template-columns: 1fr; }
+    .img-upload__preview { width: 100%; height: 200px; max-width: 280px; }
+    .form-section { padding: 1.2rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="form-page">
+  <div class="form-header">
+    <a href="/admin/products">&larr; Back to products</a>
+  </div>
+
+  <form id="productForm" autocomplete="off">
+
+    <section class="form-section">
+      <h2 class="form-section__title">Basic Information</h2>
+      <p class="form-section__sub">Identity, family, and pricing.</p>
+      <div class="form-row">
+        <div class="form-field">
+          <label for="slug">Slug (URL ID)</label>
+          <input type="text" id="slug" required pattern="[a-z0-9\-]+" {% if mode == "edit" %}disabled{% endif %}>
+          <span class="form-field__hint">Lowercase letters, numbers, and dashes only. Permanent.</span>
+        </div>
+        <div class="form-field">
+          <label for="name">Name</label>
+          <input type="text" id="name" required>
+        </div>
+        <div class="form-field">
+          <label for="family">Family</label>
+          <input type="text" id="family" required placeholder="e.g. Floral-Gourmand">
+        </div>
+        <div class="form-field">
+          <label for="price">Price (USD)</label>
+          <input type="number" id="price" min="0" step="0.01" required>
+        </div>
+        <div class="form-field">
+          <label for="display_order">Display order</label>
+          <input type="number" id="display_order" min="0" step="1" value="0">
+          <span class="form-field__hint">Lower numbers appear first in the collection.</span>
+        </div>
+        <div class="form-field">
+          <label for="video">Hero video filename</label>
+          <input type="text" id="video" placeholder="1.mp4">
+          <span class="form-field__hint">Filename in /static/assets/videos/web/, or full URL.</span>
+        </div>
+        <div class="form-field form-field--full">
+          <label for="mood">Mood tagline</label>
+          <input type="text" id="mood" placeholder="Bold, daring, provocative">
+        </div>
+        <div class="form-field form-field--full">
+          <label for="character">Character (story sentence)</label>
+          <textarea id="character" rows="3"></textarea>
+        </div>
+        <div class="form-field form-field--full">
+          <label for="description">Brand description</label>
+          <textarea id="description" rows="4"></textarea>
+        </div>
+        <div class="form-field form-field--full">
+          <label class="checkbox-field">
+            <input type="checkbox" id="is_hidden">
+            <span>Hide this product from the public site (will not appear on /shop or landing)</span>
+          </label>
+        </div>
+      </div>
+    </section>
+
+    <section class="form-section">
+      <h2 class="form-section__title">Hero Images</h2>
+      <p class="form-section__sub">Upload a new image or paste a URL. Existing assets in <code>/static/assets/pictures/Collection &amp; Fragrances/</code> can be referenced by filename.</p>
+
+      <div id="imageFields"></div>
+    </section>
+
+    <section class="form-section">
+      <h2 class="form-section__title">Olfactory Notes</h2>
+      <p class="form-section__sub">Three layers — Top, Heart, Base. Ingredient images live in <code>/static/assets/pictures/ingredients/</code> (slug like <code>rose</code>) or as uploaded URLs.</p>
+
+      <div id="noteSections"></div>
+    </section>
+
+    <section class="form-section">
+      <h2 class="form-section__title">For the Wearer</h2>
+      <p class="form-section__sub">Three personality traits shown on the product page.</p>
+      <div id="wearerBlocks"></div>
+    </section>
+
+    <div class="form-footer">
+      <span class="save-status" id="saveStatus"></span>
+      <a href="/admin/products" class="btn btn--ghost">Cancel</a>
+      <button type="submit" id="saveBtn" class="btn">{{ "Create Product" if mode == "create" else "Save Changes" }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    const MODE = "{{ mode }}";
+    const PRODUCT_ID = "{{ product_id|default('') }}";
+
+    const token = localStorage.getItem('maison_admin_auth');
+    if (!token) return;
+    const authHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+    const IMAGE_FIELDS = [
+      { key: 'card_image',    label: 'Card / hero image',  hint: 'Square format, 1200×1200. Shown on landing + shop grid.' },
+      { key: 'bottle_image',  label: 'Bottle hero image',  hint: 'Portrait 4:5 (1200×1490). Product page "The Bottle" section.' },
+      { key: 'mood_image',    label: 'Mood section image', hint: 'Wide 16:9. Mood/scene shot on product page.' },
+      { key: 'explore_image', label: 'Explore-more thumbnail', hint: 'Square. Shown in "Explore More" grid on other products. Optional.' },
+    ];
+
+    const NOTE_LAYERS = [
+      { key: 'top',   title: 'Top — Opening' },
+      { key: 'heart', title: 'Heart — Middle' },
+      { key: 'base',  title: 'Base — Dry Down' },
+    ];
+
+    // Initial product data — empty for create, prefilled for edit
+    let product = {{ product_json|safe }};
+
+    // ─── Build image fields ─────────────────────────────────────────────
+    const imageFieldsContainer = document.getElementById('imageFields');
+    IMAGE_FIELDS.forEach(f => imageFieldsContainer.appendChild(buildImageField(f.key, f.label, f.hint)));
+
+    function buildImageField(key, labelText, hintText) {
+      const wrap = document.createElement('div');
+      wrap.className = 'form-field form-field--full';
+      wrap.style.marginBottom = '1.25rem';
+
+      const label = document.createElement('label');
+      label.textContent = labelText;
+      wrap.appendChild(label);
+
+      const widget = document.createElement('div');
+      widget.className = 'img-upload';
+
+      const preview = document.createElement('div');
+      preview.className = 'img-upload__preview';
+      preview.dataset.key = key;
+      preview.textContent = 'No image';
+      widget.appendChild(preview);
+
+      const controls = document.createElement('div');
+      controls.className = 'img-upload__controls';
+
+      const urlInput = document.createElement('input');
+      urlInput.type = 'text';
+      urlInput.className = 'img-upload__url';
+      urlInput.placeholder = 'Filename or full URL';
+      urlInput.id = 'img_' + key;
+      urlInput.addEventListener('input', () => updatePreview(preview, urlInput.value));
+      controls.appendChild(urlInput);
+
+      const actions = document.createElement('div');
+      actions.className = 'img-upload__actions';
+
+      const fileBtn = document.createElement('label');
+      fileBtn.className = 'img-upload__file-btn';
+      fileBtn.textContent = 'Upload new image';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/webp,image/jpeg,image/png';
+      const status = document.createElement('span');
+      status.className = 'img-upload__status';
+      fileInput.addEventListener('change', () => handleUpload(fileInput, urlInput, preview, status));
+      fileBtn.appendChild(fileInput);
+
+      const hint = document.createElement('span');
+      hint.className = 'form-field__hint';
+      hint.textContent = hintText;
+
+      actions.appendChild(fileBtn);
+      actions.appendChild(status);
+      controls.appendChild(actions);
+      controls.appendChild(hint);
+
+      widget.appendChild(controls);
+      wrap.appendChild(widget);
+      return wrap;
+    }
+
+    function updatePreview(previewEl, value) {
+      previewEl.replaceChildren();
+      if (!value) {
+        previewEl.textContent = 'No image';
+        return;
+      }
+      const img = document.createElement('img');
+      img.src = resolveImage(value);
+      img.alt = '';
+      previewEl.appendChild(img);
+    }
+
+    function resolveImage(v) {
+      if (!v) return '';
+      if (v.startsWith('http') || v.startsWith('/')) return v;
+      return '/static/assets/pictures/Collection & Fragrances/' + v;
+    }
+
+    async function handleUpload(fileInput, urlInput, previewEl, statusEl) {
+      const f = fileInput.files && fileInput.files[0];
+      if (!f) return;
+      statusEl.textContent = 'Uploading…';
+      statusEl.className = 'img-upload__status';
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('bucket', 'product-images');
+      try {
+        const r = await fetch('/api/admin/upload', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + token },
+          body: fd,
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || ('status ' + r.status));
+        }
+        const data = await r.json();
+        urlInput.value = data.url;
+        updatePreview(previewEl, data.url);
+        statusEl.textContent = 'Uploaded ✓';
+        statusEl.className = 'img-upload__status ok';
+        fileInput.value = '';
+      } catch (e) {
+        statusEl.textContent = 'Failed: ' + e.message;
+        statusEl.className = 'img-upload__status err';
+      }
+    }
+
+    // ─── Notes ─────────────────────────────────────────────────────────
+    const noteSectionsContainer = document.getElementById('noteSections');
+    NOTE_LAYERS.forEach(layer => noteSectionsContainer.appendChild(buildNoteBlock(layer.key, layer.title)));
+
+    function buildNoteBlock(layerKey, title) {
+      const wrap = document.createElement('div');
+      wrap.className = 'note-block';
+      wrap.dataset.layer = layerKey;
+
+      const h4 = document.createElement('h4');
+      h4.textContent = title;
+      wrap.appendChild(h4);
+
+      const row = document.createElement('div');
+      row.className = 'form-row';
+
+      const labelField = textField('Layer label', `note_${layerKey}_label`, 'Opening - Top Notes', true);
+      const namesField = textField('Names (display)', `note_${layerKey}_names`, 'Lemon - Nutmeg - Cool Spices', true);
+      row.appendChild(labelField);
+      row.appendChild(namesField);
+
+      const descField = textareaField('Description', `note_${layerKey}_desc`, 3, true);
+      row.appendChild(descField);
+
+      wrap.appendChild(row);
+
+      const subHeading = document.createElement('p');
+      subHeading.className = 'form-section__sub';
+      subHeading.style.marginTop = '0.6rem';
+      subHeading.textContent = 'Three ingredient images (slugs or URLs).';
+      wrap.appendChild(subHeading);
+
+      const ingWrap = document.createElement('div');
+      ingWrap.className = 'note-ingredients';
+      for (let i = 0; i < 3; i++) {
+        ingWrap.appendChild(buildIngredientUpload(layerKey, i));
+      }
+      wrap.appendChild(ingWrap);
+
+      return wrap;
+    }
+
+    function buildIngredientUpload(layerKey, idx) {
+      const field = document.createElement('div');
+      field.className = 'form-field';
+
+      const lbl = document.createElement('label');
+      lbl.textContent = `Ingredient ${idx + 1}`;
+      field.appendChild(lbl);
+
+      const widget = document.createElement('div');
+      widget.className = 'img-upload';
+
+      const preview = document.createElement('div');
+      preview.className = 'img-upload__preview';
+      preview.style.width = '72px';
+      preview.style.height = '72px';
+      preview.textContent = '—';
+
+      const controls = document.createElement('div');
+      controls.className = 'img-upload__controls';
+
+      const urlInput = document.createElement('input');
+      urlInput.type = 'text';
+      urlInput.className = 'img-upload__url';
+      urlInput.placeholder = 'rose, lemon, or URL';
+      urlInput.id = `note_${layerKey}_img_${idx}`;
+      urlInput.addEventListener('input', () => updateIngredientPreview(preview, urlInput.value));
+      controls.appendChild(urlInput);
+
+      const actions = document.createElement('div');
+      actions.className = 'img-upload__actions';
+
+      const fileBtn = document.createElement('label');
+      fileBtn.className = 'img-upload__file-btn';
+      fileBtn.textContent = 'Upload';
+      const fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/webp,image/jpeg,image/png';
+      const status = document.createElement('span');
+      status.className = 'img-upload__status';
+      fileInput.addEventListener('change', () => handleUpload(fileInput, urlInput, preview, status));
+      fileBtn.appendChild(fileInput);
+
+      actions.appendChild(fileBtn);
+      actions.appendChild(status);
+      controls.appendChild(actions);
+
+      widget.appendChild(preview);
+      widget.appendChild(controls);
+      field.appendChild(widget);
+      return field;
+    }
+
+    function updateIngredientPreview(previewEl, value) {
+      previewEl.replaceChildren();
+      if (!value) {
+        previewEl.textContent = '—';
+        return;
+      }
+      const img = document.createElement('img');
+      img.src = resolveIngredient(value);
+      img.alt = '';
+      previewEl.appendChild(img);
+    }
+
+    function resolveIngredient(v) {
+      if (!v) return '';
+      if (v.startsWith('http') || v.startsWith('/')) return v;
+      return '/static/assets/pictures/ingredients/' + v + '.webp';
+    }
+
+    // ─── Wearer ────────────────────────────────────────────────────────
+    const wearerContainer = document.getElementById('wearerBlocks');
+    for (let i = 0; i < 3; i++) wearerContainer.appendChild(buildWearerBlock(i));
+
+    function buildWearerBlock(idx) {
+      const block = document.createElement('div');
+      block.className = 'wearer-block';
+
+      const nameF = document.createElement('div');
+      nameF.className = 'form-field';
+      const nameLabel = document.createElement('label');
+      nameLabel.textContent = `Trait ${idx + 1}`;
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.id = `wearer_${idx}_name`;
+      nameInput.placeholder = 'Bold';
+      nameF.appendChild(nameLabel);
+      nameF.appendChild(nameInput);
+
+      const descF = document.createElement('div');
+      descF.className = 'form-field';
+      const descLabel = document.createElement('label');
+      descLabel.textContent = 'Description';
+      const descInput = document.createElement('input');
+      descInput.type = 'text';
+      descInput.id = `wearer_${idx}_desc`;
+      descInput.placeholder = 'Unapologetically present in every room';
+      descF.appendChild(descLabel);
+      descF.appendChild(descInput);
+
+      block.appendChild(nameF);
+      block.appendChild(descF);
+      return block;
+    }
+
+    function textField(labelText, id, placeholder, fullWidth) {
+      const f = document.createElement('div');
+      f.className = 'form-field' + (fullWidth ? ' form-field--full' : '');
+      const lbl = document.createElement('label');
+      lbl.textContent = labelText;
+      lbl.htmlFor = id;
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.id = id;
+      if (placeholder) inp.placeholder = placeholder;
+      f.appendChild(lbl);
+      f.appendChild(inp);
+      return f;
+    }
+
+    function textareaField(labelText, id, rows, fullWidth) {
+      const f = document.createElement('div');
+      f.className = 'form-field' + (fullWidth ? ' form-field--full' : '');
+      const lbl = document.createElement('label');
+      lbl.textContent = labelText;
+      lbl.htmlFor = id;
+      const ta = document.createElement('textarea');
+      ta.id = id;
+      ta.rows = rows || 3;
+      f.appendChild(lbl);
+      f.appendChild(ta);
+      return f;
+    }
+
+    // ─── Populate with existing product (edit mode) ────────────────────
+    function populate() {
+      if (!product || Object.keys(product).length === 0) return;
+
+      document.getElementById('slug').value = product.slug || product.id || '';
+      document.getElementById('name').value = product.name || '';
+      document.getElementById('family').value = product.family || '';
+      document.getElementById('price').value = product.price != null ? product.price : '';
+      document.getElementById('display_order').value = product.display_order != null ? product.display_order : 0;
+      document.getElementById('video').value = product.video || '';
+      document.getElementById('mood').value = product.mood || '';
+      document.getElementById('character').value = product.character || '';
+      document.getElementById('description').value = product.description || '';
+      document.getElementById('is_hidden').checked = !!product.is_hidden;
+
+      IMAGE_FIELDS.forEach(f => {
+        const v = product[f.key] || '';
+        const input = document.getElementById('img_' + f.key);
+        if (input) {
+          input.value = v;
+          const preview = imageFieldsContainer.querySelector(`.img-upload__preview[data-key="${f.key}"]`);
+          if (preview) updatePreview(preview, v);
+        }
+      });
+
+      const notes = product.notes || {};
+      NOTE_LAYERS.forEach(layer => {
+        const n = notes[layer.key] || {};
+        setVal(`note_${layer.key}_label`, n.label || '');
+        setVal(`note_${layer.key}_names`, n.names || '');
+        setVal(`note_${layer.key}_desc`, n.desc || '');
+        const imgs = n.images || [];
+        for (let i = 0; i < 3; i++) {
+          setVal(`note_${layer.key}_img_${i}`, imgs[i] || '');
+          const inp = document.getElementById(`note_${layer.key}_img_${i}`);
+          if (inp) inp.dispatchEvent(new Event('input'));
+        }
+      });
+
+      const wearer = product.wearer || [];
+      for (let i = 0; i < 3; i++) {
+        const w = wearer[i] || {};
+        setVal(`wearer_${i}_name`, w.name || '');
+        setVal(`wearer_${i}_desc`, w.desc || '');
+      }
+    }
+
+    function setVal(id, v) {
+      const el = document.getElementById(id);
+      if (el) el.value = v;
+    }
+
+    populate();
+
+    // ─── Form submit ────────────────────────────────────────────────────
+    document.getElementById('productForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const status = document.getElementById('saveStatus');
+      const btn = document.getElementById('saveBtn');
+
+      status.textContent = '';
+      status.className = 'save-status';
+      btn.disabled = true;
+      const originalLabel = btn.textContent;
+      btn.textContent = 'Saving…';
+
+      const payload = {
+        slug: document.getElementById('slug').value.trim().toLowerCase(),
+        name: document.getElementById('name').value.trim(),
+        family: document.getElementById('family').value.trim(),
+        price: parseFloat(document.getElementById('price').value),
+        display_order: parseInt(document.getElementById('display_order').value, 10) || 0,
+        video: document.getElementById('video').value.trim(),
+        mood: document.getElementById('mood').value.trim(),
+        character: document.getElementById('character').value,
+        description: document.getElementById('description').value,
+        is_hidden: document.getElementById('is_hidden').checked,
+        card_image: document.getElementById('img_card_image').value.trim(),
+        bottle_image: document.getElementById('img_bottle_image').value.trim(),
+        mood_image: document.getElementById('img_mood_image').value.trim(),
+        explore_image: document.getElementById('img_explore_image').value.trim(),
+        notes: {},
+        wearer: [],
+      };
+
+      NOTE_LAYERS.forEach(layer => {
+        const images = [];
+        for (let i = 0; i < 3; i++) {
+          const v = document.getElementById(`note_${layer.key}_img_${i}`).value.trim();
+          if (v) images.push(v);
+        }
+        payload.notes[layer.key] = {
+          label: document.getElementById(`note_${layer.key}_label`).value.trim(),
+          names: document.getElementById(`note_${layer.key}_names`).value.trim(),
+          desc: document.getElementById(`note_${layer.key}_desc`).value,
+          images: images,
+        };
+      });
+
+      for (let i = 0; i < 3; i++) {
+        const name = document.getElementById(`wearer_${i}_name`).value.trim();
+        const desc = document.getElementById(`wearer_${i}_desc`).value.trim();
+        if (name || desc) payload.wearer.push({ name, desc });
+      }
+
+      try {
+        let r;
+        if (MODE === 'create') {
+          r = await fetch('/api/admin/products', {
+            method: 'POST',
+            headers: authHeaders,
+            body: JSON.stringify(payload),
+          });
+        } else {
+          r = await fetch('/api/admin/products/' + encodeURIComponent(PRODUCT_ID), {
+            method: 'PATCH',
+            headers: authHeaders,
+            body: JSON.stringify(payload),
+          });
+        }
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || ('status ' + r.status));
+        }
+        status.textContent = 'Saved ✓';
+        status.className = 'save-status ok';
+        setTimeout(() => {
+          window.location.href = '/admin/products';
+        }, 700);
+      } catch (e) {
+        status.textContent = 'Error: ' + e.message;
+        status.className = 'save-status err';
+        btn.disabled = false;
+        btn.textContent = originalLabel;
+      }
+    });
+  })();
+</script>
+{% endblock %}

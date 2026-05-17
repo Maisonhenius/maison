@@ -1,0 +1,401 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - Products - Maison Henius{% endblock %}
+{% block nav_products %}admin__nav-item--active{% endblock %}
+{% block heading %}Products{% endblock %}
+
+{% block styles %}
+<style>
+  .products-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .products-toolbar__count {
+    font-size: 0.8rem;
+    color: #666;
+    font-weight: 300;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.7rem 1.4rem;
+    background: #0a0a08;
+    color: #faf9f6;
+    border: 1px solid #0a0a08;
+    border-radius: 6px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s;
+    min-height: 40px;
+  }
+
+  .btn:hover { background: #b8a44e; border-color: #b8a44e; }
+  .btn--ghost { background: transparent; color: #0a0a08; }
+  .btn--ghost:hover { background: #0a0a08; color: #faf9f6; }
+  .btn--danger { background: #c33; border-color: #c33; }
+  .btn--danger:hover { background: #a22; border-color: #a22; }
+  .btn--small { padding: 0.45rem 0.85rem; font-size: 0.7rem; letter-spacing: 0.1em; min-height: 0; }
+
+  .table-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 0.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+
+  .table-scroll { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+    font-weight: 300;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+    color: #888;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid #eee;
+  }
+
+  tbody td {
+    padding: 0.9rem 1rem;
+    border-bottom: 1px solid #f4f4f4;
+    vertical-align: middle;
+  }
+
+  tbody tr.is-hidden { opacity: 0.45; }
+
+  .thumb {
+    width: 56px;
+    height: 56px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #f5f3ee;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 0;
+  }
+
+  .product-name { font-weight: 500; color: #0a0a08; }
+  .product-slug { display: block; font-size: 0.7rem; color: #888; margin-top: 2px; }
+
+  .family-tag {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    background: #f6f1d8;
+    color: #7d6f23;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+  }
+
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 40px;
+    height: 22px;
+    flex-shrink: 0;
+  }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider {
+    position: absolute; cursor: pointer; inset: 0;
+    background-color: #ccc;
+    transition: 0.25s;
+    border-radius: 22px;
+  }
+  .slider:before {
+    position: absolute; content: "";
+    height: 16px; width: 16px;
+    left: 3px; bottom: 3px;
+    background-color: white;
+    transition: 0.25s;
+    border-radius: 50%;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+  }
+  .switch input:checked + .slider { background-color: #b8a44e; }
+  .switch input:checked + .slider:before { transform: translateX(18px); }
+
+  .toggle-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.75rem;
+    color: #666;
+  }
+
+  .row-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+  .empty-state {
+    text-align: center;
+    padding: 4rem 1rem;
+    color: #888;
+    font-style: italic;
+  }
+
+  .loading { text-align: center; padding: 2rem; color: #888; }
+
+  @media (max-width: 768px) {
+    .products-toolbar { flex-direction: column; align-items: stretch; }
+    tbody td { padding: 0.7rem 0.5rem; }
+    .thumb { width: 44px; height: 44px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="products-toolbar">
+  <span class="products-toolbar__count" id="productCount">Loading products…</span>
+  <a href="/admin/products/new" class="btn">+ Add Product</a>
+</div>
+
+<div class="table-card">
+  <div class="table-scroll">
+    <table>
+      <thead>
+        <tr>
+          <th></th>
+          <th>Product</th>
+          <th>Family</th>
+          <th>Price</th>
+          <th>Order</th>
+          <th>Visible</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="productsBody"></tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function() {
+    const token = localStorage.getItem('maison_admin_auth');
+    if (!token) return;
+    const authHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+    const body = document.getElementById('productsBody');
+    const countEl = document.getElementById('productCount');
+
+    setEmptyRow('Loading…', 'loading');
+
+    async function load() {
+      try {
+        const r = await fetch('/api/admin/products', { headers: authHeaders });
+        if (!r.ok) {
+          setEmptyRow('Failed to load products (status ' + r.status + ')');
+          return;
+        }
+        const data = await r.json();
+        render(data.products || []);
+      } catch (e) {
+        setEmptyRow('Error: ' + e.message);
+      }
+    }
+
+    function render(products) {
+      countEl.textContent = products.length + ' product' + (products.length === 1 ? '' : 's');
+      body.replaceChildren();
+      if (!products.length) {
+        setEmptyRow('No products yet. Add one!');
+        return;
+      }
+      products.forEach(p => body.appendChild(buildRow(p)));
+    }
+
+    function buildRow(p) {
+      const tr = document.createElement('tr');
+      if (p.is_hidden) tr.classList.add('is-hidden');
+
+      // Thumbnail
+      tr.appendChild(td(thumb(resolveImage(p.card_image))));
+
+      // Name + slug
+      const nameCell = document.createElement('td');
+      const nameSpan = document.createElement('span');
+      nameSpan.className = 'product-name';
+      nameSpan.textContent = p.name || '(unnamed)';
+      const slugSpan = document.createElement('span');
+      slugSpan.className = 'product-slug';
+      slugSpan.textContent = p.slug || p.id;
+      nameCell.appendChild(nameSpan);
+      nameCell.appendChild(slugSpan);
+      tr.appendChild(nameCell);
+
+      // Family
+      const familySpan = document.createElement('span');
+      familySpan.className = 'family-tag';
+      familySpan.textContent = p.family || '—';
+      tr.appendChild(td(familySpan));
+
+      // Price
+      tr.appendChild(td(document.createTextNode('$' + Number(p.price || 0).toFixed(2))));
+
+      // Display order
+      tr.appendChild(td(document.createTextNode(p.display_order != null ? String(p.display_order) : '—')));
+
+      // Visibility toggle
+      tr.appendChild(td(buildToggle(p)));
+
+      // Actions
+      tr.appendChild(td(buildActions(p)));
+
+      return tr;
+    }
+
+    function buildToggle(p) {
+      const label = document.createElement('label');
+      label.className = 'toggle-label';
+
+      const switchEl = document.createElement('span');
+      switchEl.className = 'switch';
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.className = 'visibility-toggle';
+      cb.dataset.id = p.id;
+      cb.checked = !p.is_hidden;
+      cb.addEventListener('change', () => toggleVisibility(cb, label));
+
+      const slider = document.createElement('span');
+      slider.className = 'slider';
+
+      switchEl.appendChild(cb);
+      switchEl.appendChild(slider);
+
+      const state = document.createElement('span');
+      state.className = 'toggle-state';
+      state.textContent = p.is_hidden ? 'Hidden' : 'Visible';
+
+      label.appendChild(switchEl);
+      label.appendChild(state);
+      return label;
+    }
+
+    function buildActions(p) {
+      const wrap = document.createElement('div');
+      wrap.className = 'row-actions';
+
+      const editLink = document.createElement('a');
+      editLink.className = 'btn btn--ghost btn--small';
+      editLink.href = '/admin/products/' + encodeURIComponent(p.id) + '/edit';
+      editLink.textContent = 'Edit';
+
+      const delBtn = document.createElement('button');
+      delBtn.type = 'button';
+      delBtn.className = 'btn btn--danger btn--small';
+      delBtn.textContent = 'Delete';
+      delBtn.addEventListener('click', () => confirmDelete(p, delBtn));
+
+      wrap.appendChild(editLink);
+      wrap.appendChild(delBtn);
+      return wrap;
+    }
+
+    async function toggleVisibility(cb, label) {
+      const id = cb.dataset.id;
+      const newHidden = !cb.checked;
+      cb.disabled = true;
+      try {
+        const r = await fetch('/api/admin/products/' + encodeURIComponent(id) + '/visibility', {
+          method: 'PATCH',
+          headers: authHeaders,
+          body: JSON.stringify({ is_hidden: newHidden }),
+        });
+        if (!r.ok) throw new Error('status ' + r.status);
+        const tr = cb.closest('tr');
+        if (tr) tr.classList.toggle('is-hidden', newHidden);
+        const stateEl = label.querySelector('.toggle-state');
+        if (stateEl) stateEl.textContent = newHidden ? 'Hidden' : 'Visible';
+      } catch (e) {
+        cb.checked = !cb.checked;
+        alert('Could not change visibility: ' + e.message);
+      } finally {
+        cb.disabled = false;
+      }
+    }
+
+    async function confirmDelete(p, btn) {
+      if (!confirm('Delete "' + (p.name || p.id) + '"? This cannot be undone.')) return;
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+      try {
+        const r = await fetch('/api/admin/products/' + encodeURIComponent(p.id), {
+          method: 'DELETE', headers: authHeaders,
+        });
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error(err.error || ('status ' + r.status));
+        }
+        load();
+      } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Delete';
+        alert('Could not delete: ' + e.message);
+      }
+    }
+
+    function td(child) {
+      const c = document.createElement('td');
+      if (child) c.appendChild(child);
+      return c;
+    }
+
+    function thumb(url) {
+      const wrap = document.createElement('span');
+      wrap.className = 'thumb';
+      const img = document.createElement('img');
+      img.src = url;
+      img.alt = '';
+      img.loading = 'lazy';
+      wrap.appendChild(img);
+      return wrap;
+    }
+
+    function setEmptyRow(message, cssClass) {
+      body.replaceChildren();
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 7;
+      td.className = cssClass || 'empty-state';
+      td.textContent = message;
+      tr.appendChild(td);
+      body.appendChild(tr);
+    }
+
+    function resolveImage(v) {
+      if (!v) return '/static/assets/images/logo.svg';
+      if (v.startsWith('http') || v.startsWith('/')) return v;
+      return '/static/assets/pictures/Collection & Fragrances/' + v;
+    }
+
+    load();
+  })();
+</script>
+{% endblock %}

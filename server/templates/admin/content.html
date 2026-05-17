@@ -1,0 +1,91 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - Content - Maison Henius{% endblock %}
+{% block nav_content %}admin__nav-item--active{% endblock %}
+{% block heading %}Content{% endblock %}
+
+{% block styles %}
+<style>
+  .content-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    max-width: 880px;
+  }
+
+  .content-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 2rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+    display: block;
+  }
+
+  .content-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.07);
+  }
+
+  .content-card__label {
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: #b8a44e;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-bottom: 0.8rem;
+  }
+
+  .content-card__title {
+    font-family: 'Cormorant Garamond', serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 2rem;
+    color: #0a0a08;
+    margin: 0 0 0.5rem;
+  }
+
+  .content-card__desc {
+    font-size: 0.85rem;
+    color: #666;
+    line-height: 1.55;
+    font-weight: 300;
+    margin: 0;
+  }
+
+  .content-card__arrow {
+    margin-top: 1rem;
+    font-size: 0.8rem;
+    color: #888;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  @media (max-width: 768px) {
+    .content-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<p style="color:#666; margin-bottom: 2rem; max-width: 680px; font-weight: 300;">
+  Edit the visible text, imagery, and video that appears on the public site. Changes save immediately and go live on next page view.
+</p>
+
+<div class="content-grid">
+  <a href="/admin/content/main" class="content-card">
+    <div class="content-card__label">Page</div>
+    <h2 class="content-card__title">Main Page</h2>
+    <p class="content-card__desc">Homepage hero, "The Beginning", "The Craft", pillars, and the parallax quote. Everything a visitor sees before they explore the collection.</p>
+    <div class="content-card__arrow">Edit →</div>
+  </a>
+
+  <a href="/admin/content/universe" class="content-card">
+    <div class="content-card__label">Page</div>
+    <h2 class="content-card__title">Universe Page</h2>
+    <p class="content-card__desc">The Our Story page — hero, the brand story, the atelier, and the canyon vignettes that anchor Maison Henius in Jordan.</p>
+    <div class="content-card__arrow">Edit →</div>
+  </a>
+</div>
+{% endblock %}

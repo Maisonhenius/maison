@@ -1,0 +1,512 @@
+{% extends "layout.html" %}
+
+{% block title %}Shop - Maison Henius{% endblock %}
+
+{% block styles %}
+<style>
+  /* ─── /shop e-commerce grid ───────────────────────────────────────── */
+  .shop {
+    padding: 140px 4rem 6rem;
+    background: var(--ivory, #faf9f6);
+    color: var(--black, #0a0a08);
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  .shop__hero {
+    text-align: center;
+    margin-bottom: 4rem;
+  }
+
+  .shop__divider {
+    width: 64px;
+    height: 1px;
+    border: 0;
+    background: var(--gold, #b8a44e);
+    margin: 0 auto 1.5rem;
+  }
+
+  .shop__label {
+    display: block;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.4em;
+    text-transform: uppercase;
+    color: var(--gold-dark, #b8a44e);
+    margin-bottom: 1.5rem;
+  }
+
+  .shop__heading {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(3rem, 6vw, 5rem);
+    line-height: 1;
+    margin: 0 0 1rem;
+  }
+
+  .shop__subhead {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: clamp(1.15rem, 1.6vw, 1.4rem);
+    color: rgba(10, 10, 8, 0.65);
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
+  /* Controls row */
+  .shop__controls {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(10, 10, 8, 0.08);
+  }
+
+  .shop__filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .shop__chip {
+    background: transparent;
+    border: 1px solid rgba(10, 10, 8, 0.15);
+    border-radius: 999px;
+    padding: 0.55rem 1.15rem;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--black, #0a0a08);
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .shop__chip:hover {
+    border-color: var(--gold, #b8a44e);
+    color: var(--gold-dark, #b8a44e);
+  }
+
+  .shop__chip.is-active {
+    background: var(--black, #0a0a08);
+    border-color: var(--black, #0a0a08);
+    color: var(--ivory, #faf9f6);
+  }
+
+  .shop__sort {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .shop__sort-label {
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.6);
+  }
+
+  .shop__sort-select {
+    background: transparent;
+    border: 1px solid rgba(10, 10, 8, 0.15);
+    border-radius: 4px;
+    padding: 0.55rem 2rem 0.55rem 0.85rem;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.85rem;
+    color: var(--black, #0a0a08);
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'><path d='M2 4l4 4 4-4' stroke='%230a0a08' fill='none' stroke-width='1' stroke-linecap='round'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.65rem center;
+  }
+
+  .shop__sort-select:focus {
+    outline: 1px solid var(--gold, #b8a44e);
+    outline-offset: 2px;
+  }
+
+  /* Grid */
+  .shop__grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3.5rem 2.5rem;
+  }
+
+  .shop__count {
+    grid-column: 1 / -1;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: rgba(10, 10, 8, 0.5);
+    margin-bottom: -1rem;
+  }
+
+  .shop__empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 4rem 2rem;
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-size: 1.25rem;
+    color: rgba(10, 10, 8, 0.5);
+  }
+
+  /* Card */
+  .shop-card {
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 4px;
+    overflow: hidden;
+    transition: transform 0.4s ease, box-shadow 0.4s ease;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .shop-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  }
+
+  .shop-card__link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+  }
+
+  .shop-card__media {
+    position: relative;
+    width: 100%;
+    padding-bottom: 100%;
+    overflow: hidden;
+    background: #f5f3ee;
+  }
+
+  .shop-card__media img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 0;
+    transition: transform 0.6s ease;
+  }
+
+  .shop-card:hover .shop-card__media img {
+    transform: scale(1.04);
+  }
+
+  .shop-card__body {
+    padding: 1.5rem 1.5rem 1rem;
+    text-align: center;
+  }
+
+  .shop-card__family {
+    display: block;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--gold-dark, #b8a44e);
+    margin-bottom: 0.6rem;
+  }
+
+  .shop-card__name {
+    font-family: "Cormorant Garamond", serif;
+    font-style: italic;
+    font-weight: 300;
+    font-size: 1.5rem;
+    line-height: 1.15;
+    margin: 0 0 0.6rem;
+    color: var(--black, #0a0a08);
+  }
+
+  .shop-card__price {
+    display: block;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    color: var(--black, #0a0a08);
+  }
+
+  .shop-card__actions {
+    display: flex;
+    gap: 0;
+    border-top: 1px solid rgba(10, 10, 8, 0.06);
+    margin-top: 0.5rem;
+  }
+
+  .shop-card__view,
+  .shop-card__add {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    padding: 1.1rem 0.5rem;
+    font-family: "Montserrat", sans-serif;
+    font-weight: 300;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--black, #0a0a08);
+    cursor: pointer;
+    transition: background 0.25s ease, color 0.25s ease;
+    text-decoration: none;
+    text-align: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .shop-card__view {
+    border-right: 1px solid rgba(10, 10, 8, 0.06);
+  }
+
+  .shop-card__view:hover {
+    background: rgba(10, 10, 8, 0.03);
+  }
+
+  .shop-card__add {
+    background: var(--black, #0a0a08);
+    color: var(--ivory, #faf9f6);
+  }
+
+  .shop-card__add:hover {
+    background: var(--gold-dark, #b8a44e);
+  }
+
+  .shop-card__add.is-added {
+    background: var(--gold, #e9db90);
+    color: var(--black, #0a0a08);
+  }
+
+  /* Hidden by filter */
+  .shop-card.is-filtered-out {
+    display: none;
+  }
+
+  /* Tablet */
+  @media (max-width: 1024px) {
+    .shop {
+      padding: 120px 2rem 5rem;
+    }
+    .shop__grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 2.5rem 1.5rem;
+    }
+  }
+
+  /* Mobile */
+  @media (max-width: 640px) {
+    .shop {
+      padding: 100px 1rem 4rem;
+    }
+    .shop__hero {
+      margin-bottom: 2.5rem;
+    }
+    .shop__controls {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .shop__filters {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      -webkit-overflow-scrolling: touch;
+      width: 100%;
+      padding-bottom: 0.5rem;
+    }
+    .shop__chip {
+      flex-shrink: 0;
+    }
+    .shop__sort {
+      width: 100%;
+      justify-content: space-between;
+    }
+    .shop__grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .shop-card__body {
+      padding: 1.25rem 1rem 0.75rem;
+    }
+    .shop-card__view,
+    .shop-card__add {
+      padding: 1rem 0.5rem;
+      min-height: 48px;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="shop">
+  <header class="shop__hero">
+    <hr class="shop__divider">
+    <span class="shop__label">The Collection</span>
+    <h1 class="shop__heading">Shop the Universe</h1>
+    <p class="shop__subhead">Each fragrance, a signature of emotion and memory.</p>
+  </header>
+
+  <div class="shop__controls">
+    <div class="shop__filters" id="shopFilters" role="tablist" aria-label="Filter by fragrance family">
+      <button class="shop__chip is-active" data-filter="all" role="tab" aria-selected="true">All</button>
+      {% for family in families %}
+      <button class="shop__chip" data-filter="{{ family }}" role="tab" aria-selected="false">{{ family }}</button>
+      {% endfor %}
+    </div>
+
+    <div class="shop__sort">
+      <label for="shopSort" class="shop__sort-label">Sort</label>
+      <select id="shopSort" class="shop__sort-select" aria-label="Sort products">
+        <option value="featured">Featured</option>
+        <option value="price-asc">Price: Low to High</option>
+        <option value="price-desc">Price: High to Low</option>
+        <option value="name">Name (A–Z)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="shop__grid" id="shopGrid">
+    <p class="shop__count" id="shopCount">{{ products|length }} fragrance{% if products|length != 1 %}s{% endif %}</p>
+    {% for slug, p in products.items() %}
+    <article class="shop-card"
+             data-slug="{{ slug }}"
+             data-family="{{ p.family }}"
+             data-price="{{ p.price }}"
+             data-name="{{ p.name }}"
+             data-order="{{ p.display_order }}">
+      <a href="/products/{{ slug }}" class="shop-card__link">
+        <div class="shop-card__media">
+          <img src="{{ p.card_image | product_image }}"
+               alt="{{ p.name }} - {{ p.family }} Eau de Parfum"
+               loading="lazy" decoding="async">
+        </div>
+        <div class="shop-card__body">
+          <span class="shop-card__family">{{ p.family }}</span>
+          <h2 class="shop-card__name">{{ p.name }}</h2>
+          <span class="shop-card__price">${{ "%.2f"|format(p.price) }}</span>
+        </div>
+      </a>
+      <div class="shop-card__actions">
+        <a href="/products/{{ slug }}" class="shop-card__view">View</a>
+        <button type="button" class="shop-card__add"
+                data-product-id="{{ slug }}"
+                data-product-name="{{ p.name }}"
+                data-product-family="{{ p.family }}"
+                data-product-price="{{ p.price }}"
+                data-product-image="{{ p.card_image | product_image }}">
+          Add to Cart
+        </button>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+
+<script>
+  (function() {
+    if (window._shopPageInitBound) return;
+    window._shopPageInitBound = true;
+
+    function initShop() {
+      const grid = document.getElementById('shopGrid');
+      if (!grid) return; // not on shop page
+
+      const cards = Array.from(grid.querySelectorAll('.shop-card'));
+      const filters = document.querySelectorAll('#shopFilters .shop__chip');
+      const sortSelect = document.getElementById('shopSort');
+      const countEl = document.getElementById('shopCount');
+
+      let activeFilter = 'all';
+      let activeSort = 'featured';
+
+      function applyFilters() {
+        let visible = 0;
+        cards.forEach(card => {
+          const matches = activeFilter === 'all' || card.dataset.family === activeFilter;
+          card.classList.toggle('is-filtered-out', !matches);
+          if (matches) visible++;
+        });
+        if (countEl) {
+          countEl.textContent = visible + ' fragrance' + (visible === 1 ? '' : 's');
+        }
+      }
+
+      function applySort() {
+        const sorted = cards.slice().sort((a, b) => {
+          if (activeSort === 'price-asc') return parseFloat(a.dataset.price) - parseFloat(b.dataset.price);
+          if (activeSort === 'price-desc') return parseFloat(b.dataset.price) - parseFloat(a.dataset.price);
+          if (activeSort === 'name') return a.dataset.name.localeCompare(b.dataset.name);
+          return parseInt(a.dataset.order, 10) - parseInt(b.dataset.order, 10); // featured = display_order
+        });
+        sorted.forEach(card => grid.appendChild(card));
+        // Keep count element first
+        if (countEl) grid.insertBefore(countEl, grid.firstChild);
+      }
+
+      filters.forEach(btn => {
+        btn.addEventListener('click', () => {
+          filters.forEach(b => {
+            b.classList.remove('is-active');
+            b.setAttribute('aria-selected', 'false');
+          });
+          btn.classList.add('is-active');
+          btn.setAttribute('aria-selected', 'true');
+          activeFilter = btn.dataset.filter;
+          applyFilters();
+        });
+      });
+
+      if (sortSelect) {
+        sortSelect.addEventListener('change', () => {
+          activeSort = sortSelect.value;
+          applySort();
+        });
+      }
+
+      // Add to Cart wiring — same MaisonCart API the product detail page uses.
+      grid.querySelectorAll('.shop-card__add').forEach(btn => {
+        if (btn.dataset.cartInit) return;
+        btn.dataset.cartInit = '1';
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (!window.MaisonCart) return;
+          window.MaisonCart.addItem({
+            id: btn.dataset.productId,
+            name: btn.dataset.productName,
+            family: btn.dataset.productFamily,
+            price: parseFloat(btn.dataset.productPrice),
+            image: btn.dataset.productImage,
+          });
+          const original = btn.textContent;
+          btn.classList.add('is-added');
+          btn.textContent = 'Added ✓';
+          setTimeout(() => {
+            btn.classList.remove('is-added');
+            btn.textContent = original;
+          }, 1400);
+        });
+      });
+    }
+
+    document.addEventListener('turbo:load', initShop);
+    // First page-load fallback if Turbo hasn't fired yet
+    if (document.readyState !== 'loading') initShop();
+    else document.addEventListener('DOMContentLoaded', initShop);
+  })();
+</script>
+{% endblock %}

@@ -1688,66 +1688,94 @@ PAGE_CONTENT_SCHEMA = {
     "main": [
         # The House (brand quote on landing)
         {"section": "about", "field": "quote", "type": "longtext",
-         "label": "Brand quote", "group": "The House"},
+         "label": "Brand quote", "group": "The House",
+         "default": '"Memory over product. Emotion over visibility."'},
         {"section": "about", "field": "subtext", "type": "longtext",
-         "label": "Brand description (paragraph below quote)", "group": "The House"},
+         "label": "Brand description (paragraph below quote)", "group": "The House",
+         "default": "Maison Henius transforms scent into memory. Each creation is an emotional identity rooted in craftsmanship and storytelling - not simply worn, but lived. The house exists between contrasts: garden and desert, life and silence. This duality defines every creation."},
 
         # The Collection (heading above the 5-card grid)
         {"section": "collection", "field": "label", "type": "text",
-         "label": "Collection — small label", "group": "The Collection"},
+         "label": "Collection — small label", "group": "The Collection",
+         "default": "The Collection"},
         {"section": "collection", "field": "heading", "type": "text",
-         "label": "Collection — headline", "group": "The Collection"},
+         "label": "Collection — headline", "group": "The Collection",
+         "default": "Beyond Borders"},
 
         # Between Garden and Desert (story section at bottom)
         {"section": "story", "field": "label", "type": "text",
-         "label": "Story — small label", "group": "Between Garden and Desert"},
+         "label": "Story — small label", "group": "Between Garden and Desert",
+         "default": "Our World"},
         {"section": "story", "field": "heading", "type": "text",
-         "label": "Story — headline", "group": "Between Garden and Desert"},
+         "label": "Story — headline", "group": "Between Garden and Desert",
+         "default": "Between Garden and Desert"},
         {"section": "story", "field": "col1", "type": "longtext",
-         "label": "Story — first paragraph", "group": "Between Garden and Desert"},
+         "label": "Story — first paragraph", "group": "Between Garden and Desert",
+         "default": "Where roses bloom beside ancient stone and amber sands stretch to the horizon - this is where Maison Henius begins. Each creation draws from the duality of Jordan: the lush fragrant gardens and the mineral vastness of the desert."},
         {"section": "story", "field": "col2", "type": "longtext",
-         "label": "Story — second paragraph", "group": "Between Garden and Desert"},
+         "label": "Story — second paragraph", "group": "Between Garden and Desert",
+         "default": "From these contrasts - life and silence, freshness and depth - emerges a language of scent that speaks to memory and emotion. Each composition unfolds gradually, leaving an impression as enduring as the land itself."},
         {"section": "story", "field": "image", "type": "image",
-         "label": "Story — image", "group": "Between Garden and Desert"},
+         "label": "Story — image", "group": "Between Garden and Desert",
+         "default": "/static/assets/pictures/Jordan Landscape/Story.webp"},
 
         # Contact
         {"section": "contact", "field": "heading", "type": "text",
-         "label": "Contact — headline", "group": "Contact"},
+         "label": "Contact — headline", "group": "Contact",
+         "default": "We would love to hear from you"},
         {"section": "contact", "field": "subtext", "type": "text",
-         "label": "Contact — subtext", "group": "Contact"},
+         "label": "Contact — subtext", "group": "Contact",
+         "default": "For inquiries, partnerships, or simply to share a memory."},
     ],
     "universe": [
         # Hero
         {"section": "hero", "field": "label", "type": "text",
-         "label": "Hero — small label", "group": "Hero"},
+         "label": "Hero — small label", "group": "Hero",
+         "default": "Maison Henius"},
         {"section": "hero", "field": "title", "type": "text",
-         "label": "Hero — main title", "group": "Hero"},
+         "label": "Hero — main title", "group": "Hero",
+         "default": "Our Story"},
 
         # The Beginning
         {"section": "origin", "field": "label", "type": "text",
-         "label": "Beginning — small label", "group": "The Beginning"},
+         "label": "Beginning — small label", "group": "The Beginning",
+         "default": "The Beginning"},
         {"section": "origin", "field": "heading", "type": "text",
-         "label": "Beginning — headline", "group": "The Beginning"},
+         "label": "Beginning — headline", "group": "The Beginning",
+         "default": "Born Between Garden and Desert"},
         {"section": "origin", "field": "body", "type": "longtext",
-         "label": "Beginning — body", "group": "The Beginning"},
+         "label": "Beginning — body (separate paragraphs with a blank line)", "group": "The Beginning",
+         "default": (
+             "Maison Henius was born where fragrant gardens meet the mineral vastness of the desert. "
+             "Inspired by the landscapes of Jordan - where ochre sands hold the warmth of centuries and wild herbs perfume the evening air - "
+             "the house creates fragrances shaped by nature, memory, and exceptional raw materials.\n\n"
+             "This duality defines every creation. The lush, the arid. The fleeting, the eternal. "
+             "Each composition reveals a subtle balance of freshness, depth, and character - a fragrance that gradually unfolds and leaves a unique impression on the skin and in the memory.\n\n"
+             "The Maison exists between contrasts: life and silence, heritage and modernity, the intimate and the infinite. "
+             "It is in this space that true elegance is found."
+         )},
         {"section": "origin", "field": "image", "type": "image",
-         "label": "Beginning — image", "group": "The Beginning"},
+         "label": "Beginning — image", "group": "The Beginning",
+         "default": "/static/assets/pictures/Jordan Landscape/Maison Henius - universe.webp"},
 
         # The Craft
         {"section": "craft", "field": "label", "type": "text",
-         "label": "Craft — small label", "group": "The Craft"},
+         "label": "Craft — small label", "group": "The Craft",
+         "default": "The Craft"},
         {"section": "craft", "field": "heading", "type": "text",
-         "label": "Craft — headline", "group": "The Craft"},
-        {"section": "craft", "field": "body", "type": "longtext",
-         "label": "Craft — body", "group": "The Craft"},
+         "label": "Craft — headline", "group": "The Craft",
+         "default": "Every Detail, an Intention"},
         {"section": "craft", "field": "image", "type": "image",
-         "label": "Craft — image", "group": "The Craft"},
+         "label": "Craft — image", "group": "The Craft",
+         "default": "/static/assets/pictures/Collection & Fragrances/beyond-borders-collection.webp"},
 
         # Our Pillars
         {"section": "values", "field": "label", "type": "text",
-         "label": "Pillars — small label", "group": "Our Pillars"},
+         "label": "Pillars — small label", "group": "Our Pillars",
+         "default": "Our Pillars"},
         {"section": "values", "field": "heading", "type": "text",
-         "label": "Pillars — headline", "group": "Our Pillars"},
+         "label": "Pillars — headline", "group": "Our Pillars",
+         "default": "What We Hold True"},
     ],
 }
 
@@ -1791,7 +1819,10 @@ async def admin_get_content(request: Request, page: str):
         supabase.table("page_content").select("*").eq("page", page).order("display_order")
     )
     # Merge schema + saved values so admin UI knows every editable field
-    # (saved or not) and what type each one is.
+    # (saved or not), what type each one is, and the live default it falls
+    # back to on the public site. The admin form pre-fills with `value` if
+    # set, otherwise `default` — so the admin always edits the actual current
+    # copy rather than a blank input.
     saved = {f"{b['section']}.{b['field']}": b for b in (result.data or [])}
     blocks = []
     for entry in PAGE_CONTENT_SCHEMA.get(page, []):
@@ -1804,6 +1835,8 @@ async def admin_get_content(request: Request, page: str):
             "label": entry["label"],
             "group": entry.get("group", ""),
             "value": s.get("value", ""),
+            "default": entry.get("default", ""),
+            "is_customized": bool(s.get("value")),
         })
     return JSONResponse({"page": page, "blocks": blocks})
 

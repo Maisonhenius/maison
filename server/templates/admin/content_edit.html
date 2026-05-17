@@ -255,53 +255,117 @@
       wrap.dataset.section = b.section;
       wrap.dataset.field = b.field;
       wrap.dataset.fieldType = b.field_type;
+      wrap.dataset.defaultValue = b.default || '';
+
+      // Pre-fill with the saved value if it exists, otherwise the current
+      // default (the text shown on the public site right now). The admin
+      // always edits real content, never a blank slate.
+      const initial = (b.value && b.value.length) ? b.value : (b.default || '');
+
+      // Top row: field label + edit-state badge ("Customized" / "Default")
+      const headRow = document.createElement('div');
+      headRow.style.display = 'flex';
+      headRow.style.justifyContent = 'space-between';
+      headRow.style.alignItems = 'center';
+      headRow.style.gap = '0.5rem';
 
       const label = document.createElement('label');
       label.textContent = b.label || (b.section + '.' + b.field);
-      wrap.appendChild(label);
+      headRow.appendChild(label);
+
+      const badge = document.createElement('span');
+      badge.dataset.role = 'state-badge';
+      headRow.appendChild(badge);
+      wrap.appendChild(headRow);
+
+      function refreshBadge(currentValue) {
+        const isDefault = (currentValue || '') === (b.default || '');
+        badge.textContent = isDefault ? 'Default' : 'Customized';
+        badge.style.fontSize = '0.65rem';
+        badge.style.letterSpacing = '0.1em';
+        badge.style.textTransform = 'uppercase';
+        badge.style.padding = '0.15rem 0.5rem';
+        badge.style.borderRadius = '999px';
+        badge.style.fontWeight = '500';
+        if (isDefault) {
+          badge.style.background = '#f5f3ee';
+          badge.style.color = '#999';
+        } else {
+          badge.style.background = '#f6f1d8';
+          badge.style.color = '#7d6f23';
+        }
+      }
 
       if (b.field_type === 'text') {
         const inp = document.createElement('input');
         inp.type = 'text';
-        inp.value = b.value || '';
+        inp.value = initial;
         inp.dataset.role = 'value-input';
+        inp.addEventListener('input', () => refreshBadge(inp.value));
         wrap.appendChild(inp);
       } else if (b.field_type === 'longtext') {
         const ta = document.createElement('textarea');
-        ta.rows = 4;
-        ta.value = b.value || '';
+        ta.rows = Math.max(4, Math.min(10, (initial.match(/\n/g) || []).length + 4));
+        ta.value = initial;
         ta.dataset.role = 'value-input';
+        ta.addEventListener('input', () => refreshBadge(ta.value));
         wrap.appendChild(ta);
       } else if (b.field_type === 'image' || b.field_type === 'video') {
-        wrap.appendChild(buildMediaWidget(b));
+        wrap.appendChild(buildMediaWidget(b, initial, refreshBadge));
       } else {
-        // Fallback: treat as text
         const inp = document.createElement('input');
         inp.type = 'text';
-        inp.value = b.value || '';
+        inp.value = initial;
         inp.dataset.role = 'value-input';
+        inp.addEventListener('input', () => refreshBadge(inp.value));
         wrap.appendChild(inp);
       }
+
+      // "Reset to default" link — visible only if the field has a saved
+      // customization (so admin can revert without manually copy-pasting).
+      if (b.is_customized && b.default) {
+        const resetLink = document.createElement('a');
+        resetLink.href = '#';
+        resetLink.textContent = '↺ Reset to default';
+        resetLink.style.fontSize = '0.7rem';
+        resetLink.style.color = '#888';
+        resetLink.style.marginTop = '0.2rem';
+        resetLink.style.alignSelf = 'flex-start';
+        resetLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          const input = wrap.querySelector('[data-role="value-input"]');
+          if (input) {
+            input.value = b.default;
+            input.dispatchEvent(new Event('input'));
+          }
+        });
+        wrap.appendChild(resetLink);
+      }
+
+      refreshBadge(initial);
       return wrap;
     }
 
-    function buildMediaWidget(b) {
+    function buildMediaWidget(b, initial, refreshBadge) {
       const row = document.createElement('div');
       row.className = 'media-row';
 
       const preview = document.createElement('div');
       preview.className = 'media-preview';
-      updatePreview(preview, b.value, b.field_type);
+      updatePreview(preview, initial, b.field_type);
 
       const controls = document.createElement('div');
       controls.className = 'media-controls';
 
       const urlInput = document.createElement('input');
       urlInput.type = 'text';
-      urlInput.value = b.value || '';
+      urlInput.value = initial || '';
       urlInput.dataset.role = 'value-input';
       urlInput.placeholder = b.field_type === 'video' ? 'video.mp4 or full URL' : 'filename or full URL';
-      urlInput.addEventListener('input', () => updatePreview(preview, urlInput.value, b.field_type));
+      urlInput.addEventListener('input', () => {
+        updatePreview(preview, urlInput.value, b.field_type);
+        if (refreshBadge) refreshBadge(urlInput.value);
+      });
       controls.appendChild(urlInput);
 
       const actions = document.createElement('div');
@@ -377,7 +441,8 @@
         }
         const data = await r.json();
         urlInput.value = data.url;
-        updatePreview(previewEl, data.url, type);
+        // Fire the input event so preview + state badge react like a manual edit.
+        urlInput.dispatchEvent(new Event('input'));
         statusEl.textContent = 'Uploaded ✓';
         statusEl.className = 'upload-status ok';
         fileInput.value = '';
@@ -401,11 +466,17 @@
       editorBody.querySelectorAll('.field').forEach(field => {
         const valueInput = field.querySelector('[data-role="value-input"]');
         if (!valueInput) return;
+        // If the input still equals the schema default, save as empty so the
+        // template falls back to default — that way future default text edits
+        // in code propagate, and the admin can see "Default" badge stay green.
+        const defaultValue = field.dataset.defaultValue || '';
+        const current = valueInput.value;
+        const valueToSave = (current === defaultValue) ? '' : current;
         payload.blocks.push({
           section: field.dataset.section,
           field: field.dataset.field,
           field_type: field.dataset.fieldType,
-          value: valueInput.value,
+          value: valueToSave,
           display_order: order++,
         });
       });

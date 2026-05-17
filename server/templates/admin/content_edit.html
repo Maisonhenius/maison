@@ -194,7 +194,11 @@
 <script>
   (function() {
     const PAGE = "{{ page }}";
-    const token = localStorage.getItem('maison_admin_auth');
+    // Token is stored as JSON.stringify({access_token, ...}) by auth-callback.html.
+    const authRaw = localStorage.getItem('maison_admin_auth');
+    if (!authRaw) return;
+    let token = '';
+    try { token = JSON.parse(authRaw).access_token || ''; } catch (e) { return; }
     if (!token) return;
     const authHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
 

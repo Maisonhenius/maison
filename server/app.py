@@ -1718,7 +1718,7 @@ PAGE_CONTENT_SCHEMA = {
          "default": "From these contrasts - life and silence, freshness and depth - emerges a language of scent that speaks to memory and emotion. Each composition unfolds gradually, leaving an impression as enduring as the land itself."},
         {"section": "story", "field": "image", "type": "image",
          "label": "Story — image", "group": "Between Garden and Desert",
-         "default": "/static/assets/pictures/Jordan Landscape/Story.webp"},
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-story-atelier.webp"},
 
         # Contact
         {"section": "contact", "field": "heading", "type": "text",
@@ -1738,7 +1738,7 @@ PAGE_CONTENT_SCHEMA = {
          "default": "Our Story"},
         {"section": "hero", "field": "image", "type": "image",
          "label": "Hero — background image", "group": "Hero",
-         "default": "/static/assets/pictures/Jordan Landscape/Wadi Rum.webp"},
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-hero-wadi-rum.webp"},
 
         # The Beginning
         {"section": "origin", "field": "label", "type": "text",
@@ -1760,7 +1760,7 @@ PAGE_CONTENT_SCHEMA = {
          )},
         {"section": "origin", "field": "image", "type": "image",
          "label": "Beginning — image", "group": "The Beginning",
-         "default": "/static/assets/pictures/Jordan Landscape/Maison Henius - universe.webp"},
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-origin-triptych.webp"},
 
         # The Craft
         {"section": "craft", "field": "label", "type": "text",
@@ -1771,7 +1771,7 @@ PAGE_CONTENT_SCHEMA = {
          "default": "Every Detail, an Intention"},
         {"section": "craft", "field": "image", "type": "image",
          "label": "Craft — image", "group": "The Craft",
-         "default": "/static/assets/pictures/Collection & Fragrances/beyond-borders-collection.webp"},
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-craft-collection.webp"},
 
         # Our Pillars
         {"section": "values", "field": "label", "type": "text",

@@ -19,7 +19,7 @@
        ensures only the MP4 is preloaded (Safari uses MP4; Chrome/Firefox
        handle MP4 fine too). The faststart-encoded moov atom is at the
        front of the file, so the first ~1 MB is enough to start playback. -->
-  <link rel="preload" as="video" type="video/mp4" href="/static/assets/videos/web/brand-film-silent.mp4" fetchpriority="high">
+  <link rel="preload" as="video" type="video/mp4" href="{{ content('hero', 'video', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4') | page_media }}" fetchpriority="high">
 
 {% endblock %}
 
@@ -806,7 +806,7 @@
 
   <section class="hero">
     <video class="hero__video" autoplay muted loop playsinline preload="auto">
-      <source src="/static/assets/videos/web/brand-film-silent.mp4" type="video/mp4">
+      <source src="{{ content('hero', 'video', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4') | page_media }}" type="video/mp4">
       <source src="/static/assets/videos/web/brand-film-silent.webm" type="video/webm">
     </video>
     <!-- Hero audio is a SEPARATE element (not the video's audio track) because
@@ -910,7 +910,7 @@
           </div>
         </div>
         <div class="about__origin-image">
-          <img src="/static/assets/pictures/Jordan Landscape/Wadi Rum.webp"
+          <img src="{{ content('about', 'image', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-about-wadi-rum.webp') | page_media }}"
                alt="Wadi Rum desert - the Jordanian landscape that inspires Maison Henius"
                width="1248" height="832" loading="lazy" decoding="async">
         </div>
@@ -938,7 +938,7 @@
              preload="auto"
              disableRemotePlayback
              aria-hidden="true">
-        <source src="/static/assets/videos/web/scroll-cinematic.mp4" type="video/mp4">
+        <source src="{{ content('cinematic', 'video', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-scroll-cinematic.mp4') | page_media }}" type="video/mp4">
       </video>
     </div>
   </section>

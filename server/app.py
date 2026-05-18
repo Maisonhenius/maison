@@ -1687,6 +1687,11 @@ ALLOWED_CONTENT_PAGES = {"main", "universe"}
 
 PAGE_CONTENT_SCHEMA = {
     "main": [
+        # Hero (looping brand film at the top of the landing)
+        {"section": "hero", "field": "video", "type": "video",
+         "label": "Hero video (silent autoplay)", "group": "Hero",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4"},
+
         # The House (brand quote on landing)
         {"section": "about", "field": "quote", "type": "longtext",
          "label": "Brand quote", "group": "The House",
@@ -1694,6 +1699,14 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "about", "field": "subtext", "type": "longtext",
          "label": "Brand description (paragraph below quote)", "group": "The House",
          "default": "Maison Henius transforms scent into memory. Each creation is an emotional identity rooted in craftsmanship and storytelling - not simply worn, but lived. The house exists between contrasts: garden and desert, life and silence. This duality defines every creation."},
+        {"section": "about", "field": "image", "type": "image",
+         "label": "Origin image (Wadi Rum)", "group": "The House",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-about-wadi-rum.webp"},
+
+        # Scroll cinematic (bottle-cap reveal that scrubs as you scroll)
+        {"section": "cinematic", "field": "video", "type": "video",
+         "label": "Scroll cinematic video", "group": "Scroll Cinematic",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-scroll-cinematic.mp4"},
 
         # The Collection (heading above the 5-card grid)
         {"section": "collection", "field": "label", "type": "text",

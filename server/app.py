@@ -326,12 +326,19 @@ def get_context():
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     content_map = await load_page_content("main")
+    # Landing "The Collection" section shows the newest 5 visible products,
+    # ordered by created_at desc. Hidden products (admin toggle) are excluded
+    # by get_products_dict(). Cards beyond 5 live on /shop only.
+    all_visible = list(get_products_dict().values())
+    all_visible.sort(key=lambda p: p.get("created_at") or "", reverse=True)
+    landing_products = all_visible[:5]
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
             **get_context(),
             "products": get_products_dict(),
+            "landing_products": landing_products,
             "content": _make_content_helper(content_map),
         },
     )

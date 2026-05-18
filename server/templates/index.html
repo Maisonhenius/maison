@@ -954,70 +954,25 @@
     </div>
 
     <div class="collection__list">
+      {# Newest 5 visible products. Hidden products are filtered out at the
+         route, so toggling visibility in /admin/products instantly removes a
+         card here on next page load. Ordered by created_at desc. #}
+      {% for p in landing_products %}
       <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-out-of-control.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Out of Control.webp" alt="Out of Control - Fruity-Floral Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
+        <img class="collection__card-mood"
+             src="{{ p.card_image | product_image }}"
+             alt="{{ p.name }} - {{ p.family }} Eau de Parfum"
+             width="1200" height="1200" loading="lazy" decoding="async">
         <div class="collection__card-text">
-          <span class="collection__card-family">Fruity-Floral</span>
-          <h3 class="collection__card-name">Out of Control</h3>
-          <p class="collection__card-desc">For those who turn every moment into a declaration of freedom.</p>
+          <span class="collection__card-family">{{ p.family }}</span>
+          <h3 class="collection__card-name">{{ p.name }}</h3>
+          <p class="collection__card-desc">{{ p.character }}</p>
           <div class="collection__card-meta">
-            <a href="/products/out-of-control" class="collection__card-cta">Discover &rarr;</a>
+            <a href="/products/{{ p.slug }}" class="collection__card-cta">Discover &rarr;</a>
           </div>
         </div>
       </article>
-
-      <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-parisian.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Parisian.webp" alt="Parisian - Floral-Gourmand Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
-        <div class="collection__card-text">
-          <span class="collection__card-family">Floral-Gourmand</span>
-          <h3 class="collection__card-name">Parisian</h3>
-          <p class="collection__card-desc">For those who embody elegance in every step, and savor life like a Parisian.</p>
-          <div class="collection__card-meta">
-            <a href="/products/parisian" class="collection__card-cta">Discover &rarr;</a>
-          </div>
-        </div>
-      </article>
-
-      <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-velvet-waterfall.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Velvet Waterfall .webp" alt="Velvet Waterfall - Floral-Woody Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
-        <div class="collection__card-text">
-          <span class="collection__card-family">Floral-Woody</span>
-          <h3 class="collection__card-name">Velvet Waterfall</h3>
-          <p class="collection__card-desc">For those who discover beauty in balance, and elegance in every motion.</p>
-          <div class="collection__card-meta">
-            <a href="/products/velvet-waterfall" class="collection__card-cta">Discover &rarr;</a>
-          </div>
-        </div>
-      </article>
-
-      <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oh-my-dear.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oh My Dear.webp" alt="Oh My Dear! - Woody-Amber Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
-        <div class="collection__card-text">
-          <span class="collection__card-family">Woody-Amber</span>
-          <h3 class="collection__card-name">Oh My Dear!</h3>
-          <p class="collection__card-desc">For those who treasure elegance in the everyday and carry their memories like jewels of the soul.</p>
-          <div class="collection__card-meta">
-            <a href="/products/oh-my-dear" class="collection__card-cta">Discover &rarr;</a>
-          </div>
-        </div>
-      </article>
-
-      <article class="collection__card">
-        <img class="collection__card-mood" src="/static/assets/pictures/Collection & Fragrances/card-oud-passion.webp" alt="" width="1200" height="1200" loading="lazy" decoding="async">
-        <img class="collection__card-image" src="/static/assets/pictures/Collection & Fragrances/Oud Passion .webp" alt="Oud Passion - Woody-Amber Oud Eau de Parfum" width="832" height="1258" loading="lazy" decoding="async">
-        <div class="collection__card-text">
-          <span class="collection__card-family">Woody-Amber &middot; Oud</span>
-          <h3 class="collection__card-name">Oud Passion</h3>
-          <p class="collection__card-desc">For those who wear confidence like a second skin.</p>
-          <div class="collection__card-meta">
-            <a href="/products/oud-passion" class="collection__card-cta">Discover &rarr;</a>
-          </div>
-        </div>
-      </article>
+      {% endfor %}
     </div>
 
     <div class="collection__more">

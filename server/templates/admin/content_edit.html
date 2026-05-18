@@ -432,16 +432,18 @@
       btn.textContent = 'Saving…';
 
       const payload = { blocks: [] };
-      let order = 0;
       editorBody.querySelectorAll('.field').forEach(field => {
         const valueInput = field.querySelector('[data-role="value-input"]');
         if (!valueInput) return;
+        // Don't send display_order — the field render order is driven by
+        // PAGE_CONTENT_SCHEMA in app.py, not by the DB column. Omitting it
+        // here means the upsert UPDATE clause never touches display_order on
+        // existing rows, preserving whatever was originally seeded.
         payload.blocks.push({
           section: field.dataset.section,
           field: field.dataset.field,
           field_type: field.dataset.fieldType,
           value: valueInput.value,
-          display_order: order++,
         });
       });
 

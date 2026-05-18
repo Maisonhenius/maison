@@ -1889,14 +1889,23 @@ async def admin_put_content(request: Request, page: str):
         field_type = (b.get("field_type") or "text").strip()
         if not section or not field:
             continue
-        rows.append({
+        # Intentionally omit display_order from the upsert payload — the
+        # admin editor doesn't reorder fields (schema order is canonical),
+        # so we never want to overwrite an existing row's display_order on
+        # save. New rows fall back to the column default (0). PostgREST's
+        # upsert only touches columns present in the payload.
+        row = {
             "page": page,
             "section": section,
             "field": field,
             "field_type": field_type,
             "value": b.get("value") or "",
-            "display_order": int(b.get("display_order") or 0),
-        })
+        }
+        # Allow display_order ONLY when explicitly passed (e.g. a seed
+        # script calling this endpoint), never from the standard admin save.
+        if "display_order" in b and b.get("display_order") is not None:
+            row["display_order"] = int(b.get("display_order") or 0)
+        rows.append(row)
     if not rows:
         return JSONResponse({"success": True, "saved": 0})
     # Upsert by composite unique key (page, section, field) — defined in 001 migration.

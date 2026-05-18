@@ -307,11 +307,6 @@
           <input type="number" id="display_order" min="0" step="1" value="0">
           <span class="form-field__hint">Lower numbers appear first in the collection.</span>
         </div>
-        <div class="form-field">
-          <label for="video">Hero video filename</label>
-          <input type="text" id="video" placeholder="1.mp4">
-          <span class="form-field__hint">Filename in /static/assets/videos/web/, or full URL.</span>
-        </div>
         <div class="form-field form-field--full">
           <label for="mood">Mood tagline</label>
           <input type="text" id="mood" placeholder="Bold, daring, provocative">
@@ -334,15 +329,16 @@
     </section>
 
     <section class="form-section">
-      <h2 class="form-section__title">Hero Images</h2>
-      <p class="form-section__sub">Upload a new image or paste a URL. Existing assets in <code>/static/assets/pictures/Collection &amp; Fragrances/</code> can be referenced by filename.</p>
+      <h2 class="form-section__title">Media</h2>
+      <p class="form-section__sub">Upload a file (stored on Supabase Storage) or paste a full URL. Image fields accept WebP / JPEG / PNG. The hero video accepts MP4 or WebM.</p>
 
       <div id="imageFields"></div>
+      <div id="videoFieldWrap"></div>
     </section>
 
     <section class="form-section">
       <h2 class="form-section__title">Olfactory Notes</h2>
-      <p class="form-section__sub">Three layers — Top, Heart, Base. Ingredient images live in <code>/static/assets/pictures/ingredients/</code> (slug like <code>rose</code>) or as uploaded URLs.</p>
+      <p class="form-section__sub">Three layers — Top, Heart, Base. Ingredient images can be a slug like <code>rose</code> (looked up from the built-in ingredient library) or an uploaded image / external URL.</p>
 
       <div id="noteSections"></div>
     </section>
@@ -401,15 +397,44 @@
 
     // ─── Build image fields ─────────────────────────────────────────────
     const imageFieldsContainer = document.getElementById('imageFields');
-    IMAGE_FIELDS.forEach(f => imageFieldsContainer.appendChild(buildImageField(f.key, f.label, f.hint)));
+    IMAGE_FIELDS.forEach(f => imageFieldsContainer.appendChild(
+      buildMediaField({
+        key: 'img_' + f.key,
+        previewKey: f.key,
+        labelText: f.label,
+        hintText: f.hint,
+        kind: 'image',
+      })
+    ));
 
-    function buildImageField(key, labelText, hintText) {
+    // ─── Build hero video field (in the same Media section) ─────────────
+    const videoFieldWrap = document.getElementById('videoFieldWrap');
+    videoFieldWrap.appendChild(buildMediaField({
+      key: 'video',
+      previewKey: 'video',
+      labelText: 'Hero video (autoplay on product page)',
+      hintText: 'MP4 or WebM. Auto-plays muted on the product page hero.',
+      kind: 'video',
+    }));
+
+    /**
+     * Builds an upload-or-paste widget for either an image or a video field.
+     *
+     * @param {object} opts
+     * @param {string} opts.key         input element ID (e.g. 'img_card_image' or 'video')
+     * @param {string} opts.previewKey  data-key on the preview div (used by populate())
+     * @param {string} opts.labelText   form label
+     * @param {string} opts.hintText    grey hint under the upload button
+     * @param {'image'|'video'} opts.kind  which accept/upload bucket to use
+     */
+    function buildMediaField(opts) {
+      const isVideo = opts.kind === 'video';
       const wrap = document.createElement('div');
       wrap.className = 'form-field form-field--full';
       wrap.style.marginBottom = '1.25rem';
 
       const label = document.createElement('label');
-      label.textContent = labelText;
+      label.textContent = opts.labelText;
       wrap.appendChild(label);
 
       const widget = document.createElement('div');
@@ -417,8 +442,9 @@
 
       const preview = document.createElement('div');
       preview.className = 'img-upload__preview';
-      preview.dataset.key = key;
-      preview.textContent = 'No image';
+      preview.dataset.key = opts.previewKey;
+      preview.dataset.kind = opts.kind;
+      preview.textContent = isVideo ? 'No video' : 'No image';
       widget.appendChild(preview);
 
       const controls = document.createElement('div');
@@ -427,9 +453,11 @@
       const urlInput = document.createElement('input');
       urlInput.type = 'text';
       urlInput.className = 'img-upload__url';
-      urlInput.placeholder = 'Filename or full URL';
-      urlInput.id = 'img_' + key;
-      urlInput.addEventListener('input', () => updatePreview(preview, urlInput.value));
+      urlInput.placeholder = isVideo
+        ? 'Upload a video or paste a URL'
+        : 'Upload an image or paste a URL';
+      urlInput.id = opts.key;
+      urlInput.addEventListener('input', () => updatePreview(preview, urlInput.value, opts.kind));
       controls.appendChild(urlInput);
 
       const actions = document.createElement('div');
@@ -437,18 +465,21 @@
 
       const fileBtn = document.createElement('label');
       fileBtn.className = 'img-upload__file-btn';
-      fileBtn.textContent = 'Upload new image';
+      fileBtn.textContent = isVideo ? 'Upload video' : 'Upload image';
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
-      fileInput.accept = 'image/webp,image/jpeg,image/png';
+      fileInput.accept = isVideo
+        ? 'video/mp4,video/webm'
+        : 'image/webp,image/jpeg,image/png';
       const status = document.createElement('span');
       status.className = 'img-upload__status';
-      fileInput.addEventListener('change', () => handleUpload(fileInput, urlInput, preview, status));
+      fileInput.addEventListener('change',
+        () => handleUpload(fileInput, urlInput, preview, status, opts.kind));
       fileBtn.appendChild(fileInput);
 
       const hint = document.createElement('span');
       hint.className = 'form-field__hint';
-      hint.textContent = hintText;
+      hint.textContent = opts.hintText;
 
       actions.appendChild(fileBtn);
       actions.appendChild(status);
@@ -460,32 +491,46 @@
       return wrap;
     }
 
-    function updatePreview(previewEl, value) {
+    function updatePreview(previewEl, value, kind) {
       previewEl.replaceChildren();
       if (!value) {
-        previewEl.textContent = 'No image';
+        previewEl.textContent = kind === 'video' ? 'No video' : 'No image';
         return;
       }
-      const img = document.createElement('img');
-      img.src = resolveImage(value);
-      img.alt = '';
-      previewEl.appendChild(img);
+      const url = resolveImage(value);
+      if (kind === 'video') {
+        const v = document.createElement('video');
+        v.src = url;
+        v.muted = true;
+        v.playsInline = true;
+        v.preload = 'metadata';
+        previewEl.appendChild(v);
+      } else {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = '';
+        previewEl.appendChild(img);
+      }
     }
 
     function resolveImage(v) {
       if (!v) return '';
+      // Always treat http(s) URLs and absolute paths as-is. Bare legacy
+      // filenames are kept working for backward compat (e.g. "rose").
       if (v.startsWith('http') || v.startsWith('/')) return v;
       return '/static/assets/pictures/Collection & Fragrances/' + v;
     }
 
-    async function handleUpload(fileInput, urlInput, previewEl, statusEl) {
+    async function handleUpload(fileInput, urlInput, previewEl, statusEl, kind) {
       const f = fileInput.files && fileInput.files[0];
       if (!f) return;
       statusEl.textContent = 'Uploading…';
       statusEl.className = 'img-upload__status';
       const fd = new FormData();
       fd.append('file', f);
-      fd.append('bucket', 'product-images');
+      // Images live in product-images; videos in page-media (which permits
+      // video MIME types + a 50 MB ceiling).
+      fd.append('bucket', kind === 'video' ? 'page-media' : 'product-images');
       try {
         const r = await fetch('/api/admin/upload', {
           method: 'POST',
@@ -499,7 +544,7 @@
         }
         const data = await r.json();
         urlInput.value = data.url;
-        updatePreview(previewEl, data.url);
+        updatePreview(previewEl, data.url, kind);
         statusEl.textContent = 'Uploaded ✓';
         statusEl.className = 'img-upload__status ok';
         fileInput.value = '';
@@ -694,7 +739,6 @@
       document.getElementById('family').value = product.family || '';
       document.getElementById('price').value = product.price != null ? product.price : '';
       document.getElementById('display_order').value = product.display_order != null ? product.display_order : 0;
-      document.getElementById('video').value = product.video || '';
       document.getElementById('mood').value = product.mood || '';
       document.getElementById('character').value = product.character || '';
       document.getElementById('description').value = product.description || '';
@@ -706,9 +750,17 @@
         if (input) {
           input.value = v;
           const preview = imageFieldsContainer.querySelector(`.img-upload__preview[data-key="${f.key}"]`);
-          if (preview) updatePreview(preview, v);
+          if (preview) updatePreview(preview, v, 'image');
         }
       });
+
+      // Hero video — same widget shape as images, just with kind='video'
+      const videoInput = document.getElementById('video');
+      if (videoInput) {
+        videoInput.value = product.video || '';
+        const videoPreview = videoFieldWrap.querySelector('.img-upload__preview[data-key="video"]');
+        if (videoPreview) updatePreview(videoPreview, product.video || '', 'video');
+      }
 
       const notes = product.notes || {};
       NOTE_LAYERS.forEach(layer => {

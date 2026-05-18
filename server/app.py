@@ -1736,6 +1736,9 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "hero", "field": "title", "type": "text",
          "label": "Hero — main title", "group": "Hero",
          "default": "Our Story"},
+        {"section": "hero", "field": "image", "type": "image",
+         "label": "Hero — background image", "group": "Hero",
+         "default": "/static/assets/pictures/Jordan Landscape/Wadi Rum.webp"},
 
         # The Beginning
         {"section": "origin", "field": "label", "type": "text",

@@ -196,11 +196,18 @@
     const PAGE = "{{ page }}";
     // Token is stored as JSON.stringify({access_token, ...}) by auth-callback.html.
     const authRaw = localStorage.getItem('maison_admin_auth');
-    if (!authRaw) return;
+    if (!authRaw) { window.location.href = '/admin/login'; return; }
     let token = '';
-    try { token = JSON.parse(authRaw).access_token || ''; } catch (e) { return; }
-    if (!token) return;
+    try { token = JSON.parse(authRaw).access_token || ''; } catch (e) { window.location.href = '/admin/login'; return; }
+    if (!token) { window.location.href = '/admin/login'; return; }
     const authHeaders = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+    function handleExpiredToken(status) {
+      if (status !== 401) return false;
+      localStorage.removeItem('maison_admin_auth');
+      window.location.href = '/admin/login';
+      return true;
+    }
 
     const editorBody = document.getElementById('editorBody');
     let blocks = [];
@@ -208,6 +215,7 @@
     async function load() {
       try {
         const r = await fetch('/api/admin/content/' + encodeURIComponent(PAGE), { headers: authHeaders });
+        if (handleExpiredToken(r.status)) return;
         if (!r.ok) {
           editorBody.replaceChildren();
           const p = document.createElement('p');
@@ -435,6 +443,7 @@
           headers: { 'Authorization': 'Bearer ' + token },
           body: fd,
         });
+        if (handleExpiredToken(r.status)) return;
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
           throw new Error(err.error || ('status ' + r.status));
@@ -487,6 +496,7 @@
           headers: authHeaders,
           body: JSON.stringify(payload),
         });
+        if (handleExpiredToken(r.status)) return;
         if (!r.ok) {
           const err = await r.json().catch(() => ({}));
           throw new Error(err.error || ('status ' + r.status));

@@ -264,6 +264,7 @@ def _row_to_product(row: dict) -> dict:
         "video": row.get("video", ""),
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
+        "created_at": row.get("created_at", ""),
     }
 
 

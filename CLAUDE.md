@@ -46,7 +46,13 @@ server/
       auth-callback.html  <- Magic link redirect handler (extracts token, stores, redirects)
       dashboard.html      <- Stats + recent orders (from /api/admin/stats)
       orders.html         <- Orders list with search, date filter, expandable detail rows, status update + email notification
+      products.html       <- DB-backed products list: thumbnails, hide/show toggle, edit/delete
+      product_form.html   <- Create + edit (same template, mode=create|edit); image+video upload widgets
+      content.html        <- /admin/content overview (links to Main + Universe editors)
+      content_edit.html   <- Per-page editor for PAGE_CONTENT_SCHEMA blocks (text/longtext/image/video)
       messages.html       <- Messages list + read/unread (from /api/admin/messages)
+    shop.html             <- /shop e-commerce grid (dark theme, filter chips, sort dropdown)
+  migrations/             <- Schema + seed scripts (run via `python migrations/run_migration.py <file.sql>`)
 
 # Root-level files (outside server/)
 requirements.txt          <- Production deps (committed). Used by Railway/Docker build
@@ -276,11 +282,16 @@ ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
 ## Gotchas
 
 - **Dev server**: `cd server && uvicorn app:app --reload --port 3000`. NOT `npx serve` or `python3 -m http.server`.
+- **`localStorage["maison_admin_auth"]` is JSON-stringified, NOT a raw token**. The auth-callback stores `JSON.stringify({access_token, refresh_token, ...})`. Every admin page that fetches the API MUST `JSON.parse(auth).access_token` before sending it as a Bearer header — passing the raw string yields silent 401s on every admin API call. The working pattern lives in `admin/dashboard.html` and every new admin page MUST mirror it (`admin/products.html`, `admin/product_form.html`, `admin/content_edit.html` all do).
+- **Admin pages must auto-redirect to `/admin/login` on 401**. Supabase JWTs expire after ~1h. Detect `r.status === 401` in the fetch wrapper, clear `localStorage["maison_admin_auth"]`, and `window.location.href = '/admin/login'`. Otherwise the page sits showing "Failed to load (status 401)" forever once the session lapses.
+- **`psql` is NOT installed locally**. Schema migrations run via `cd server && python migrations/run_migration.py <name.sql>` (psycopg2 + DATABASE_URL from `.env.local`). Data migrations are standalone Python scripts in the same directory using `supabase-py` with the service role key — see `002_seed_products.py`, `008_migrate_product_media_to_storage.py` as patterns.
+- **`--reload` only watches Python files**. DB-only changes (manually seeded a row, ran a data migration) don't reload the in-memory product cache. Either touch `app.py` (any whitespace change), kill+restart the dev server, or trigger a mutation through an admin endpoint that calls `reload_products_cache()`.
 - **Env vars**: `.env.local` must exist at project root with Supabase credentials. FastAPI loads it via `python-dotenv`.
 - **Template source of truth**: `layout.html` renders nav/footer for all public pages. `admin/layout.html` for admin. Login/signup are standalone.
 - **Admin auth guard**: `admin/layout.html` has a JS script that checks `maison_admin_auth` in localStorage and redirects to `/admin/login`. Runs before page renders.
-- **Product data**: Hardcoded in `app.py` PRODUCTS dict. No database table — products are served directly from code.
-- **Server-side price validation**: Orders, cart add, and cart sync all validate product IDs and prices against the `PRODUCTS` dict. Never trust client-provided prices — the server recalculates subtotal/shipping/total from authoritative data.
+- **Product data**: Stored in Supabase `products` table, loaded into `_PRODUCTS_CACHE` at startup. Use `get_product(id)` / `get_products_dict()` / `await reload_products_cache()` — never read the cache directly. Every admin mutation auto-invalidates the cache, so hidden products instantly disappear from `/shop` + landing.
+- **Server-side price validation**: All purchase paths validate via `get_product(id)` (which rejects hidden products). Pass `include_hidden=True` ONLY when reconstructing an existing order in the Stripe webhook fallback — the customer already paid.
+- **PRODUCTS dict is gone**: any stale CLAUDE.md / commit message that says "PRODUCTS dict" refers to the pre-migration-001 code. The dict is now a DB row mapped by `_row_to_product()` to the same shape templates expect.
 - **Product image filenames**: `Velvet Waterfall .png` and `Oud Passion .png` have trailing spaces - use URL encoding `%20`.
 - **Static files**: Mounted as 4 separate directories (`/static/css`, `/static/js`, `/static/assets`, `/static/admin`) — never exposes project root. Root files (favicon, etc.) served via whitelist route.
 - **GSAP SplitText**: Paid plugin. Don't load from CDN - crashes the script.
@@ -386,11 +397,17 @@ All product/landscape images in the deployed repo are WebP. Originals (PNG/JPG) 
 
 - **Tracked in git**: `assets/pictures/Collection & Fragrances/*.webp`, `assets/pictures/Jordan Landscape/*.webp`, `assets/pictures/ingredients/*.webp`, `assets/videos/web/*.mp4`, `assets/videos/web/*.webm` (hero brand-film + scroll-cinematic). The old `assets/video-frames/` directory and 121 WebP frames are gone — replaced by `scroll-cinematic.mp4`.
 - **Gitignored** (originals only): `*.png`, `*.jpg`, `*.jpeg` in those folders, `assets/videos/*.mp4` (raw source videos), `assets/videos/web-original-backup/` (pre-encoding hero videos, kept locally for rollback)
-- **Templates reference `.webp`** — never `.png`. PRODUCTS dict in `app.py` has 4 image fields:
+- **Templates reference `.webp`** — never `.png`. The `products` table has 4 image fields:
   - `card_image`: Old square cards (1200x1200) — used in landing page collection + product Explore More grid
   - `mood_image`: New landscape scenes (1920x1072) — used in product page full-bleed Mood section only
   - `explore_image`: Legacy square variants (`card-*-square.webp`) — not currently referenced in templates
   - `bottle_image`: Bottle hero photos (1200x1490 portrait) — used in product page "The Bottle" section
+- **Image/video fields hold EITHER full URL OR legacy bare filename**. Templates MUST resolve via Jinja filters — they pass URLs through and prepend the right `/static/` prefix only for legacy bare names:
+  - `{{ p.card_image | product_image }}` → `/static/assets/pictures/Collection & Fragrances/` prefix
+  - `{{ slug | ingredient_image }}` → `/static/assets/pictures/ingredients/{slug}.webp`
+  - `{{ p.video | product_video }}` → `/static/assets/videos/web/` prefix
+  - `{{ value | page_media }}` → `/static/assets/` prefix (used by CMS images/videos)
+  Migration 008 moved every existing product image+video to Supabase Storage URLs; new admin uploads also write there. Never prepend a static path manually in a template again — use the filter.
 - **Logotype asset**: `assets/images/logotype.webp` (800×873, 92KB, with alpha) — full crest + "Maison Henius" + "Collection Eaux de Parfums". Used in footer (`layout.html`) and auth pages (login, signup, admin/login). The old monogram SVG (`assets/images/logo.svg`) is still used in nav headers and favicons.
 
 ### Image size targets (don't ship oversized assets)
@@ -472,6 +489,20 @@ For real edge caching across multiple users, the move is **Cloudflare in front o
 - **CLS: 0.00** — no layout shift
 - **Key fixes applied**: `aria-label` on cart/auth links, `fetchpriority="high"` on logo, footer contrast ≥ 4.5:1, scroll FAB debounced with rAF
 - **Remaining**: TTFB only improvable via Cloudflare CDN in front of Railway
+
+## Admin CMS + Supabase Storage
+
+- **Admin Content CMS** edits the `page_content` table (one row per (page, section, field) tuple). Schema is in `PAGE_CONTENT_SCHEMA` dict in `app.py`. To add a new editable block: append a schema entry, then reference it in the template via `{{ content('section', 'field', 'fallback') }}`. The editor picks it up automatically on next page load.
+- **`content()` helper** is injected into `/` and `/story` route contexts only. Returns the saved value, falling back to the inline string if missing. Filter chain works: `{{ content('hero', 'image', '...') | page_media }}`.
+- **Single source of truth**: page_content rows ARE the content; there's no "default vs saved" UI. Migration 006 seeded every schema field; migration 007 backfilled empties. Schema `default` strings are still used by template fallbacks (defense if a row goes missing) and by future seed scripts.
+- **Required fields**: schema entries with `"required": True` render a red `<span class="req">*</span>` next to the label in admin forms, plus HTML `required` + `aria-required` on the input. Currently every text/longtext field is required; image/video fields stay optional so admin can leave them empty during a redesign without breaking save.
+- **Two Storage buckets** (created by migration 003, public-read RLS, public buckets):
+  - `product-images`: 10 MB max, image/webp+jpeg+png only. Path: `products/{slug}/{filename}`.
+  - `page-media`: 50 MB max, image MIMEs + video/mp4 + video/webm. Path: `defaults/{name}` for migrated defaults; `{stem}-{uuid8}{ext}` for ad-hoc uploads.
+- **Storage upload signature** (supabase-py 2.x): `c.storage.from_(bucket).upload(path, bytes, {"content-type": "image/webp", "cache-control": "..."})` — third arg is a positional `file_options` dict, keys use **kebab-case** (`content-type`, NOT `contentType`). Wrap in `await _to_thread(...)` since supabase-py storage is sync.
+- **PostgREST upsert only writes columns present in the payload**. The admin Content save handler intentionally omits `display_order` so existing rows preserve their seeded ordering on update — re-adding it causes silent drift on every save (caught and fixed in `9373160`).
+- **Admin Products CRUD**: `/admin/products` (list), `/admin/products/new` (create), `/admin/products/{id}/edit` (edit). Toggle hidden via `PATCH /api/admin/products/{id}/visibility`. Delete is blocked when a product has any rows in `order_items` — use Hide instead. Cache invalidates on every mutation via `await reload_products_cache()`.
+- **Headless admin auth for tests**: mint a one-shot magic link via `supabase.auth.admin.generate_link({"type": "magiclink", "email": "osamah96@gmail.com", "options": {"redirect_to": ".../admin/auth/callback"}})` and navigate to the returned URL — the redirect chain stores the token in `localStorage["maison_admin_auth"]`. Single-use, ~1h TTL. The admin-callback also accepts an `error=otp_expired` redirect — if you see that, regenerate.
 
 ## Stripe (current state)
 

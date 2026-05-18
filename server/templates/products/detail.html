@@ -418,7 +418,7 @@
   <!-- ═══ HERO: Full-screen video + bottom bar ═══ -->
   <section class="product-hero">
     <video class="product-hero__video" autoplay muted loop playsinline preload="auto">
-      <source src="/static/assets/videos/web/{{ product.video }}" type="video/mp4">
+      <source src="{{ product.video | product_video }}" type="video/mp4">
     </video>
     <div class="product-hero__overlay"></div>
     <div class="product-hero__bar">

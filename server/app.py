@@ -217,12 +217,19 @@ def jinja_ingredient_image(value: str) -> str:
     return _resolve_url(value, "/static/assets/pictures/ingredients/", default_ext=".webp")
 
 
+def jinja_product_video(value: str) -> str:
+    # Legacy bare filenames (e.g. "1.mp4") resolve into /static/assets/videos/web/;
+    # full URLs (after the Supabase Storage migration) pass through unchanged.
+    return _resolve_url(value, "/static/assets/videos/web/")
+
+
 def jinja_page_media(value: str) -> str:
     return _resolve_url(value, "/static/assets/")
 
 
 templates.env.filters["product_image"] = jinja_product_image
 templates.env.filters["ingredient_image"] = jinja_ingredient_image
+templates.env.filters["product_video"] = jinja_product_video
 templates.env.filters["page_media"] = jinja_page_media
 
 

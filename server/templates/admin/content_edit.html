@@ -52,6 +52,12 @@
     color: #888;
   }
 
+  .req {
+    color: #c33;
+    margin-left: 0.25em;
+    font-weight: 600;
+  }
+
   .field input[type="text"],
   .field textarea {
     width: 100%;
@@ -270,7 +276,14 @@
       const initial = b.value || '';
 
       const label = document.createElement('label');
-      label.textContent = b.label || (b.section + '.' + b.field);
+      label.appendChild(document.createTextNode(b.label || (b.section + '.' + b.field)));
+      if (b.required) {
+        const star = document.createElement('span');
+        star.className = 'req';
+        star.setAttribute('aria-hidden', 'true');
+        star.textContent = '*';
+        label.appendChild(star);
+      }
       wrap.appendChild(label);
 
       if (b.field_type === 'text') {
@@ -278,12 +291,14 @@
         inp.type = 'text';
         inp.value = initial;
         inp.dataset.role = 'value-input';
+        if (b.required) { inp.required = true; inp.setAttribute('aria-required', 'true'); }
         wrap.appendChild(inp);
       } else if (b.field_type === 'longtext') {
         const ta = document.createElement('textarea');
         ta.rows = Math.max(4, Math.min(10, (initial.match(/\n/g) || []).length + 4));
         ta.value = initial;
         ta.dataset.role = 'value-input';
+        if (b.required) { ta.required = true; ta.setAttribute('aria-required', 'true'); }
         wrap.appendChild(ta);
       } else if (b.field_type === 'image' || b.field_type === 'video') {
         wrap.appendChild(buildMediaWidget(b, initial));
@@ -292,6 +307,7 @@
         inp.type = 'text';
         inp.value = initial;
         inp.dataset.role = 'value-input';
+        if (b.required) { inp.required = true; inp.setAttribute('aria-required', 'true'); }
         wrap.appendChild(inp);
       }
 

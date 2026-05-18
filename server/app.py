@@ -1707,10 +1707,10 @@ PAGE_CONTENT_SCHEMA = {
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4"},
 
         # The House (brand quote on landing)
-        {"section": "about", "field": "quote", "type": "longtext",
+        {"section": "about", "field": "quote", "type": "longtext", "required": True,
          "label": "Brand quote", "group": "The House",
          "default": '"Memory over product. Emotion over visibility."'},
-        {"section": "about", "field": "subtext", "type": "longtext",
+        {"section": "about", "field": "subtext", "type": "longtext", "required": True,
          "label": "Brand description (paragraph below quote)", "group": "The House",
          "default": "Maison Henius transforms scent into memory. Each creation is an emotional identity rooted in craftsmanship and storytelling - not simply worn, but lived. The house exists between contrasts: garden and desert, life and silence. This duality defines every creation."},
         {"section": "about", "field": "image", "type": "image",
@@ -1718,24 +1718,24 @@ PAGE_CONTENT_SCHEMA = {
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-about-wadi-rum.webp"},
 
         # The Collection (heading above the 5-card grid)
-        {"section": "collection", "field": "label", "type": "text",
+        {"section": "collection", "field": "label", "type": "text", "required": True,
          "label": "Collection — small label", "group": "The Collection",
          "default": "The Collection"},
-        {"section": "collection", "field": "heading", "type": "text",
+        {"section": "collection", "field": "heading", "type": "text", "required": True,
          "label": "Collection — headline", "group": "The Collection",
          "default": "Beyond Borders"},
 
         # Between Garden and Desert (story section at bottom)
-        {"section": "story", "field": "label", "type": "text",
+        {"section": "story", "field": "label", "type": "text", "required": True,
          "label": "Story — small label", "group": "Between Garden and Desert",
          "default": "Our World"},
-        {"section": "story", "field": "heading", "type": "text",
+        {"section": "story", "field": "heading", "type": "text", "required": True,
          "label": "Story — headline", "group": "Between Garden and Desert",
          "default": "Between Garden and Desert"},
-        {"section": "story", "field": "col1", "type": "longtext",
+        {"section": "story", "field": "col1", "type": "longtext", "required": True,
          "label": "Story — first paragraph", "group": "Between Garden and Desert",
          "default": "Where roses bloom beside ancient stone and amber sands stretch to the horizon - this is where Maison Henius begins. Each creation draws from the duality of Jordan: the lush fragrant gardens and the mineral vastness of the desert."},
-        {"section": "story", "field": "col2", "type": "longtext",
+        {"section": "story", "field": "col2", "type": "longtext", "required": True,
          "label": "Story — second paragraph", "group": "Between Garden and Desert",
          "default": "From these contrasts - life and silence, freshness and depth - emerges a language of scent that speaks to memory and emotion. Each composition unfolds gradually, leaving an impression as enduring as the land itself."},
         {"section": "story", "field": "image", "type": "image",
@@ -1743,19 +1743,19 @@ PAGE_CONTENT_SCHEMA = {
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-story-atelier.webp"},
 
         # Contact
-        {"section": "contact", "field": "heading", "type": "text",
+        {"section": "contact", "field": "heading", "type": "text", "required": True,
          "label": "Contact — headline", "group": "Contact",
          "default": "We would love to hear from you"},
-        {"section": "contact", "field": "subtext", "type": "text",
+        {"section": "contact", "field": "subtext", "type": "text", "required": True,
          "label": "Contact — subtext", "group": "Contact",
          "default": "For inquiries, partnerships, or simply to share a memory."},
     ],
     "universe": [
         # Hero
-        {"section": "hero", "field": "label", "type": "text",
+        {"section": "hero", "field": "label", "type": "text", "required": True,
          "label": "Hero — small label", "group": "Hero",
          "default": "Maison Henius"},
-        {"section": "hero", "field": "title", "type": "text",
+        {"section": "hero", "field": "title", "type": "text", "required": True,
          "label": "Hero — main title", "group": "Hero",
          "default": "Our Story"},
         {"section": "hero", "field": "image", "type": "image",
@@ -1763,13 +1763,13 @@ PAGE_CONTENT_SCHEMA = {
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-hero-wadi-rum.webp"},
 
         # The Beginning
-        {"section": "origin", "field": "label", "type": "text",
+        {"section": "origin", "field": "label", "type": "text", "required": True,
          "label": "Beginning — small label", "group": "The Beginning",
          "default": "The Beginning"},
-        {"section": "origin", "field": "heading", "type": "text",
+        {"section": "origin", "field": "heading", "type": "text", "required": True,
          "label": "Beginning — headline", "group": "The Beginning",
          "default": "Born Between Garden and Desert"},
-        {"section": "origin", "field": "body", "type": "longtext",
+        {"section": "origin", "field": "body", "type": "longtext", "required": True,
          "label": "Beginning — body (separate paragraphs with a blank line)", "group": "The Beginning",
          "default": (
              "Maison Henius was born where fragrant gardens meet the mineral vastness of the desert. "
@@ -1785,10 +1785,10 @@ PAGE_CONTENT_SCHEMA = {
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-origin-triptych.webp"},
 
         # The Craft
-        {"section": "craft", "field": "label", "type": "text",
+        {"section": "craft", "field": "label", "type": "text", "required": True,
          "label": "Craft — small label", "group": "The Craft",
          "default": "The Craft"},
-        {"section": "craft", "field": "heading", "type": "text",
+        {"section": "craft", "field": "heading", "type": "text", "required": True,
          "label": "Craft — headline", "group": "The Craft",
          "default": "Every Detail, an Intention"},
         {"section": "craft", "field": "image", "type": "image",
@@ -1796,10 +1796,10 @@ PAGE_CONTENT_SCHEMA = {
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-craft-collection.webp"},
 
         # Our Pillars
-        {"section": "values", "field": "label", "type": "text",
+        {"section": "values", "field": "label", "type": "text", "required": True,
          "label": "Pillars — small label", "group": "Our Pillars",
          "default": "Our Pillars"},
-        {"section": "values", "field": "heading", "type": "text",
+        {"section": "values", "field": "heading", "type": "text", "required": True,
          "label": "Pillars — headline", "group": "Our Pillars",
          "default": "What We Hold True"},
     ],
@@ -1862,6 +1862,7 @@ async def admin_get_content(request: Request, page: str):
             "group": entry.get("group", ""),
             "value": s.get("value", ""),
             "default": entry.get("default", ""),
+            "required": bool(entry.get("required", False)),
             "is_customized": bool(s.get("value")),
         })
     return JSONResponse({"page": page, "blocks": blocks})

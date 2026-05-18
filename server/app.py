@@ -1703,11 +1703,6 @@ PAGE_CONTENT_SCHEMA = {
          "label": "Origin image (Wadi Rum)", "group": "The House",
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-about-wadi-rum.webp"},
 
-        # Scroll cinematic (bottle-cap reveal that scrubs as you scroll)
-        {"section": "cinematic", "field": "video", "type": "video",
-         "label": "Scroll cinematic video", "group": "Scroll Cinematic",
-         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-scroll-cinematic.mp4"},
-
         # The Collection (heading above the 5-card grid)
         {"section": "collection", "field": "label", "type": "text",
          "label": "Collection — small label", "group": "The Collection",

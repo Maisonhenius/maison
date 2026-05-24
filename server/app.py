@@ -268,6 +268,7 @@ def _row_to_product(row: dict) -> dict:
         "mood_image": row.get("mood_image", ""),
         "explore_image": row.get("explore_image", ""),
         "bottle_image": row.get("bottle_image", ""),
+        "hero_image": row.get("hero_image", ""),
         "video": row.get("video", ""),
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
@@ -1633,7 +1634,7 @@ def _validate_product_payload(body: dict, *, require_all: bool):
         if field in body:
             out[field] = body.get(field) or ""
 
-    for field in ("card_image", "bottle_image", "mood_image", "explore_image"):
+    for field in ("card_image", "bottle_image", "mood_image", "explore_image", "hero_image"):
         if field in body:
             out[field] = body.get(field) or ""
 

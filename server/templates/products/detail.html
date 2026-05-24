@@ -40,12 +40,13 @@
     overflow: hidden;
     background: #0a0a08;
   }
-  .product-hero__video {
+  .product-hero__media {
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 100%;
     object-fit: cover;
     z-index: 0;
+    border-radius: 0; /* override global img{border-radius:12px} for full-bleed hero */
   }
   .product-hero__overlay {
     position: absolute;
@@ -440,9 +441,13 @@
 {% block content %}
   <!-- ═══ HERO: Full-screen video + bottom bar ═══ -->
   <section class="product-hero">
-    <video class="product-hero__video" autoplay muted loop playsinline preload="auto">
+    {% if product.hero_image %}
+    <img class="product-hero__media" src="{{ product.hero_image | product_image }}" alt="{{ product.name }}">
+    {% elif product.video %}
+    <video class="product-hero__media" autoplay muted loop playsinline preload="auto">
       <source src="{{ product.video | product_video }}" type="video/mp4">
     </video>
+    {% endif %}
     <div class="product-hero__overlay"></div>
     <div class="product-hero__bar">
       <div>

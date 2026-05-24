@@ -395,6 +395,7 @@
       { key: 'bottle_image',  label: 'Bottle hero image',  hint: 'Portrait 4:5 (1200×1490). Product page "The Bottle" section.' },
       { key: 'mood_image',    label: 'Mood section image', hint: 'Wide 16:9. Mood/scene shot on product page.' },
       { key: 'explore_image', label: 'Explore-more thumbnail', hint: 'Square. Shown in "Explore More" grid on other products. Optional.' },
+      { key: 'hero_image',    label: 'Hero image (product-page background)', hint: 'Full-screen hero. If set, shows instead of the hero video below. Leave empty to use the video. Optional.' },
     ];
 
     const NOTE_LAYERS = [
@@ -831,6 +832,7 @@
         bottle_image: document.getElementById('img_bottle_image').value.trim(),
         mood_image: document.getElementById('img_mood_image').value.trim(),
         explore_image: document.getElementById('img_explore_image').value.trim(),
+        hero_image: document.getElementById('img_hero_image').value.trim(),
         notes: {},
         wearer: [],
       };

@@ -79,12 +79,7 @@
     "breakpoints": [
       { "name": "tablet", "value": "768px" },
       { "name": "phone", "value": "480px" }
-    ],
-    "doctrine": {
-      "noPureBlack": "Brand surfaces use Desert Ink (#0a0a08), never #000.",
-      "noUserScalableNo": "Viewport never disables pinch-zoom; inputs jump to 16px on mobile to defeat iOS auto-zoom.",
-      "touchTargets": "All interactive targets >= 44x44px."
-    }
+    ]
   },
   "components": [
     {
@@ -152,7 +147,8 @@
       { "name": "The No-Pure-Black Rule", "body": "Never #000 as a brand surface. Desert Ink (#0a0a08) is the warm ground. Tint warmth into every neutral.", "section": "colors" },
       { "name": "The Wide-Tracking Rule", "body": "Uppercase Montserrat is always set with 0.2em-0.35em letter-spacing. Tight uppercase reads as system UI; wide uppercase reads as engraving on a brass plate.", "section": "typography" },
       { "name": "The Italic-Emotion Rule", "body": "Headings that carry feeling are Cormorant italic 300; headings that carry structure are upright. Let the type's posture match its job.", "section": "typography" },
-      { "name": "The Warm-Shadow Rule", "body": "When a shadow is used, it is tinted brown/amber, never neutral gray. Gray shadow on a warm palette is an instant generic-UI tell.", "section": "elevation" }
+      { "name": "The Warm-Shadow Rule", "body": "When a shadow is used, it is tinted brown/amber, never neutral gray. Gray shadow on a warm palette is an instant generic-UI tell.", "section": "elevation" },
+      { "name": "The Pinch-Zoom Rule", "body": "Viewport never disables pinch-zoom (no user-scalable=no). Inputs jump to 16px on mobile to defeat iOS auto-zoom. All interactive targets >= 44x44px.", "section": "components" }
     ],
     "dos": [
       "Do treat gold as light. Keep Imperial Gold to ~10% of any brand screen.",

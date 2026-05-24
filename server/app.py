@@ -1865,6 +1865,12 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "collection", "field": "heading", "type": "text", "required": True,
          "label": "Collection — headline", "group": "The Collection",
          "default": "Beyond Borders"},
+        {"section": "collection", "field": "more_link", "type": "text", "required": True,
+         "label": "Collection — \"Find More\" button text", "group": "The Collection",
+         "default": "Find More"},
+        {"section": "collection", "field": "more_sub", "type": "text",
+         "label": "Collection — subtext under the button", "group": "The Collection",
+         "default": "Browse the full collection"},
 
         # Between Garden and Desert (story section at bottom)
         {"section": "story", "field": "label", "type": "text", "required": True,

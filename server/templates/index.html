@@ -625,7 +625,8 @@
       font-style: italic;
       font-weight: 300;
       font-size: 1rem;
-      color: rgba(250, 249, 246, 0.55);
+      /* Muted dark on the ivory (#faf9f6) section — was ivory-on-ivory (invisible). */
+      color: rgba(26, 26, 26, 0.55);
     }
 
     @media (max-width: 768px) {
@@ -995,8 +996,8 @@
     </div>
 
     <div class="collection__more">
-      <a href="/shop" class="collection__more-link">Find More</a>
-      <span class="collection__more-sub">Browse the full collection</span>
+      <a href="/shop" class="collection__more-link">{{ content('collection', 'more_link', 'Find More') }}</a>
+      <span class="collection__more-sub">{{ content('collection', 'more_sub', 'Browse the full collection') }}</span>
     </div>
   </section>
 

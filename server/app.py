@@ -80,6 +80,13 @@ ALLOWED_IMAGE_TYPES = {"image/webp", "image/jpeg", "image/png"}
 ALLOWED_VIDEO_TYPES = {"video/mp4", "video/webm"}
 MAX_UPLOAD_SIZE = 50 * 1024 * 1024  # 50 MB hard ceiling — matches bucket policy
 
+# --- Pre-launch gate ---
+# While True, the /checkout "Continue to Payment" button shows a branded
+# "arriving soon" modal instead of redirecting to Stripe, and create-session
+# refuses to start a payment. Flip to False (and redeploy) to enable real
+# checkout for the official launch. Single source of truth for the gate.
+CHECKOUT_COMING_SOON = True
+
 app = FastAPI(title="Maison Henius")
 
 
@@ -424,7 +431,11 @@ async def cart(request: Request):
 
 @app.get("/checkout", response_class=HTMLResponse)
 async def checkout(request: Request):
-    return templates.TemplateResponse(request=request, name="checkout.html", context=get_context())
+    return templates.TemplateResponse(
+        request=request,
+        name="checkout.html",
+        context={**get_context(), "coming_soon": CHECKOUT_COMING_SOON},
+    )
 
 @app.get("/login", response_class=HTMLResponse)
 async def login(request: Request):
@@ -893,6 +904,11 @@ async def create_checkout_session(request: Request):
     user = await get_authenticated_user(request)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    # Pre-launch gate: no payment is started while coming-soon is on. The frontend
+    # shows the "arriving soon" modal; this guard also stops a direct API hit.
+    if CHECKOUT_COMING_SOON:
+        return JSONResponse({"coming_soon": True})
 
     if not stripe_client:
         return JSONResponse({"error": "Payments not configured"}, status_code=503)

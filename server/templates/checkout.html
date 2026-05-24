@@ -387,6 +387,77 @@
       min-height: 48px;
     }
   }
+
+  /* ── Pre-launch "coming soon" modal ── */
+  .coming-soon {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+  }
+  .coming-soon.is-open { display: flex; }
+  .coming-soon__overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(10, 10, 8, 0.72);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+  }
+  .coming-soon__card {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 440px;
+    background: #faf9f6;
+    border: 1px solid rgba(184, 164, 78, 0.4);
+    border-radius: 0;
+    padding: 3rem 2.5rem;
+    text-align: center;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
+  }
+  .coming-soon__eyebrow {
+    display: block;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.62rem;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: #b8a44e;
+    margin-bottom: 1rem;
+  }
+  .coming-soon__heading {
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 300;
+    font-style: italic;
+    font-size: 2rem;
+    color: #0a0a08;
+    margin: 0 0 1.1rem;
+  }
+  .coming-soon__body {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: #4a4a44;
+    margin: 0 0 2rem;
+  }
+  .coming-soon__close {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 500;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: #0a0a08;
+    background: #e9db90;
+    border: none;
+    padding: 0.9rem 2.5rem;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  .coming-soon__close:hover { background: #d4c87a; }
 </style>
 {% endblock %}
 
@@ -516,6 +587,19 @@
 
     </div>
   </section>
+
+  {% if coming_soon %}
+  <!-- Pre-launch gate: shown instead of redirecting to Stripe (CHECKOUT_COMING_SOON) -->
+  <div class="coming-soon" id="comingSoonModal" role="dialog" aria-modal="true" aria-labelledby="comingSoonHeading" aria-hidden="true">
+    <div class="coming-soon__overlay" data-close></div>
+    <div class="coming-soon__card">
+      <span class="coming-soon__eyebrow">Maison Henius</span>
+      <h2 class="coming-soon__heading" id="comingSoonHeading">Arriving Soon</h2>
+      <p class="coming-soon__body">Maison Henius is preparing for its official launch. As a registered member, you're already on the list — you'll be among the very first notified the moment the collection becomes available.</p>
+      <button type="button" class="coming-soon__close" data-close>Close</button>
+    </div>
+  </div>
+  {% endif %}
 </main>
 {% endblock %}
 
@@ -546,6 +630,9 @@
       window.location.href = '/login?redirect=/checkout';
       return;
     }
+
+    /* -- Pre-launch gate: server renders this flag (CHECKOUT_COMING_SOON) -- */
+    var COMING_SOON = {{ 'true' if coming_soon else 'false' }};
 
     function formatPrice(amount) {
       return '$' + amount.toLocaleString('en-US');
@@ -723,6 +810,7 @@
     /* -- Submit: create Stripe Checkout Session & redirect -- */
     formEl.addEventListener('submit', function(e) {
       e.preventDefault();
+      if (COMING_SOON) { openComingSoon(); return; }  // pre-launch gate, no payment
       var cart = MaisonCart.getCart();
       if (!cart.length) return;
 
@@ -788,6 +876,41 @@
         alert('Checkout failed: ' + msg + '\n\nPlease try again or contact support.');
       });
     });
+
+    /* -- Pre-launch "coming soon" modal (only wired when the flag is on) -- */
+    function openComingSoon() {
+      var m = document.getElementById('comingSoonModal');
+      if (!m) return;
+      m.classList.add('is-open');
+      m.setAttribute('aria-hidden', 'false');
+      if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
+        gsap.fromTo('.coming-soon__card', { opacity: 0, y: 16, scale: 0.98 },
+          { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: 'power2.out' });
+      }
+    }
+    function closeComingSoon() {
+      var m = document.getElementById('comingSoonModal');
+      if (!m) return;
+      m.classList.remove('is-open');
+      m.setAttribute('aria-hidden', 'true');
+    }
+    if (COMING_SOON) {
+      // Intercept the button click itself so the modal opens immediately, before
+      // any HTML5 form validation (no point validating shipping when not selling).
+      var payBtn = formEl.querySelector('.checkout-form__submit');
+      if (payBtn) payBtn.addEventListener('click', function(e) { e.preventDefault(); openComingSoon(); });
+      var modalEl = document.getElementById('comingSoonModal');
+      if (modalEl) {
+        modalEl.querySelectorAll('[data-close]').forEach(function(el) {
+          el.addEventListener('click', closeComingSoon);
+        });
+      }
+      // Bind Esc once on document (initCheckoutPage re-fires on every Turbo nav).
+      if (!window._comingSoonEscBound) {
+        window._comingSoonEscBound = true;
+        document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeComingSoon(); });
+      }
+    }
 
     /* -- Header entrance animation -- */
     if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {

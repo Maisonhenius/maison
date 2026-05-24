@@ -233,6 +233,18 @@ templates.env.filters["product_video"] = jinja_product_video
 templates.env.filters["page_media"] = jinja_page_media
 
 
+def is_video_url(value: str) -> bool:
+    """True if a media URL points to a video (by file extension). Lets the single
+    product hero field render a <video> vs an <img> from one stored URL."""
+    if not value:
+        return False
+    path = value.split("?")[0].split("#")[0].lower()
+    return path.endswith((".mp4", ".webm", ".mov", ".m4v"))
+
+
+templates.env.globals["is_video_url"] = is_video_url
+
+
 # Product catalog — loaded from Supabase `products` table at app startup and
 # cached in-memory. Admin mutations call `reload_products_cache()` to invalidate.
 # Use the get_product()/get_products_dict() helpers — never read _PRODUCTS_CACHE
@@ -268,7 +280,8 @@ def _row_to_product(row: dict) -> dict:
         "mood_image": row.get("mood_image", ""),
         "explore_image": row.get("explore_image", ""),
         "bottle_image": row.get("bottle_image", ""),
-        "hero_image": row.get("hero_image", ""),
+        # `video` is the single hero-media field — holds an image OR a video URL;
+        # the product page renders <img> or <video> based on the file extension.
         "video": row.get("video", ""),
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
@@ -1634,7 +1647,7 @@ def _validate_product_payload(body: dict, *, require_all: bool):
         if field in body:
             out[field] = body.get(field) or ""
 
-    for field in ("card_image", "bottle_image", "mood_image", "explore_image", "hero_image"):
+    for field in ("card_image", "bottle_image", "mood_image", "explore_image"):
         if field in body:
             out[field] = body.get(field) or ""
 

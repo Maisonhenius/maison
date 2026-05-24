@@ -395,7 +395,6 @@
       { key: 'bottle_image',  label: 'Bottle hero image',  hint: 'Portrait 4:5 (1200×1490). Product page "The Bottle" section.' },
       { key: 'mood_image',    label: 'Mood section image', hint: 'Wide 16:9. Mood/scene shot on product page.' },
       { key: 'explore_image', label: 'Explore-more thumbnail', hint: 'Square. Shown in "Explore More" grid on other products. Optional.' },
-      { key: 'hero_image',    label: 'Hero image (product-page background)', hint: 'Full-screen hero. If set, shows instead of the hero video below. Leave empty to use the video. Optional.' },
     ];
 
     const NOTE_LAYERS = [
@@ -419,14 +418,16 @@
       })
     ));
 
-    // ─── Build hero video field (in the same Media section) ─────────────
+    // ─── Build the single Hero field (image OR video) ───────────────────
+    // One source: paste a URL or upload a file. The product page renders it as a
+    // <video> (mp4/webm/mov) or an <img> (anything else) based on the extension.
     const videoFieldWrap = document.getElementById('videoFieldWrap');
     videoFieldWrap.appendChild(buildMediaField({
       key: 'video',
       previewKey: 'video',
-      labelText: 'Hero video (autoplay on product page)',
-      hintText: 'MP4 or WebM. Auto-plays muted on the product page hero.',
-      kind: 'video',
+      labelText: 'Hero (image or video)',
+      hintText: 'Full-screen product-page hero. Paste a URL or upload an image (WebP/JPEG/PNG) or video (MP4/WebM). Leave empty for a plain black hero.',
+      kind: 'media',
     }));
 
     /**
@@ -441,6 +442,8 @@
      */
     function buildMediaField(opts) {
       const isVideo = opts.kind === 'video';
+      const isMedia = opts.kind === 'media';  // accepts image OR video (one hero field)
+      const noun = isMedia ? 'media' : (isVideo ? 'video' : 'image');
       const wrap = document.createElement('div');
       wrap.className = 'form-field form-field--full';
       wrap.style.marginBottom = '1.25rem';
@@ -456,7 +459,7 @@
       preview.className = 'img-upload__preview';
       preview.dataset.key = opts.previewKey;
       preview.dataset.kind = opts.kind;
-      preview.textContent = isVideo ? 'No video' : 'No image';
+      preview.textContent = 'No ' + noun;
       widget.appendChild(preview);
 
       const controls = document.createElement('div');
@@ -465,9 +468,9 @@
       const urlInput = document.createElement('input');
       urlInput.type = 'text';
       urlInput.className = 'img-upload__url';
-      urlInput.placeholder = isVideo
-        ? 'Upload a video or paste a URL'
-        : 'Upload an image or paste a URL';
+      urlInput.placeholder = isMedia
+        ? 'Upload a file or paste a URL'
+        : (isVideo ? 'Upload a video or paste a URL' : 'Upload an image or paste a URL');
       urlInput.id = opts.key;
       urlInput.addEventListener('input', () => updatePreview(preview, urlInput.value, opts.kind));
       controls.appendChild(urlInput);
@@ -477,12 +480,12 @@
 
       const fileBtn = document.createElement('label');
       fileBtn.className = 'img-upload__file-btn';
-      fileBtn.textContent = isVideo ? 'Upload video' : 'Upload image';
+      fileBtn.textContent = isMedia ? 'Upload file' : (isVideo ? 'Upload video' : 'Upload image');
       const fileInput = document.createElement('input');
       fileInput.type = 'file';
-      fileInput.accept = isVideo
-        ? 'video/mp4,video/webm'
-        : 'image/webp,image/jpeg,image/png';
+      fileInput.accept = isMedia
+        ? 'image/webp,image/jpeg,image/png,video/mp4,video/webm'
+        : (isVideo ? 'video/mp4,video/webm' : 'image/webp,image/jpeg,image/png');
       const status = document.createElement('span');
       status.className = 'img-upload__status';
       fileInput.addEventListener('change',
@@ -503,14 +506,23 @@
       return wrap;
     }
 
+    // True if a media URL points to a video (by extension) — lets the single
+    // "Hero (image or video)" field preview + render the right element.
+    function isVideoUrl(v) {
+      if (!v) return false;
+      const p = v.split('?')[0].split('#')[0].toLowerCase();
+      return p.endsWith('.mp4') || p.endsWith('.webm') || p.endsWith('.mov') || p.endsWith('.m4v');
+    }
+
     function updatePreview(previewEl, value, kind) {
       previewEl.replaceChildren();
       if (!value) {
-        previewEl.textContent = kind === 'video' ? 'No video' : 'No image';
+        previewEl.textContent = kind === 'media' ? 'No media' : (kind === 'video' ? 'No video' : 'No image');
         return;
       }
       const url = resolveImage(value);
-      if (kind === 'video') {
+      const showVideo = kind === 'video' || (kind === 'media' && isVideoUrl(value));
+      if (showVideo) {
         const v = document.createElement('video');
         v.src = url;
         v.muted = true;
@@ -540,9 +552,9 @@
       statusEl.className = 'img-upload__status';
       const fd = new FormData();
       fd.append('file', f);
-      // Images live in product-images; videos in page-media (which permits
-      // video MIME types + a 50 MB ceiling).
-      fd.append('bucket', kind === 'video' ? 'page-media' : 'product-images');
+      // Images live in product-images; videos + the unified hero ('media') go to
+      // page-media, which permits both image AND video MIME types (50 MB ceiling).
+      fd.append('bucket', (kind === 'video' || kind === 'media') ? 'page-media' : 'product-images');
       try {
         const r = await fetch('/api/admin/upload', {
           method: 'POST',
@@ -767,12 +779,12 @@
         }
       });
 
-      // Hero video — same widget shape as images, just with kind='video'
+      // Single Hero field (image or video) — kind='media', detects type by URL
       const videoInput = document.getElementById('video');
       if (videoInput) {
         videoInput.value = product.video || '';
         const videoPreview = videoFieldWrap.querySelector('.img-upload__preview[data-key="video"]');
-        if (videoPreview) updatePreview(videoPreview, product.video || '', 'video');
+        if (videoPreview) updatePreview(videoPreview, product.video || '', 'media');
       }
 
       const notes = product.notes || {};
@@ -832,7 +844,6 @@
         bottle_image: document.getElementById('img_bottle_image').value.trim(),
         mood_image: document.getElementById('img_mood_image').value.trim(),
         explore_image: document.getElementById('img_explore_image').value.trim(),
-        hero_image: document.getElementById('img_hero_image').value.trim(),
         notes: {},
         wearer: [],
       };

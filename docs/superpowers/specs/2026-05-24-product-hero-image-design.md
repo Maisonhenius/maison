@@ -1,7 +1,17 @@
 # Product Hero Image (image-or-video) — Design Spec
 
 **Date:** 2026-05-24
-**Status:** Approved, in implementation
+**Status:** Shipped — SIMPLIFIED to a single field
+
+> **Revision (per stakeholder):** the first cut added a *separate* `hero_image`
+> column alongside `video` (two fields in the form). That was rejected as too
+> complex. **Final design: ONE hero field.** The existing `video` column holds
+> EITHER an image or a video URL; the product page renders `<video>` (for
+> `.mp4/.webm/.mov/.m4v`) or `<img>` (anything else) via the `is_video_url()`
+> helper. The `hero_image` column was dropped (migration 011). The admin form has
+> one "Hero (image or video)" widget that accepts both file types (uploads to the
+> `page-media` bucket, which permits both) or a pasted URL. Sections below describe
+> the superseded two-field cut.
 
 ## Goal
 

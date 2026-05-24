@@ -441,12 +441,15 @@
 {% block content %}
   <!-- ═══ HERO: Full-screen video + bottom bar ═══ -->
   <section class="product-hero">
-    {% if product.hero_image %}
-    <img class="product-hero__media" src="{{ product.hero_image | product_image }}" alt="{{ product.name }}">
-    {% elif product.video %}
+    {# Single hero media field (product.video): renders <video> or <img> by file
+       type, else the section's black background shows. #}
+    {% set hero = product.video | product_video %}
+    {% if hero and is_video_url(hero) %}
     <video class="product-hero__media" autoplay muted loop playsinline preload="auto">
-      <source src="{{ product.video | product_video }}" type="video/mp4">
+      <source src="{{ hero }}" type="video/mp4">
     </video>
+    {% elif hero %}
+    <img class="product-hero__media" src="{{ hero }}" alt="{{ product.name }}">
     {% endif %}
     <div class="product-hero__overlay"></div>
     <div class="product-hero__bar">

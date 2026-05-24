@@ -206,6 +206,15 @@ All have RLS enabled. Key columns:
 - Tone: Narrative, poetic, confidently minimal. Never religious, trendy, or mass-market
 - Visible copyright in footer: "Maison Henius" (brand name, per user direction 2026-04-08). Legal entity is still "Marisal Goods wholesalers -FZE" but only used in legal documents (Terms of Service, etc.), not in visible UI copy.
 
+## Design Context
+
+Before any frontend/design work, read these two root files (generated via `/impeccable teach`):
+
+- **`PRODUCT.md`** — strategic source of truth. Register is `brand` (design IS the product; the cinematic storytelling leads, commerce serves it). Carries users, purpose, brand personality, anti-references (no mass-market retail, hype/drop culture, or baroque heavy-luxury), and 5 design principles.
+- **`DESIGN.md`** + **`DESIGN.json`** — the visual system in Google Stitch DESIGN.md format. Creative North Star is **"The Amber Hour."** Locks the palette (Desert Ink `#0a0a08`, Imperial Gold `#e9db90`, Antique Gold `#b8a44e`, Atelier Ivory `#faf9f6`, Warm Sand `#f5f0e8`, Canyon Ochre `#d4614b`), Cormorant Garamond / Montserrat type scale, the two button languages (solid-gold commerce CTA + ghost-to-fill editorial), borderless-line inputs, the signature gold divider, and the named rules (Glow, No-Pure-Black, Wide-Tracking, Warm-Shadow).
+
+`BRAND.md` remains the prose brand bible (manifesto, tone, fragrance notes); PRODUCT.md/DESIGN.md are the machine-readable design contract derived from it. The `/impeccable` skill auto-loads these before design tasks.
+
 ## Mobile / Responsive
 
 Site is mobile-first. Key patterns to preserve:

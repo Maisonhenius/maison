@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-24T00:00:00Z",
+  "title": "Design System: Maison Henius",
+  "extensions": {
+    "colorMeta": {
+      "imperial-gold": {
+        "role": "primary",
+        "displayName": "Imperial Gold",
+        "canonical": "#e9db90",
+        "tonalRamp": ["oklch(28% 0.05 98)", "oklch(40% 0.07 98)", "oklch(52% 0.08 98)", "oklch(63% 0.09 98)", "oklch(73% 0.09 98)", "oklch(82% 0.09 98)", "oklch(89% 0.085 98)", "oklch(95% 0.04 98)"]
+      },
+      "antique-gold": {
+        "role": "primary",
+        "displayName": "Antique Gold",
+        "canonical": "#b8a44e",
+        "tonalRamp": ["oklch(24% 0.05 95)", "oklch(34% 0.07 95)", "oklch(44% 0.08 95)", "oklch(54% 0.09 95)", "oklch(64% 0.095 95)", "oklch(72% 0.09 95)", "oklch(82% 0.06 95)", "oklch(92% 0.03 95)"]
+      },
+      "canyon-ochre": {
+        "role": "secondary",
+        "displayName": "Canyon Ochre",
+        "canonical": "#d4614b",
+        "tonalRamp": ["oklch(28% 0.08 35)", "oklch(38% 0.11 35)", "oklch(48% 0.14 35)", "oklch(58% 0.15 35)", "oklch(66% 0.15 35)", "oklch(75% 0.12 35)", "oklch(84% 0.08 35)", "oklch(93% 0.04 35)"]
+      },
+      "desert-ink": {
+        "role": "neutral",
+        "displayName": "Desert Ink",
+        "canonical": "#0a0a08",
+        "tonalRamp": ["oklch(14% 0.004 95)", "oklch(20% 0.004 95)", "oklch(30% 0.004 95)", "oklch(42% 0.004 95)", "oklch(55% 0.004 95)", "oklch(68% 0.004 95)", "oklch(82% 0.004 95)", "oklch(95% 0.004 95)"]
+      },
+      "atelier-ivory": {
+        "role": "neutral",
+        "displayName": "Atelier Ivory",
+        "canonical": "#faf9f6",
+        "tonalRamp": ["oklch(20% 0.006 90)", "oklch(34% 0.006 90)", "oklch(48% 0.006 90)", "oklch(62% 0.006 90)", "oklch(76% 0.006 90)", "oklch(87% 0.006 90)", "oklch(94% 0.005 90)", "oklch(98.5% 0.004 90)"]
+      },
+      "warm-sand": {
+        "role": "neutral",
+        "displayName": "Warm Sand",
+        "canonical": "#f5f0e8",
+        "tonalRamp": ["oklch(22% 0.008 85)", "oklch(36% 0.009 85)", "oklch(50% 0.01 85)", "oklch(64% 0.01 85)", "oklch(78% 0.009 85)", "oklch(88% 0.008 85)", "oklch(94% 0.007 85)", "oklch(97% 0.005 85)"]
+      },
+      "ash-gray": {
+        "role": "neutral",
+        "displayName": "Ash Gray",
+        "canonical": "#888888",
+        "tonalRamp": ["oklch(20% 0.002 90)", "oklch(32% 0.002 90)", "oklch(44% 0.002 90)", "oklch(56% 0.002 90)", "oklch(64% 0.002 90)", "oklch(74% 0.002 90)", "oklch(85% 0.002 90)", "oklch(94% 0.002 90)"]
+      },
+      "signal-error": {
+        "role": "tertiary",
+        "displayName": "Signal Error",
+        "canonical": "#c0392b",
+        "tonalRamp": ["oklch(26% 0.09 28)", "oklch(36% 0.12 28)", "oklch(46% 0.15 28)", "oklch(54% 0.17 28)", "oklch(62% 0.16 28)", "oklch(72% 0.12 28)", "oklch(83% 0.07 28)", "oklch(93% 0.03 28)"]
+      },
+      "signal-success": {
+        "role": "tertiary",
+        "displayName": "Signal Success",
+        "canonical": "#587b3f",
+        "tonalRamp": ["oklch(24% 0.06 140)", "oklch(34% 0.08 140)", "oklch(44% 0.1 140)", "oklch(52% 0.11 140)", "oklch(62% 0.1 140)", "oklch(72% 0.08 140)", "oklch(83% 0.05 140)", "oklch(93% 0.03 140)"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero and chapter openers only. One per view. Cormorant 300, often italic." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings. Cormorant 300, italic by default for emotional headings." },
+      "title": { "displayName": "Title / Wordmark", "purpose": "The brand wordmark and formal serif sub-heads. Widest tracking (0.28em)." },
+      "body": { "displayName": "Body", "purpose": "Running copy. Montserrat 300, airy 1.85 leading, capped 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "Eyebrows, nav, CTAs, footer. Uppercase Montserrat, 0.25em tracking." }
+    },
+    "shadows": [
+      { "name": "warm-pedestal", "value": "0 24px 60px -20px rgba(60,40,10,0.18), 0 8px 20px -8px rgba(60,40,10,0.10)", "purpose": "Bottle-hero shadow. Brown-tinted, grounds product imagery as a physical object on stone." },
+      { "name": "ambient-card", "value": "0 1px 3px rgba(0,0,0,0.06)", "purpose": "Faintest lift on commerce/admin cards, for affordance only." }
+    ],
+    "motion": [
+      { "name": "ui-transition", "value": "0.3s ease", "purpose": "Default CSS state change (opacity, color, border-color) on hover/focus." },
+      { "name": "reveal-transition", "value": "0.4s ease", "purpose": "Slightly slower transition for entrances and the scroll-to-top FAB." },
+      { "name": "gsap-ease-out-quart", "value": "power2.out / power3.out", "purpose": "GSAP entrance and scroll-reveal easing. Eases out, never bounces." },
+      { "name": "divider-reveal", "value": "scaleX(0) -> scaleX(1), transform-origin center", "purpose": "The signature gold divider grows from center via GSAP." }
+    ],
+    "breakpoints": [
+      { "name": "tablet", "value": "768px" },
+      { "name": "phone", "value": "480px" }
+    ],
+    "doctrine": {
+      "noPureBlack": "Brand surfaces use Desert Ink (#0a0a08), never #000.",
+      "noUserScalableNo": "Viewport never disables pinch-zoom; inputs jump to 16px on mobile to defeat iOS auto-zoom.",
+      "touchTargets": "All interactive targets >= 44x44px."
+    }
+  },
+  "components": [
+    {
+      "name": "Solid CTA Button",
+      "kind": "button",
+      "refersTo": "button-cta",
+      "description": "Primary high-intent commerce action (Add to Cart, Checkout). The only place gold becomes a filled surface by default.",
+      "html": "<button class=\"ds-btn-cta\">Add to Cart</button>",
+      "css": ".ds-btn-cta { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 500; font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase; color: #0a0a08; background: #e9db90; border: none; border-radius: 0; padding: 0.8rem 2rem; cursor: pointer; transition: background 0.3s ease; } .ds-btn-cta:hover { background: #d4c87a; } .ds-btn-cta:focus-visible { outline: 2px solid #e9db90; outline-offset: 3px; } .ds-btn-cta:disabled { background: #e6e3da; color: #8a877d; cursor: not-allowed; }"
+    },
+    {
+      "name": "Ghost-to-Fill Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Editorial and secondary actions (contact, explore more). Transparent gold-outlined; floods gold on hover.",
+      "html": "<button class=\"ds-btn-ghost\">Explore More</button>",
+      "css": ".ds-btn-ghost { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 400; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #e9db90; background: transparent; border: 1px solid #e9db90; border-radius: 0; padding: 1rem 1.8rem; cursor: pointer; transition: background 0.3s ease, color 0.3s ease; } .ds-btn-ghost:hover { background: #e9db90; color: #0a0a08; } .ds-btn-ghost:focus-visible { outline: 2px solid #e9db90; outline-offset: 3px; }"
+    },
+    {
+      "name": "Line Input",
+      "kind": "input",
+      "refersTo": "input-line",
+      "description": "Borderless-line luxury field. Low-opacity gold border that simply brightens on focus. No glow, no fill.",
+      "html": "<input class=\"ds-input-line\" type=\"text\" placeholder=\"Your name\" aria-label=\"Your name\" />",
+      "css": ".ds-input-line { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 300; font-size: 16px; letter-spacing: 0.05em; color: #f5f0e8; background: transparent; border: 1px solid rgba(233,219,144,0.25); border-radius: 0; padding: 0.9rem 1.2rem; outline: none; transition: border-color 0.3s ease; } .ds-input-line::placeholder { color: rgba(245,240,232,0.3); } .ds-input-line:focus { border-color: rgba(233,219,144,0.5); }"
+    },
+    {
+      "name": "Eyebrow Label",
+      "kind": "custom",
+      "refersTo": "label",
+      "description": "The small uppercase gold kicker above headings. Wide tracking is the luxury.",
+      "html": "<span class=\"ds-label\">The Collection</span>",
+      "css": ".ds-label { display: block; font-family: 'Montserrat', system-ui, sans-serif; font-weight: 400; font-size: 0.6rem; letter-spacing: 0.35em; text-transform: uppercase; color: #e9db90; }"
+    },
+    {
+      "name": "Filter Tab",
+      "kind": "chip",
+      "refersTo": "chip-tab",
+      "description": "Shop filter as a minimal text tab (not a pill). Active state brightens and adds a thin antique-gold underline.",
+      "html": "<div style=\"display:flex;gap:1.5rem\"><button class=\"ds-chip-tab is-active\">All</button><button class=\"ds-chip-tab\">Woody</button><button class=\"ds-chip-tab\">Floral</button></div>",
+      "css": ".ds-chip-tab { font-family: 'Montserrat', system-ui, sans-serif; font-weight: 400; font-size: 0.74rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(250,249,246,0.5); background: transparent; border: 0; border-bottom: 1px solid transparent; border-radius: 0; padding: 0.3rem 0; cursor: pointer; transition: color 0.3s ease, border-color 0.3s ease; } .ds-chip-tab:hover { color: rgba(250,249,246,0.8); } .ds-chip-tab.is-active { color: #faf9f6; border-bottom-color: #b8a44e; }"
+    },
+    {
+      "name": "Gold Divider",
+      "kind": "custom",
+      "refersTo": "divider",
+      "description": "The house signature: a 40px x 1px gold line that animates in from center via GSAP scaleX. Frames sections in place of heavy rules or card borders.",
+      "html": "<hr class=\"ds-divider\" aria-hidden=\"true\" />",
+      "css": ".ds-divider { display: block; width: 40px; height: 1px; background: #e9db90; margin: 0 auto; border: none; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Amber Hour",
+    "overview": "The interface is the last warm hour of light over imperial sand. A deep ink ground holds everything; a single gold glows rather than shines; cream reads like lamplight on stone. Nothing here is bright. Everything is lit. This is the visual translation of the house's promise that luxury is felt, not shown. Two registers live in one house: the brand surface (landing, scroll cinematic, Universe and Story) leads with full-bleed imagery, generous black space, and motion that unfolds; the commerce surface (shop, cart, checkout, admin) serves quietly beneath it, borrowing the same palette and type with slightly softer corners so buying never feels like a struggle. It rejects mass-market beauty retail, hype/drop culture, and baroque heavy-luxury. The house earns its luxury through restraint, not gold leaf.",
+    "keyCharacteristics": [
+      "Deep warm-ink ground; a single gold used as light, not decoration",
+      "Cormorant Garamond serif (often italic, weight 300) over wide-tracked uppercase Montserrat",
+      "Generous vertical rhythm and airy line-height (1.85+); silence is a material",
+      "Sharp-cornered controls on the brand surface; soft 6-8px corners on commerce",
+      "Motion that unfolds (GSAP mask reveals, scroll-driven scrub), never bounces",
+      "The thin gold divider as a recurring signature gesture"
+    ],
+    "rules": [
+      { "name": "The Glow Rule", "body": "Gold is light, not paint. Imperial Gold appears on ~10% or less of any brand screen, usually a thin line, a small label, or a single hover fill. Flood a screen with gold and it stops glowing and starts gilding.", "section": "colors" },
+      { "name": "The No-Pure-Black Rule", "body": "Never #000 as a brand surface. Desert Ink (#0a0a08) is the warm ground. Tint warmth into every neutral.", "section": "colors" },
+      { "name": "The Wide-Tracking Rule", "body": "Uppercase Montserrat is always set with 0.2em-0.35em letter-spacing. Tight uppercase reads as system UI; wide uppercase reads as engraving on a brass plate.", "section": "typography" },
+      { "name": "The Italic-Emotion Rule", "body": "Headings that carry feeling are Cormorant italic 300; headings that carry structure are upright. Let the type's posture match its job.", "section": "typography" },
+      { "name": "The Warm-Shadow Rule", "body": "When a shadow is used, it is tinted brown/amber, never neutral gray. Gray shadow on a warm palette is an instant generic-UI tell.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do treat gold as light. Keep Imperial Gold to ~10% of any brand screen.",
+      "Do ground every neutral in warmth: Desert Ink not #000, Atelier Ivory not pure white.",
+      "Do set uppercase Montserrat with 0.2em-0.35em tracking. The space is the luxury.",
+      "Do let copy breathe: body line-height 1.85+, body capped at 65-75ch.",
+      "Do use the thin gold divider to frame sections instead of boxes or heavy rules.",
+      "Do keep shadows warm and rare: brown-tinted, mostly just the bottle pedestal.",
+      "Do let commerce serve quietly: softer 6-8px corners allowed, palette and calm unchanged."
+    ],
+    "donts": [
+      "Don't build mass-market beauty-retail energy: no dense grids, sale banners, star ratings, urgency timers.",
+      "Don't reach for hype or drop culture: no neon, no countdowns, no limited-drop loudness, nothing trendy.",
+      "Don't go baroque heavy-luxury: no gilded flourishes, no stacked heavy serifs, no flooding gold.",
+      "Don't let minimalism turn clinical: no clinical white, no cold gray shadows, keep the warm amber/ochre soul.",
+      "Don't use gray drop-shadows on this warm palette; it reads as generic Material UI instantly.",
+      "Don't add border-left/right color stripes, gradient text, or decorative glassmorphism (glass only on FAB controls and mobile nav).",
+      "Don't use bounce or elastic easing. Motion eases out and unfolds.",
+      "Don't wrap brand content in cards by reflex. Nested cards are always wrong."
+    ]
+  }
+}

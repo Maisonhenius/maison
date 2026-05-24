@@ -37,10 +37,19 @@ assets/pictures/Jordan Landscape/*.png
 assets/pictures/Jordan Landscape/*.jpg
 assets/pictures/Jordan Landscape/*.jpeg
 
+# 4K source masters + design sources — stay local, never in the lean repo
+*-4k.webp
+*.ai
+assets/videos/*.png
+assets/videos/web/*-test.mp4
+
 # Deploy artifacts
 Dockerfile
 .railwayignore
-fragrances-after-click.png
+
+# Debug screenshots / Playwright snapshots (root-level scratch artifacts)
+/*.png
+*-snapshot.md
 
 # Tooling
 .playwright-mcp/

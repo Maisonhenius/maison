@@ -843,7 +843,7 @@ async def create_checkout_session(request: Request):
                     "name": product["name"],
                     "description": f"Maison Henius — {product.get('family', '')}",
                 },
-                "unit_amount": product["price"] * 100,  # Stripe uses cents
+                "unit_amount": int(round(product["price"] * 100)),  # Stripe requires int cents
             },
             "quantity": qty,
         })

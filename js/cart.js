@@ -52,6 +52,13 @@ var MaisonCart = (function() {
 
   var _justSynced = false;
 
+  // Fired after the server cart (with its authoritative quantities + at_max flags)
+  // is written to localStorage, so any open cart view can re-render to reflect a
+  // server-side clamp. No stock number is ever carried — only the at_max boolean.
+  function _dispatchSynced() {
+    document.dispatchEvent(new CustomEvent('maison:cart-synced'));
+  }
+
   function _showToast(message) {
     var existing = document.querySelector('.maison-toast');
     if (existing) existing.parentNode.removeChild(existing);
@@ -121,14 +128,22 @@ var MaisonCart = (function() {
       .then(function(r) { return r.ok ? r.json() : null; })
       .then(function(data) {
         if (!data || !data.items) return;
-        // Merge server ids back into localStorage
+        // Merge server ids + authoritative quantity/at_max back into localStorage.
+        // The server may have clamped the quantity to available stock.
         var local = _read();
         var byPid = {};
-        data.items.forEach(function(srv) { byPid[srv.product_id] = srv.id; });
+        data.items.forEach(function(srv) { byPid[srv.product_id] = srv; });
         local.forEach(function(li) {
-          if (byPid[li.id]) li.serverId = byPid[li.id];
+          var srv = byPid[li.id];
+          if (srv) {
+            li.serverId = srv.id;
+            li.quantity = srv.quantity;
+            li.at_max = !!srv.at_max;
+            li.in_stock = srv.in_stock !== false;
+          }
         });
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(local));
+        _write(local);
+        _dispatchSynced();
       })
       .catch(function() {});
     }
@@ -168,7 +183,9 @@ var MaisonCart = (function() {
       item.quantity = quantity;
       _write(items);
 
-      // Sync to server if logged in — use cached serverId.
+      // Sync to server if logged in — use cached serverId. The server clamps the
+      // quantity to available stock and returns the authoritative cart; we reconcile
+      // localStorage from the response so a clamp (and the at_max flag) is reflected.
       if (_getAuth()) {
         var patch = function(serverId) {
           if (!serverId) return;
@@ -176,7 +193,26 @@ var MaisonCart = (function() {
             method: 'PATCH',
             headers: _apiHeaders(),
             body: JSON.stringify({ quantity: quantity })
-          }).catch(function() {});
+          })
+          .then(function(r) { return r.ok ? r.json() : null; })
+          .then(function(data) {
+            if (!data || !data.items) return;
+            var local = _read();
+            var byPid = {};
+            data.items.forEach(function(srv) { byPid[srv.product_id] = srv; });
+            local.forEach(function(li) {
+              var srv = byPid[li.id];
+              if (srv) {
+                li.serverId = srv.id;
+                li.quantity = srv.quantity;
+                li.at_max = !!srv.at_max;
+                li.in_stock = srv.in_stock !== false;
+              }
+            });
+            _write(local);
+            _dispatchSynced();
+          })
+          .catch(function() {});
         };
         if (item.serverId) patch(item.serverId);
         else _findServerItemId(productId).then(patch).catch(function() {});
@@ -234,10 +270,13 @@ var MaisonCart = (function() {
             family: item.product_family || '',
             price: item.product_price || 284,
             image: item.product_image || '',
-            quantity: item.quantity || 1
+            quantity: item.quantity || 1,
+            at_max: !!item.at_max,
+            in_stock: item.in_stock !== false
           };
         });
         _write(merged);
+        _dispatchSynced();
         _justSynced = true;
       }
     })
@@ -273,13 +312,16 @@ var MaisonCart = (function() {
             family: item.product_family || '',
             price: item.product_price || 284,
             image: item.product_image || '',
-            quantity: item.quantity || 1
+            quantity: item.quantity || 1,
+            at_max: !!item.at_max,
+            in_stock: item.in_stock !== false
           };
         });
         // For logged-in users the server cart is authoritative.
         // Empty server cart → clear localStorage (fixes stale cart after checkout when
         // user never sees /checkout/success). Guest→login merge is handled by sync().
         _write(serverCart);
+        _dispatchSynced();
       })
       .catch(function() {});
   }

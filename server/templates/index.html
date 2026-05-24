@@ -513,6 +513,24 @@
       flex-shrink: 0;
     }
 
+    .collection__card-mood.is-oos {
+      filter: grayscale(0.55) brightness(0.92);
+    }
+
+    .collection__card-oos {
+      display: inline-block;
+      margin-bottom: 0.6rem;
+      font-family: 'Montserrat', sans-serif;
+      font-size: 0.62rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #b8a44e;
+      border: 1px solid rgba(184, 164, 78, 0.45);
+      border-radius: 999px;
+      padding: 0.35rem 0.75rem;
+    }
+
     .collection__card-image {
       display: none;
     }
@@ -959,12 +977,13 @@
          card here on next page load. Ordered by created_at desc. #}
       {% for p in landing_products %}
       <article class="collection__card">
-        <img class="collection__card-mood"
+        <img class="collection__card-mood{% if not p.in_stock %} is-oos{% endif %}"
              src="{{ p.card_image | product_image }}"
              alt="{{ p.name }} - {{ p.family }} Eau de Parfum"
              width="1200" height="1200" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">{{ p.family }}</span>
+          {% if not p.in_stock %}<span class="collection__card-oos">Out of Stock</span>{% endif %}
           <h3 class="collection__card-name">{{ p.name }}</h3>
           <p class="collection__card-desc">{{ p.character }}</p>
           <div class="collection__card-meta">

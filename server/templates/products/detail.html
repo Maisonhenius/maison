@@ -109,6 +109,21 @@
     background: #d4c87a;
   }
 
+  /* Out-of-stock: muted, non-interactive */
+  .product-hero__cart-btn--oos,
+  .product-hero__cart-btn--oos:hover {
+    background: #e6e3da;
+    color: #8a877d;
+    cursor: not-allowed;
+  }
+  .product-bottle__cta--oos,
+  .product-bottle__cta--oos:hover {
+    background: #e6e3da;
+    color: #8a877d;
+    border-color: #e6e3da;
+    cursor: not-allowed;
+  }
+
   /* ── The Essence ── */
   .product-essence {
     background: #faf9f6;
@@ -339,6 +354,14 @@
   .product-explore__card:hover img {
     transform: scale(1.05);
   }
+  .explore-oos {
+    position: absolute; top: 0.6rem; left: 0.6rem; z-index: 2;
+    background: rgba(10,10,8,0.82); color: #e9db90;
+    border: 1px solid rgba(233,219,144,0.35);
+    font-family: 'Montserrat', sans-serif; font-size: 0.55rem;
+    font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 0.3rem 0.55rem; border-radius: 999px;
+  }
   .product-explore__card-name {
     font-family: 'Cormorant Garamond', serif; font-weight: 300;
     font-style: italic; font-size: 0.95rem;
@@ -428,7 +451,11 @@
       </div>
       <div class="product-hero__actions">
         <span class="product-hero__price">${{ product.price }}</span>
+        {% if product.in_stock %}
         <button class="product-hero__cart-btn" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart</button>
+        {% else %}
+        <button class="product-hero__cart-btn product-hero__cart-btn--oos" disabled aria-disabled="true">Out of Stock</button>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -506,7 +533,11 @@
          alt="{{ product.name }} - Maison Henius bottle">
     <div class="product-bottle__details">Eau de Parfum · 100ml</div>
     <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
+    {% if product.in_stock %}
     <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart - ${{ product.price }}</button>
+    {% else %}
+    <button class="product-bottle__cta product-bottle__cta--oos" disabled aria-disabled="true">Out of Stock</button>
+    {% endif %}
   </section>
 
   <!-- ═══ EXPLORE COLLECTION ═══ -->
@@ -519,6 +550,7 @@
       {% for slug, other in others.items() %}
       <a href="/products/{{ slug }}" class="product-explore__card">
         <div class="product-explore__card-img">
+          {% if not other.in_stock %}<span class="explore-oos">Out of Stock</span>{% endif %}
           <img src="{{ other.card_image | product_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
         </div>
         <span class="product-explore__card-name">{{ other.name }}</span>

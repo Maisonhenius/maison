@@ -147,6 +147,19 @@
     background: rgba(233, 219, 144, 0.08);
   }
 
+  /* At available-stock limit — the + control is disabled, signalling the cap
+     without ever revealing the count. */
+  .cart-item__qty-btn:disabled,
+  .cart-item__qty-btn.is-at-max {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+  .cart-item__qty-btn:disabled:hover,
+  .cart-item__qty-btn.is-at-max:hover {
+    border-color: rgba(10, 10, 8, 0.15);
+    background: transparent;
+  }
+
   .cart-item__qty-num {
     font-family: 'Montserrat', sans-serif;
     font-weight: 400;
@@ -460,6 +473,9 @@
   if (window._cartInitBound) return;
   window._cartInitBound = true;
 
+  // Tracks the current cart-synced listener so re-running on Turbo nav doesn't stack them.
+  var _syncHandler = null;
+
   document.addEventListener('turbo:load', function initCartPage() {
     var itemsEl    = document.getElementById('cartItems');
     var emptyEl    = document.getElementById('cartEmpty');
@@ -509,6 +525,13 @@
       btnInc.setAttribute('data-action', 'increase');
       btnInc.setAttribute('data-id', item.id);
       btnInc.setAttribute('aria-label', 'Increase quantity');
+      // At the available-stock limit: disable +. No number shown — the disabled
+      // control itself communicates the cap (server is the source of truth for at_max).
+      if (item.at_max) {
+        btnInc.disabled = true;
+        btnInc.classList.add('is-at-max');
+        btnInc.setAttribute('aria-label', 'Maximum available quantity reached');
+      }
       qty.appendChild(btnInc);
 
       info.appendChild(qty);
@@ -597,6 +620,7 @@
       if (!item) return;
 
       if (action === 'increase') {
+        if (item.at_max) return;  // already at available-stock limit
         MaisonCart.updateQuantity(id, item.quantity + 1);
         var numEl = btn.parentElement.querySelector('.cart-item__qty-num');
         if (typeof gsap !== 'undefined' && numEl) {
@@ -647,6 +671,12 @@
       gsap.fromTo('.cart-page__header', { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.6, delay: 0.2, ease: 'power2.out' });
       gsap.fromTo('.cart-page__divider', { scaleX: 0 }, { scaleX: 1, duration: 0.8, delay: 0.4, ease: 'power2.inOut' });
     }
+
+    // Re-render when the server cart sync lands (e.g. quantity clamped to stock).
+    // Tracked so repeated Turbo navigations don't stack duplicate listeners.
+    if (_syncHandler) document.removeEventListener('maison:cart-synced', _syncHandler);
+    _syncHandler = function() { renderCart(); };
+    document.addEventListener('maison:cart-synced', _syncHandler);
 
     renderCart();
   }); /* end turbo:load */

@@ -114,6 +114,20 @@
     letter-spacing: 0.05em;
   }
 
+  /* Stock indicator — healthy stock shows the plain number; low/out get a pill. */
+  .stock-pill { font-variant-numeric: tabular-nums; }
+  .stock-pill--low,
+  .stock-pill--out {
+    display: inline-block;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .stock-pill--low { background: #fbeed0; color: #946100; }   /* amber: ≤ 5 left */
+  .stock-pill--out { background: #f8d9d4; color: #a3281a; }   /* red: 0 */
+
   .switch {
     position: relative;
     display: inline-block;
@@ -182,6 +196,7 @@
           <th>Product</th>
           <th>Family</th>
           <th>Price</th>
+          <th>Stock</th>
           <th>Order</th>
           <th>Visible</th>
           <th>Actions</th>
@@ -270,6 +285,21 @@
 
       // Price
       tr.appendChild(td(document.createTextNode('$' + Number(p.price || 0).toFixed(2))));
+
+      // Stock — number with low/out highlight (admin-only; never reaches customers)
+      const stockNum = Number(p.stock || 0);
+      const stockBadge = document.createElement('span');
+      stockBadge.className = 'stock-pill';
+      if (stockNum <= 0) {
+        stockBadge.classList.add('stock-pill--out');
+        stockBadge.textContent = 'Out of stock';
+      } else if (stockNum <= 5) {
+        stockBadge.classList.add('stock-pill--low');
+        stockBadge.textContent = stockNum + ' left';
+      } else {
+        stockBadge.textContent = String(stockNum);
+      }
+      tr.appendChild(td(stockBadge));
 
       // Display order
       tr.appendChild(td(document.createTextNode(p.display_order != null ? String(p.display_order) : '—')));

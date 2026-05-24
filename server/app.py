@@ -271,6 +271,9 @@ def _row_to_product(row: dict) -> dict:
         "video": row.get("video", ""),
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
+        "stock": int(row.get("stock") or 0),
+        # Derived boolean for templates — the raw count never reaches the customer.
+        "in_stock": int(row.get("stock") or 0) > 0,
         "created_at": row.get("created_at", ""),
     }
 
@@ -649,6 +652,59 @@ async def admin_auth_callback(request: Request):
 
 # --- Stripe Checkout API ---
 
+async def _decrement_stock_for_items(items: list, source: str) -> None:
+    """Atomically reduce product stock for each line in a paid order.
+
+    Called exactly once per order, on the pending→confirmed transition (and the
+    fallback create path). Each line is settled by the single-statement
+    `decrement_stock` SQL function so concurrent buyers can't both take the last
+    unit. If a line raced to sold-out (function returns NULL) the customer has
+    ALREADY PAID — we never reject; we clamp that product to 0 and log an oversell
+    flag for the admin. Payment always wins.
+    """
+    if not isinstance(items, list):
+        return
+    touched = False
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        pid = item.get("id") or item.get("product_id")
+        qty = int(item.get("quantity", 1) or 1)
+        if not pid or qty <= 0:
+            continue
+        result = await _db(supabase.rpc("decrement_stock", {"p_id": pid, "p_qty": qty}))
+        new_stock = result.data
+        if isinstance(new_stock, list):
+            new_stock = new_stock[0] if new_stock else None
+        if new_stock is None:
+            # Oversold during the open-checkout window — fulfill the paid order,
+            # clamp to zero, and flag it for the admin to reconcile.
+            await _db(supabase.table("products").update({"stock": 0}).eq("id", pid))
+            print(f"[{source}] ⚠ OVERSELL: '{pid}' x{qty} exceeded stock; clamped to 0")
+        touched = True
+    if touched:
+        await reload_products_cache()
+
+
+async def _restock_for_items(items: list, source: str) -> None:
+    """Return units to stock when a previously-paid order is cancelled."""
+    if not isinstance(items, list):
+        return
+    touched = False
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        pid = item.get("id") or item.get("product_id")
+        qty = int(item.get("quantity", 1) or 1)
+        if not pid or qty <= 0:
+            continue
+        await _db(supabase.rpc("restock", {"p_id": pid, "p_qty": qty}))
+        touched = True
+    if touched:
+        await reload_products_cache()
+        print(f"[{source}] restocked {len(items)} line(s)")
+
+
 async def _confirm_order(order: dict, source: str) -> dict:
     """Transition a pending order to confirmed.
 
@@ -679,6 +735,9 @@ async def _confirm_order(order: dict, source: str) -> dict:
         ]
         if rows:
             await _db(supabase.table("order_items").insert(rows))
+
+    # Reduce stock now that payment succeeded (idempotent: this transition runs once).
+    await _decrement_stock_for_items(items, source)
 
     # Clear server cart
     user_id = order.get("user_id")
@@ -795,6 +854,10 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
     if rows:
         await _db(supabase.table("order_items").insert(rows))
 
+    # Reduce stock for this freshly-confirmed order (same as _confirm_order does
+    # for the normal pre-created path).
+    await _decrement_stock_for_items(validated_items, source)
+
     # Clear server cart
     user_id = meta.get("user_id")
     if user_id:
@@ -828,6 +891,18 @@ async def create_checkout_session(request: Request):
         if not product:
             return JSONResponse({"error": f"Unknown product: {item.get('id')}"}, status_code=400)
         qty = max(1, int(item.get("quantity", 1)))
+        # Stock gate — never reveal the count, just block the over-order.
+        available = product.get("stock", 0)
+        if available <= 0:
+            return JSONResponse(
+                {"error": f"{product['name']} is currently out of stock. Please remove it from your cart."},
+                status_code=409,
+            )
+        if qty > available:
+            return JSONResponse(
+                {"error": f"{product['name']} is no longer available in the requested quantity. Please reduce the amount in your cart."},
+                status_code=409,
+            )
         validated_items.append({
             "id": item["id"],
             "name": product["name"],
@@ -1220,6 +1295,24 @@ async def set_default_address(request: Request, address_id: str):
 
 # --- Cart API Routes ---
 
+def _enrich_cart_items(rows: list) -> list:
+    """Attach an `at_max` flag (cart qty has reached available stock) and an
+    `in_stock` flag to each cart row, so the UI can disable the + control and show
+    sold-out state. The raw stock COUNT is deliberately never included — only booleans
+    cross to the client, honoring the "never show the number" rule.
+    A product that's been hidden or deleted reads as out of stock (unpurchasable)."""
+    out = []
+    for row in (rows or []):
+        item = dict(row)
+        product = get_product(row.get("product_id"))  # excludes hidden → treated as 0
+        stock = product.get("stock", 0) if product else 0
+        qty = row.get("quantity", 0) or 0
+        item["at_max"] = qty >= stock
+        item["in_stock"] = stock > 0
+        out.append(item)
+    return out
+
+
 @app.get("/api/cart")
 async def get_cart(request: Request):
     user = await get_authenticated_user(request)
@@ -1227,7 +1320,7 @@ async def get_cart(request: Request):
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
     result = await _db(supabase.table("cart_items").select("*").eq("user_id", str(user.id)))
-    return JSONResponse({"items": result.data})
+    return JSONResponse({"items": _enrich_cart_items(result.data)})
 
 
 @app.post("/api/cart")
@@ -1245,17 +1338,23 @@ async def add_to_cart(request: Request):
     if not product:
         return JSONResponse({"error": f"Unknown product: {product_id}"}, status_code=400)
 
+    # Stock gate + clamp — a customer can never hold more units than exist.
+    stock = product.get("stock", 0)
+    if stock <= 0:
+        return JSONResponse({"error": f"{product['name']} is out of stock"}, status_code=409)
+
     # Check if item already in cart
     existing = await _db(
         supabase.table("cart_items").select("*").eq("user_id", user_id).eq("product_id", product_id)
     )
 
     if existing.data:
-        # Update quantity
+        # Update quantity, clamped to available stock.
         row = existing.data[0]
-        new_qty = row["quantity"] + body.get("quantity", 1)
+        new_qty = min(row["quantity"] + body.get("quantity", 1), stock)
         await _db(supabase.table("cart_items").update({"quantity": new_qty}).eq("id", row["id"]))
     else:
+        req_qty = max(1, min(int(body.get("quantity", 1) or 1), stock))
         await _db(supabase.table("cart_items").insert({
             "user_id": user_id,
             "product_id": product_id,
@@ -1263,11 +1362,11 @@ async def add_to_cart(request: Request):
             "product_family": product.get("family", ""),
             "product_price": product["price"],
             "product_image": body.get("product_image", ""),
-            "quantity": body.get("quantity", 1)
+            "quantity": req_qty
         }))
 
     result = await _db(supabase.table("cart_items").select("*").eq("user_id", user_id))
-    return JSONResponse({"success": True, "items": result.data})
+    return JSONResponse({"success": True, "items": _enrich_cart_items(result.data)})
 
 
 @app.patch("/api/cart/{item_id}")
@@ -1288,10 +1387,17 @@ async def update_cart_item(request: Request, item_id: str):
     if quantity <= 0:
         await _db(supabase.table("cart_items").delete().eq("id", item_id))
     else:
-        await _db(supabase.table("cart_items").update({"quantity": quantity}).eq("id", item_id))
+        # Clamp to available stock so the cart can never exceed what exists.
+        product = get_product(existing.data[0].get("product_id"))
+        stock = product.get("stock", 0) if product else 0
+        quantity = min(int(quantity), stock) if stock > 0 else 0
+        if quantity <= 0:
+            await _db(supabase.table("cart_items").delete().eq("id", item_id))
+        else:
+            await _db(supabase.table("cart_items").update({"quantity": quantity}).eq("id", item_id))
 
     result = await _db(supabase.table("cart_items").select("*").eq("user_id", str(user.id)))
-    return JSONResponse({"success": True, "items": result.data})
+    return JSONResponse({"success": True, "items": _enrich_cart_items(result.data)})
 
 
 @app.delete("/api/cart/{item_id}")
@@ -1308,7 +1414,7 @@ async def remove_cart_item(request: Request, item_id: str):
 
     await _db(supabase.table("cart_items").delete().eq("id", item_id))
     result = await _db(supabase.table("cart_items").select("*").eq("user_id", str(user.id)))
-    return JSONResponse({"success": True, "items": result.data})
+    return JSONResponse({"success": True, "items": _enrich_cart_items(result.data)})
 
 
 @app.post("/api/cart/sync")
@@ -1337,6 +1443,11 @@ async def sync_cart(request: Request):
         product = get_product(pid)
         if not product:
             continue  # Skip unknown/hidden products silently during sync
+        # Skip out-of-stock products; clamp quantity to available stock.
+        stock = product.get("stock", 0)
+        if stock <= 0:
+            continue
+        qty = max(1, min(int(local_item.get("quantity", 1) or 1), stock))
         rows_to_insert.append({
             "user_id": user_id,
             "product_id": pid,
@@ -1344,7 +1455,7 @@ async def sync_cart(request: Request):
             "product_family": product.get("family", ""),
             "product_price": product["price"],
             "product_image": local_item.get("image", ""),
-            "quantity": local_item.get("quantity", 1),
+            "quantity": qty,
         })
 
     if rows_to_insert:
@@ -1352,7 +1463,7 @@ async def sync_cart(request: Request):
 
     # Return merged cart
     merged = await _db(supabase.table("cart_items").select("*").eq("user_id", user_id))
-    return JSONResponse({"success": True, "items": merged.data})
+    return JSONResponse({"success": True, "items": _enrich_cart_items(merged.data)})
 
 # --- Admin API Routes ---
 
@@ -1413,7 +1524,22 @@ async def update_order_status(order_id: str, request: Request):
     body = await request.json()
     new_status = body["status"]
 
+    # Read the order's prior state BEFORE updating — needed to decide whether
+    # cancelling should return stock (only orders that actually decremented stock).
+    prior = await _db(
+        supabase.table("orders").select("status, items").eq("id", order_id)
+    )
+    prior_status = prior.data[0].get("status") if prior.data else None
+    prior_items = prior.data[0].get("items") if prior.data else None
+
     await _db(supabase.table("orders").update({"status": new_status}).eq("id", order_id))
+
+    # Auto-restock on cancel: only when moving INTO cancelled FROM a paid state that
+    # had decremented stock (confirmed/shipped/delivered). Skips pending (never
+    # decremented) and skips re-cancelling an already-cancelled order (no double-restock).
+    DECREMENTED_STATUSES = {"confirmed", "shipped", "delivered"}
+    if new_status == "cancelled" and prior_status in DECREMENTED_STATUSES:
+        await _restock_for_items(prior_items or [], "cancel")
 
     # Send email notification for shipped/delivered/cancelled
     email_sent = False
@@ -1487,6 +1613,15 @@ def _validate_product_payload(body: dict, *, require_all: bool):
         if price < 0:
             return None, "Price cannot be negative"
         out["price"] = price
+
+    if require_all or "stock" in body:
+        try:
+            stock = int(body.get("stock") or 0)
+        except (ValueError, TypeError):
+            return None, "Stock must be a whole number"
+        if stock < 0:
+            return None, "Stock cannot be negative"
+        out["stock"] = stock
 
     for field in ("mood", "character", "description", "video"):
         if field in body:

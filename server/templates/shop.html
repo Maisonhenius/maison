@@ -302,6 +302,31 @@
     opacity: 0.55;
   }
 
+  /* Out-of-stock: disabled CTA + corner badge over the image */
+  .shop-card__add--oos {
+    color: #6b6b63;
+    cursor: not-allowed;
+    border-bottom-color: transparent;
+  }
+  .shop-card__add--oos:hover { color: #6b6b63; border-bottom-color: transparent; }
+
+  .oos-badge {
+    position: absolute;
+    top: 0.9rem;
+    left: 0.9rem;
+    z-index: 2;
+    background: rgba(10, 10, 8, 0.82);
+    color: #e9db90;
+    border: 1px solid rgba(233, 219, 144, 0.35);
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.62rem;
+    font-weight: 400;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    padding: 0.4rem 0.7rem;
+    border-radius: 999px;
+  }
+
   .shop-card.is-filtered-out { display: none; }
 
   /* ─── Tablet ───────────────────────────────────────────────────────── */
@@ -388,6 +413,7 @@
              data-created="{{ p.created_at }}">
       <a href="/products/{{ slug }}" class="shop-card__link">
         <div class="shop-card__media">
+          {% if not p.in_stock %}<span class="oos-badge">Out of Stock</span>{% endif %}
           <img src="{{ p.card_image | product_image }}"
                alt="{{ p.name }} - {{ p.family }} Eau de Parfum"
                loading="lazy" decoding="async">
@@ -398,6 +424,7 @@
       </a>
       <div class="shop-card__actions">
         <a href="/products/{{ slug }}" class="shop-card__view">Discover</a>
+        {% if p.in_stock %}
         <button type="button" class="shop-card__add"
                 data-product-id="{{ slug }}"
                 data-product-name="{{ p.name }}"
@@ -406,6 +433,11 @@
                 data-product-image="{{ p.card_image | product_image }}">
           Add to Cart
         </button>
+        {% else %}
+        <button type="button" class="shop-card__add shop-card__add--oos" disabled aria-disabled="true">
+          Out of Stock
+        </button>
+        {% endif %}
       </div>
     </article>
     {% endfor %}

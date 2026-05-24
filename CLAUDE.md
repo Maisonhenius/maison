@@ -537,6 +537,7 @@ For real edge caching across multiple users, the move is **Cloudflare in front o
 
 ## Stripe (current state)
 
+- **Pre-launch checkout gate**: `CHECKOUT_COMING_SOON` constant in `app.py` (single source of truth). While `True`, `/checkout`'s "Continue to Payment" opens an "Arriving Soon" modal (in `checkout.html`, gated by `{% if coming_soon %}` + the `var COMING_SOON` flag the route passes) instead of redirecting to Stripe, AND `create_checkout_session` short-circuits with `{"coming_soon": true}` (no session) so a direct API hit can't pay either. Flip to `False` + redeploy to enable real checkout. No data captured — checkout requires login, so registered users are the launch notify-list.
 - **Test mode** is active in production (test keys in Railway env)
 - **Webhook not yet configured on production** — `STRIPE_WEBHOOK_SECRET=whsec_placeholder`. **The system still works** because `/checkout/success` is self-healing (verifies the Stripe session via API and calls `_create_order_from_stripe_session()` as a fallback). Configuring the webhook is still recommended for instant order creation (no dependency on the user landing on the success page) and for handling other Stripe events later.
 - **Local testing**: `stripe listen --forward-to localhost:3000/api/stripe/webhook`. Local secret is in `.env.local`

@@ -272,6 +272,7 @@ ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
 - Framework: pytest + pytest-asyncio + httpx
 - Tests in `server/tests/` (local only), fixtures in `conftest.py`
 - 100% coverage is the goal — write tests for new functions, bug fixes, and conditionals
+- **Test harness skips startup events**: httpx `ASGITransport` doesn't run FastAPI lifespan, so `_PRODUCTS_CACHE` is empty and product routes 404. The `client` fixture in `conftest.py` populates it via `await app.reload_products_cache()` before yielding. Required for any product-dependent test.
 
 ## Browser Testing
 
@@ -355,10 +356,11 @@ ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
 
 ## Deployment (Railway)
 
-- **Live URL**: https://web-production-cc74a0.up.railway.app
+- **Live URL**: canonical `https://www.maisonhenius.com` (also `https://web-production-cc74a0.up.railway.app`)
 - **GitHub repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB)
-- **Railway project**: `maison-henius` (id: `f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web`, environment `b99a4d18-a9fc-4742-b874-c0b4d38e5ade`
+- **Railway project**: `maison-henius` (id: `f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web` (id: `d363d941-07c4-4383-b0a2-c12ebd5a8cbd`), environment `production` (`b99a4d18-a9fc-4742-b874-c0b4d38e5ade`). Owner Railway account: **husein.aldarawish@gmail.com** (NOT osamah96 — relevant for `railway login`).
 - **Builder**: Dockerfile (clones from GitHub on Railway servers — bypasses upload size limits)
+- **`railway domain` CLI is broken (v4.36.1)**: returns "Unauthorized. Please run railway login again." on the custom-domain mutation even when fully logged in (reads like `whoami`/`status`/`variables` work). The MCP `generate_domain` hits the same bug. **Workaround**: POST the GraphQL API directly with `user.accessToken` from `~/.railway/config.json` → `https://backboard.railway.com/graphql/v2`, mutation `customDomainCreate(input:{domain,projectId,environmentId,serviceId})`. Use `curl` (local Python urllib lacks the CA bundle → SSLCertVerificationError).
 - **Deploy directory**: `/tmp/claude/maison-docker-deploy/` — ephemeral, recreated each session (see Redeploy steps)
 
 ### Redeploy
@@ -384,10 +386,14 @@ ffmpeg -y -i assets/videos/scroll-video-3.mp4 \
 
 **CRITICAL: bump `ARG CACHEBUST=` to a NEW value every deploy.** Docker layer-caches the `RUN git clone` step keyed on the ARG value. If `CACHEBUST` doesn't change between deploys, Docker reuses the previous git clone — your latest commit won't ship and `railway up` will silently deploy stale code. Use a date+suffix string (e.g. `2026-04-26-v3`) so it's always unique and self-documenting. Symptoms when missed: `curl prod | grep <new-thing>` returns nothing, or production file size doesn't match local.
 
-### Still needed before custom domain
+### Custom domain (LIVE)
+
+- Canonical `https://www.maisonhenius.com` — www CNAME → `93jxehuo.up.railway.app`, Railway auto-SSL. Apex `maisonhenius.com` 301-forwards to www via **GoDaddy Forwarding** (GoDaddy can't CNAME an apex). Railway's apex domain entry stays "unverified" by design (forwarded, not CNAME'd) — left in place for a future Cloudflare move (Cloudflare flattens apex CNAMEs + adds the CDN noted in Performance).
+- Migrated off Wix (old `www` CNAME was `pointing.wixdns.net`; apex `@` A records are GoDaddy-forwarding IPs, locked/"Can't delete" because the Forwarding feature owns them — change them via Domain Settings → Forwarding, not the DNS table).
+
+### Still needed
 
 - **Stripe webhook secret** (currently `whsec_placeholder`) — create webhook in Stripe Dashboard pointing to `/api/stripe/webhook`, paste signing secret into Railway env
-- **Custom domain** `maisonhenius.com` via `railway domain --custom`
 - Replace `https://maisonhenius.com/` placeholder in `index.html` `og:image`
 - Add `sitemap.xml`, proper `og:image` (1200x630 brand image)
 
@@ -503,6 +509,17 @@ For real edge caching across multiple users, the move is **Cloudflare in front o
 - **PostgREST upsert only writes columns present in the payload**. The admin Content save handler intentionally omits `display_order` so existing rows preserve their seeded ordering on update — re-adding it causes silent drift on every save (caught and fixed in `9373160`).
 - **Admin Products CRUD**: `/admin/products` (list), `/admin/products/new` (create), `/admin/products/{id}/edit` (edit). Toggle hidden via `PATCH /api/admin/products/{id}/visibility`. Delete is blocked when a product has any rows in `order_items` — use Hide instead. Cache invalidates on every mutation via `await reload_products_cache()`.
 - **Headless admin auth for tests**: mint a one-shot magic link via `supabase.auth.admin.generate_link({"type": "magiclink", "email": "osamah96@gmail.com", "options": {"redirect_to": ".../admin/auth/callback"}})` and navigate to the returned URL — the redirect chain stores the token in `localStorage["maison_admin_auth"]`. Single-use, ~1h TTL. The admin-callback also accepts an `error=otp_expired` redirect — if you see that, regenerate.
+
+## Stock / Inventory
+
+- `products.stock` (int, NOT NULL, CHECK >= 0). The count is **never shown to customers** — templates use the derived `in_stock` boolean; cart API returns only `at_max`/`in_stock` booleans, never the number.
+- **Decrement on payment**: `_decrement_stock_for_items()` is called from `_confirm_order()` (pending→confirmed) AND the `_create_order_from_stripe_session` fallback. Never on pre-create (abandoned checkouts don't deplete). Idempotent via the existing status guard.
+- **Atomic SQL** (migration 009): `decrement_stock(id,qty)` = `UPDATE ... SET stock = stock-qty WHERE stock >= qty RETURNING stock` (NULL if insufficient); `restock(id,qty)` adds back. Single-statement = concurrent buyers can't both take the last unit.
+- **Oversell** (paid but raced to 0): never reject — clamp to 0, log `⚠ OVERSELL`. Payment always wins.
+- **Restock on cancel**: `update_order_status` reads prior status first; restocks only when cancelling FROM confirmed/shipped/delivered (skips pending + already-cancelled, so no double-restock).
+- **Four anti-oversell gates**: product Add-to-Cart, cart `+` stepper (disables via `at_max`), `/api/cart` add/update clamp, `/api/checkout/create-session` hard-reject (409, no number in the message).
+- Out-of-stock products STAY VISIBLE with an "Out of Stock" badge + disabled CTA (shop/landing/detail/explore). `_row_to_product` exposes `stock`+`in_stock`; `_validate_product_payload` validates `stock`; product form has a required Stock field; `/admin/products` shows a Stock column (amber ≤5, red 0).
+- `cart.js` carries `at_max`/`in_stock` into localStorage + fires a `maison:cart-synced` event so the cart re-renders on a server clamp. Guests capped at login/checkout (no number sent client-side).
 
 ## Stripe (current state)
 

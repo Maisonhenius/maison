@@ -412,6 +412,7 @@ All product/landscape images in the deployed repo are WebP. Originals (PNG/JPG) 
 
 - **Tracked in git**: `assets/pictures/Collection & Fragrances/*.webp`, `assets/pictures/Jordan Landscape/*.webp`, `assets/pictures/ingredients/*.webp`, `assets/videos/web/*.mp4`, `assets/videos/web/*.webm` (hero brand-film + scroll-cinematic). The old `assets/video-frames/` directory and 121 WebP frames are gone — replaced by `scroll-cinematic.mp4`.
 - **Gitignored** (originals only): `*.png`, `*.jpg`, `*.jpeg` in those folders, `assets/videos/*.mp4` (raw source videos), `assets/videos/web-original-backup/` (pre-encoding hero videos, kept locally for rollback)
+- **Debug artifacts are auto-gitignored**: root-level screenshots (`/*.png`), `*-snapshot.md` (Playwright dumps), 4K masters (`*-4k.webp`), design sources (`*.ai`), `assets/videos/*.png`, `assets/videos/web/*-test.mp4`. Drop scratch screenshots at the repo root and they stay out of `git status` automatically.
 - **Templates reference `.webp`** — never `.png`. The `products` table has 4 image fields:
   - `card_image`: Old square cards (1200x1200) — used in landing page collection + product Explore More grid
   - `mood_image`: New landscape scenes (1920x1072) — used in product page full-bleed Mood section only
@@ -423,6 +424,7 @@ All product/landscape images in the deployed repo are WebP. Originals (PNG/JPG) 
   - `{{ p.video | product_video }}` → `/static/assets/videos/web/` prefix
   - `{{ value | page_media }}` → `/static/assets/` prefix (used by CMS images/videos)
   Migration 008 moved every existing product image+video to Supabase Storage URLs; new admin uploads also write there. Never prepend a static path manually in a template again — use the filter.
+- **Product hero is ONE media field** — `products.video` holds EITHER an image OR a video URL. `products/detail.html` renders `<video>` (ext `.mp4/.webm/.mov/.m4v`) or `<img>` (anything else) via the `is_video_url()` Jinja global; empty → the section's black bg. Column name `video` is legacy (it holds images too now). Hero element class is `.product-hero__media` (carries `border-radius:0` to beat the global `img{border-radius:12px}`). Admin form: a single "Hero (image or video)" widget (`kind='media'`) that accepts both and uploads to the `page-media` bucket (which permits both).
 - **Logotype asset**: `assets/images/logotype.webp` (800×873, 92KB, with alpha) — full crest + "Maison Henius" + "Collection Eaux de Parfums". Used in footer (`layout.html`) and auth pages (login, signup, admin/login). The old monogram SVG (`assets/images/logo.svg`) is still used in nav headers and favicons.
 
 ### Image size targets (don't ship oversized assets)
@@ -509,6 +511,9 @@ For real edge caching across multiple users, the move is **Cloudflare in front o
 
 - **Admin Content CMS** edits the `page_content` table (one row per (page, section, field) tuple). Schema is in `PAGE_CONTENT_SCHEMA` dict in `app.py`. To add a new editable block: append a schema entry, then reference it in the template via `{{ content('section', 'field', 'fallback') }}`. The editor picks it up automatically on next page load.
 - **`content()` helper** is injected into `/` and `/story` route contexts only. Returns the saved value, falling back to the inline string if missing. Filter chain works: `{{ content('hero', 'image', '...') | page_media }}`.
+- **Global (every-page) content uses a Jinja GLOBAL, not `content()`** — the footer/nav render on every page but `content()` is only injected into `/` + `/story`. Footer social links are exposed via `templates.env.globals["footer_social"]`, backed by the `_FOOTER_SOCIAL` cache (`reload_footer_social()` merges saved `page_content` over schema defaults; seeded at import, refreshed at startup + on every `PUT /api/admin/content/main`). Edited at `/admin/content/main` under section `footer` (fields `{instagram,tiktok,linkedin}_{url,visible}`); `layout.html` loops it, rendering a link only when visible AND it has a URL.
+- **Field types**: `text`, `longtext`, `image`, `video`, and `toggle` (a checkbox storing the string `"true"`/`"false"` — used by the footer social visibility switches). `content_edit.html` `renderField` handles each; the save collector reads `checkbox.checked` for toggles.
+- **Editor prefills from the schema `default`** (`b.value || b.default`), so a brand-new schema entry shows its default copy in the form without needing a seed row.
 - **Single source of truth**: page_content rows ARE the content; there's no "default vs saved" UI. Migration 006 seeded every schema field; migration 007 backfilled empties. Schema `default` strings are still used by template fallbacks (defense if a row goes missing) and by future seed scripts.
 - **Required fields**: schema entries with `"required": True` render a red `<span class="req">*</span>` next to the label in admin forms, plus HTML `required` + `aria-required` on the input. Currently every text/longtext field is required; image/video fields stay optional so admin can leave them empty during a redesign without breaking save.
 - **Two Storage buckets** (created by migration 003, public-read RLS, public buckets):

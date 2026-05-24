@@ -114,10 +114,14 @@
   <footer class="footer">
     <hr class="footer__divider">
     <img src="/static/assets/images/logotype.webp" alt="Maison Henius" class="footer__logo">
+    {% set _social = footer_social() %}
+    {% if _social %}
     <div class="footer__social">
-      <a href="https://www.instagram.com/maisonhenius" target="_blank" rel="noopener">Instagram</a>
-      <a href="https://www.tiktok.com/@maison.henius" target="_blank" rel="noopener">TikTok</a>
+      {% for link in _social %}
+      <a href="{{ link.url }}" target="_blank" rel="noopener">{{ link.label }}</a>
+      {% endfor %}
     </div>
+    {% endif %}
     <div class="footer__links">
       <a href="/terms">Terms &amp; Conditions</a>
       <a href="/privacy">Privacy Policy</a>

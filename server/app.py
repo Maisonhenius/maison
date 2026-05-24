@@ -306,7 +306,7 @@ def get_products_dict(*, include_hidden: bool = False) -> dict:
 
 @app.on_event("startup")
 async def _load_products_on_startup():
-    """Populate the products cache before serving traffic."""
+    """Populate the products + footer-social caches before serving traffic."""
     try:
         await reload_products_cache()
         print(f"[startup] Loaded {len(_PRODUCTS_CACHE)} products from DB")
@@ -314,6 +314,12 @@ async def _load_products_on_startup():
         # Never let a transient Supabase blip block server boot — log and continue
         # with an empty cache. Routes that depend on products will 404 until next reload.
         print(f"[startup] FAILED to load products: {e}")
+    try:
+        await reload_footer_social()
+    except Exception as e:
+        # Cache is already seeded with schema defaults at import, so the footer
+        # still shows Instagram/TikTok even if this DB read fails.
+        print(f"[startup] FAILED to load footer social: {e}")
 
 
 # --- Shared template context ---
@@ -1884,6 +1890,29 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "contact", "field": "subtext", "type": "text", "required": True,
          "label": "Contact — subtext", "group": "Contact",
          "default": "For inquiries, partnerships, or simply to share a memory."},
+
+        # Footer — Social Links (global footer, rendered on every page via the
+        # footer_social Jinja global, NOT the per-route content() helper).
+        # Each link has a URL + a visibility toggle; a link renders only when
+        # visible AND its URL is non-empty.
+        {"section": "footer", "field": "instagram_url", "type": "text",
+         "label": "Instagram URL", "group": "Footer — Social Links",
+         "default": "https://www.instagram.com/maisonhenius"},
+        {"section": "footer", "field": "instagram_visible", "type": "toggle",
+         "label": "Show Instagram", "group": "Footer — Social Links",
+         "default": "true"},
+        {"section": "footer", "field": "tiktok_url", "type": "text",
+         "label": "TikTok URL", "group": "Footer — Social Links",
+         "default": "https://www.tiktok.com/@maison.henius"},
+        {"section": "footer", "field": "tiktok_visible", "type": "toggle",
+         "label": "Show TikTok", "group": "Footer — Social Links",
+         "default": "true"},
+        {"section": "footer", "field": "linkedin_url", "type": "text",
+         "label": "LinkedIn URL", "group": "Footer — Social Links",
+         "default": ""},
+        {"section": "footer", "field": "linkedin_visible", "type": "toggle",
+         "label": "Show LinkedIn", "group": "Footer — Social Links",
+         "default": "false"},
     ],
     "universe": [
         # Hero
@@ -1969,6 +1998,52 @@ async def load_page_content(page: str) -> dict:
         print(f"[content] failed to load {page}: {e}")
         return {}
 
+
+# ── Footer social links (global — rendered on EVERY page) ──────────────────
+# The footer lives in layout.html and renders on every page, but the content()
+# helper is only injected into the / and /story routes. So footer social links
+# are exposed instead via a Jinja GLOBAL (footer_social) backed by this cache,
+# refreshed at startup and on every Content save. Order = render order.
+_FOOTER_SOCIAL_NETWORKS = [("instagram", "Instagram"), ("tiktok", "TikTok"), ("linkedin", "LinkedIn")]
+
+
+def _footer_schema_default(field: str) -> str:
+    for entry in PAGE_CONTENT_SCHEMA.get("main", []):
+        if entry.get("section") == "footer" and entry.get("field") == field:
+            return entry.get("default", "")
+    return ""
+
+
+def _build_footer_social(content_map: dict) -> list:
+    """Merge saved page_content blocks over the schema defaults into a render-ready list."""
+    links = []
+    for name, label in _FOOTER_SOCIAL_NETWORKS:
+        url_block = content_map.get(f"footer.{name}_url")
+        url = (url_block.get("value") if url_block else "") or _footer_schema_default(f"{name}_url")
+        vis_block = content_map.get(f"footer.{name}_visible")
+        vis = (vis_block.get("value") if vis_block else "") or _footer_schema_default(f"{name}_visible")
+        links.append({"name": name, "label": label, "url": url, "visible": vis == "true"})
+    return links
+
+
+# Seed from schema defaults at import so the footer always has values even before
+# the first DB read (or if it fails). reload_footer_social() overrides from the DB.
+_FOOTER_SOCIAL: list = _build_footer_social({})
+
+
+async def reload_footer_social() -> None:
+    """Rebuild the footer social-links cache: saved page_content merged over schema defaults."""
+    global _FOOTER_SOCIAL
+    _FOOTER_SOCIAL = _build_footer_social(await load_page_content("main"))
+
+
+def get_footer_social() -> list:
+    """Jinja global: visible footer links that have a URL, in render order. No DB hit."""
+    return [l for l in _FOOTER_SOCIAL if l["visible"] and l["url"]]
+
+
+templates.env.globals["footer_social"] = get_footer_social
+
 @app.get("/api/admin/content/{page}")
 async def admin_get_content(request: Request, page: str):
     admin = await get_admin_user(request)
@@ -2047,4 +2122,8 @@ async def admin_put_content(request: Request, page: str):
     await _db(
         supabase.table("page_content").upsert(rows, on_conflict="page,section,field")
     )
+    # Footer social links live under page=main; refresh the global cache so the
+    # change shows on every page immediately (the footer isn't per-route).
+    if page == "main":
+        await reload_footer_social()
     return JSONResponse({"success": True, "saved": len(rows)})

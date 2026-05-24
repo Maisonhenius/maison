@@ -82,6 +82,23 @@
   .field input:focus,
   .field textarea:focus { outline: 0; border-color: #b8a44e; }
 
+  .toggle-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    cursor: pointer;
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 300;
+    font-size: 0.9rem;
+    color: #0a0a08;
+  }
+  .toggle-field input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    accent-color: #b8a44e;
+    cursor: pointer;
+  }
+
   .media-row {
     display: grid;
     grid-template-columns: 96px 1fr;
@@ -270,10 +287,10 @@
       wrap.dataset.field = b.field;
       wrap.dataset.fieldType = b.field_type;
 
-      // Single source of truth: whatever the DB has IS the content.
-      // page_content was seeded with the original copy so this is never blank
-      // on a clean install. Admin types, saves, and it becomes the new value.
-      const initial = b.value || '';
+      // Pre-fill with the saved value, falling back to the schema default when a
+      // field has never been saved (e.g. the footer links, which aren't seeded).
+      // Matches the GET endpoint's documented contract (value if set, else default).
+      const initial = b.value || b.default || '';
 
       const label = document.createElement('label');
       label.appendChild(document.createTextNode(b.label || (b.section + '.' + b.field)));
@@ -300,6 +317,18 @@
         ta.dataset.role = 'value-input';
         if (b.required) { ta.required = true; ta.setAttribute('aria-required', 'true'); }
         wrap.appendChild(ta);
+      } else if (b.field_type === 'toggle') {
+        const toggle = document.createElement('label');
+        toggle.className = 'toggle-field';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = (initial === 'true');
+        cb.dataset.role = 'value-input';
+        toggle.appendChild(cb);
+        const span = document.createElement('span');
+        span.textContent = 'Visible in footer';
+        toggle.appendChild(span);
+        wrap.appendChild(toggle);
       } else if (b.field_type === 'image' || b.field_type === 'video') {
         wrap.appendChild(buildMediaWidget(b, initial));
       } else {
@@ -439,11 +468,15 @@
         // PAGE_CONTENT_SCHEMA in app.py, not by the DB column. Omitting it
         // here means the upsert UPDATE clause never touches display_order on
         // existing rows, preserving whatever was originally seeded.
+        // Toggle fields store their checked state as the string "true"/"false".
+        const value = valueInput.type === 'checkbox'
+          ? (valueInput.checked ? 'true' : 'false')
+          : valueInput.value;
         payload.blocks.push({
           section: field.dataset.section,
           field: field.dataset.field,
           field_type: field.dataset.fieldType,
-          value: valueInput.value,
+          value: value,
         });
       });
 

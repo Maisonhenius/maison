@@ -63,6 +63,12 @@ Condensed trap is in CLAUDE.md Gotchas; the reasoning lives here.
 
 ---
 
+## Tracked vs gitignored assets
+
+- **Tracked in git**: `*.webp` under `assets/pictures/{Collection & Fragrances, Jordan Landscape, ingredients}/`, `assets/videos/web/*.mp4`, `assets/videos/web/*.webm` (hero brand-film + scroll-cinematic). The old `assets/video-frames/` directory and its 121 WebP frames are gone — replaced by `scroll-cinematic.mp4`.
+- **Gitignored (originals only)**: `*.png`, `*.jpg`, `*.jpeg` in those folders; `assets/videos/*.mp4` (raw source videos); `assets/videos/web-original-backup/` (pre-encoding hero videos, kept locally for rollback).
+- **Auto-gitignored debug artifacts**: root-level screenshots (`/*.png`), `*-snapshot.md` (Playwright dumps), 4K masters (`*-4k.webp`), design sources (`*.ai`), `assets/videos/*.png`, `assets/videos/web/*-test.mp4`. Drop scratch screenshots at the repo root and they stay out of `git status` automatically.
+
 ## Image size targets (don't ship oversized assets)
 
 | Asset type | Max width | cwebp quality | Target file size | Notes |

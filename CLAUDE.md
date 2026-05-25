@@ -270,6 +270,20 @@ Mobile-first. Tested viewports: 320×568 (iPhone SE worst case), 375×812, 768 (
 - **Pseudo-element overflow on mobile**: `.story-craft__image::before` (`inset:-10% -5%` gold halo) bleeds past the viewport; `.story-craft` gets `overflow:hidden` < 768px. Check decorative `::before`/`::after` with negative inset.
 - **Cart badge offset on mobile**: `.nav__cart` mobile `padding:13px` shifts the absolute `.cart-badge`; the mobile breakpoint overrides it to `top:2px; right:0px`. Recalc if you change the padding.
 
+## Assets (images & video)
+
+Repo images are WebP (PNG/JPG originals gitignored). Size targets + cwebp/ffmpeg recipes + the full tracked-vs-gitignored lists live in `docs/MEDIA.md`.
+
+- **`products` table has 4 image fields**: `card_image` (square 1200², landing collection + product Explore More), `mood_image` (landscape 1920×1072, product Mood section only), `bottle_image` (portrait 1200×1490, product "The Bottle" section), `explore_image` (legacy square variants, not currently referenced).
+- **Fields hold EITHER a full URL OR a legacy bare filename. NEVER prepend a `/static/` path manually in a template — always resolve via the Jinja filter** (passes URLs through, prefixes only bare names):
+  - `{{ p.card_image | product_image }}` → `/static/assets/pictures/Collection & Fragrances/`
+  - `{{ slug | ingredient_image }}` → `/static/assets/pictures/ingredients/{slug}.webp`
+  - `{{ p.video | product_video }}` → `/static/assets/videos/web/`
+  - `{{ value | page_media }}` → `/static/assets/` (CMS images/videos)
+
+  Migration 008 moved existing product media to Supabase Storage URLs; new admin uploads write there too.
+- **Logotype**: `assets/images/logotype.webp` (800×873, alpha) — crest + "Maison Henius" + "Collection Eaux de Parfums"; used in footer + auth pages. Monogram SVG `assets/images/logo.svg` still used in nav + favicons.
+
 ## Performance
 
 Three layers near the top of `server/app.py`:

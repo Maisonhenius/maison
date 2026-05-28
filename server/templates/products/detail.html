@@ -471,13 +471,10 @@
   <!-- ═══ THE ESSENCE ═══ -->
   <section class="product-essence">
     <hr class="product-essence__divider">
-    <span class="product-essence__label">The Essence</span>
-    <p class="product-essence__character">
-      Our Essence does not seek to impress.
-    </p>
-    <p class="product-essence__character">
-      It seeks to resonate.
-    </p>
+    <span class="product-essence__label">{{ product.essence_label }}</span>
+    {% for para in (product.essence_tagline or '').split('\n\n') if para.strip() %}
+    <p class="product-essence__character">{{ para }}</p>
+    {% endfor %}
     <p class="product-essence__intro">
       {{ product.description }}
     </p>
@@ -494,7 +491,7 @@
   <!-- ═══ THE WEARER ═══ -->
   <section class="product-wearer">
     <div class="product-wearer__header">
-      <span class="product-wearer__label">The Wearer</span>
+      <span class="product-wearer__label">{{ product.wearer_label }}</span>
       <h2 class="product-wearer__heading">{{ product.character }}</h2>
     </div>
     <div class="product-wearer__grid">
@@ -512,8 +509,8 @@
   <section class="product-comp">
     <div class="product-comp__header">
       <hr class="product-comp__divider">
-      <span class="product-comp__label">The Composition</span>
-      <h2 class="product-comp__heading">A journey in three acts</h2>
+      <span class="product-comp__label">{{ product.composition_label }}</span>
+      <h2 class="product-comp__heading">{{ product.composition_subtitle }}</h2>
     </div>
 
     {% for key in ['top', 'heart', 'base'] %}
@@ -535,12 +532,12 @@
 
   <!-- ═══ THE BOTTLE ═══ -->
   <section class="product-bottle">
-    <span class="product-bottle__label">The Bottle</span>
+    <span class="product-bottle__label">{{ product.bottle_label }}</span>
     <img class="product-bottle__img"
          src="{{ product.bottle_image | product_image }}"
          alt="{{ product.name }} - Maison Henius bottle">
-    <div class="product-bottle__details">Eau de Parfum · 100ml</div>
-    <p class="product-bottle__craft">Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.</p>
+    <div class="product-bottle__details">{{ product.bottle_size }}</div>
+    <p class="product-bottle__craft">{{ product.bottle_description }}</p>
     {% if product.in_stock %}
     <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart - ${{ product.price }}</button>
     {% else %}

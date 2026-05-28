@@ -360,6 +360,47 @@
       <div id="wearerBlocks"></div>
     </section>
 
+    <section class="form-section">
+      <h2 class="form-section__title">Page Labels &amp; Copy</h2>
+      <p class="form-section__sub">Per-fragrance copy for the section labels and supporting text on this product's page. Each fragrance can have its own.</p>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="essence_label">Essence section label</label>
+          <input type="text" id="essence_label" placeholder="The Essence">
+        </div>
+        <div class="form-field">
+          <label for="wearer_label">Wearer section label</label>
+          <input type="text" id="wearer_label" placeholder="The Wearer">
+        </div>
+        <div class="form-field">
+          <label for="composition_label">Composition section label</label>
+          <input type="text" id="composition_label" placeholder="The Composition">
+        </div>
+        <div class="form-field">
+          <label for="bottle_label">Bottle section label</label>
+          <input type="text" id="bottle_label" placeholder="The Bottle">
+        </div>
+        <div class="form-field form-field--full">
+          <label for="essence_tagline">Essence tagline</label>
+          <textarea id="essence_tagline" rows="3" placeholder="Our Essence does not seek to impress.&#10;&#10;It seeks to resonate."></textarea>
+          <span class="form-field__hint">Separate paragraphs with a blank line. Each paragraph renders as its own line.</span>
+        </div>
+        <div class="form-field form-field--full">
+          <label for="composition_subtitle">Composition subtitle</label>
+          <input type="text" id="composition_subtitle" placeholder="A journey in three acts">
+        </div>
+        <div class="form-field form-field--full">
+          <label for="bottle_size">Bottle size / format</label>
+          <input type="text" id="bottle_size" placeholder="Eau de Parfum · 100ml">
+        </div>
+        <div class="form-field form-field--full">
+          <label for="bottle_description">Bottle craft description</label>
+          <textarea id="bottle_description" rows="3" placeholder="Custom golden Zamac cap inspired by ancient Ionic columns…"></textarea>
+        </div>
+      </div>
+    </section>
+
     <div class="form-footer">
       <span class="save-status" id="saveStatus"></span>
       <a href="/admin/products" class="btn btn--ghost">Cancel</a>
@@ -807,6 +848,17 @@
         setVal(`wearer_${i}_name`, w.name || '');
         setVal(`wearer_${i}_desc`, w.desc || '');
       }
+
+      // Per-product page copy (migration 012). Empty value = fall back to the
+      // hardcoded template default at render time.
+      setVal('essence_label',        product.essence_label || '');
+      setVal('essence_tagline',      product.essence_tagline || '');
+      setVal('wearer_label',         product.wearer_label || '');
+      setVal('composition_label',    product.composition_label || '');
+      setVal('composition_subtitle', product.composition_subtitle || '');
+      setVal('bottle_label',         product.bottle_label || '');
+      setVal('bottle_size',          product.bottle_size || '');
+      setVal('bottle_description',   product.bottle_description || '');
     }
 
     function setVal(id, v) {
@@ -844,6 +896,16 @@
         bottle_image: document.getElementById('img_bottle_image').value.trim(),
         mood_image: document.getElementById('img_mood_image').value.trim(),
         explore_image: document.getElementById('img_explore_image').value.trim(),
+        // Per-product page copy (migration 012). Trim text inputs, preserve
+        // newlines on the longtext fields.
+        essence_label:        document.getElementById('essence_label').value.trim(),
+        essence_tagline:      document.getElementById('essence_tagline').value,
+        wearer_label:         document.getElementById('wearer_label').value.trim(),
+        composition_label:    document.getElementById('composition_label').value.trim(),
+        composition_subtitle: document.getElementById('composition_subtitle').value.trim(),
+        bottle_label:         document.getElementById('bottle_label').value.trim(),
+        bottle_size:          document.getElementById('bottle_size').value.trim(),
+        bottle_description:   document.getElementById('bottle_description').value,
         notes: {},
         wearer: [],
       };

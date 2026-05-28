@@ -873,7 +873,7 @@
     </header>
 
     <div class="hero__tagline">
-      <p>Fragrance is not worn. It is lived.</p>
+      <p>{{ content('hero', 'tagline', 'Fragrance is not worn. It is lived.') }}</p>
     </div>
 
     <div class="scroll-indicator">
@@ -902,7 +902,7 @@
     <!-- Philosophy -->
     <div class="about__philosophy">
       <hr class="about__divider">
-      <span class="about__label">The House</span>
+      <span class="about__label">{{ content('about', 'label', 'The House') }}</span>
       <h2 class="about__quote">{{ content('about', 'quote', '"Memory over product. Emotion over visibility."') }}</h2>
       <p class="about__manifesto">{{ content('about', 'subtext', 'Maison Henius transforms scent into memory. Each creation is an emotional identity rooted in craftsmanship and storytelling - not simply worn, but lived. The house exists between contrasts: garden and desert, life and silence. This duality defines every creation.') }}</p>
     </div>
@@ -911,11 +911,16 @@
     <div class="about__block">
       <div class="about__origin">
         <div class="about__origin-text">
-          <span class="about__label">Our Origin</span>
+          <span class="about__label">{{ content('about', 'origin_label', 'Our Origin') }}</span>
           <h3 class="about__origin-heading">
-            Where fragrant gardens meet<br>the mineral vastness of the desert
+            {% set _origin_heading = content('about', 'origin_heading', 'Where fragrant gardens meet\nthe mineral vastness of the desert') %}
+            {{ _origin_heading.replace('\n', '<br>')|safe }}
           </h3>
           <div class="about__origin-body">
+            {% set _origin_body = content('about', 'origin_body', '') %}
+            {% if _origin_body %}
+              {% for para in _origin_body.split('\n\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}
+            {% else %}
             <p>
               Inspired by the landscapes of Jordan - where roses bloom beside
               ancient stone and amber sands stretch to the horizon - each composition
@@ -926,6 +931,7 @@
               unfold gradually, leaving an impression as unique as the land that
               inspired them.
             </p>
+            {% endif %}
           </div>
         </div>
         <div class="about__origin-image">
@@ -939,7 +945,7 @@
     <!-- Closing -->
     <div class="about__closing">
       <p class="about__closing-quote">
-        "You do not buy a fragrance. You enter a story."
+        {{ content('about', 'closing_quote', '"You do not buy a fragrance. You enter a story."') }}
       </p>
     </div>
 

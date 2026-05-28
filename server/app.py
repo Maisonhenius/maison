@@ -290,6 +290,17 @@ def _row_to_product(row: dict) -> dict:
         # `video` is the single hero-media field — holds an image OR a video URL;
         # the product page renders <img> or <video> based on the file extension.
         "video": row.get("video", ""),
+        # Per-product editable copy (migration 012). Each field is NOT NULL with a
+        # column-level DEFAULT in the DB, so these `or "..."` fallbacks only
+        # fire if the migration hasn't been applied yet.
+        "essence_label": row.get("essence_label") or "The Essence",
+        "essence_tagline": row.get("essence_tagline") or "Our Essence does not seek to impress.\n\nIt seeks to resonate.",
+        "wearer_label": row.get("wearer_label") or "The Wearer",
+        "composition_label": row.get("composition_label") or "The Composition",
+        "composition_subtitle": row.get("composition_subtitle") or "A journey in three acts",
+        "bottle_label": row.get("bottle_label") or "The Bottle",
+        "bottle_size": row.get("bottle_size") or "Eau de Parfum · 100ml",
+        "bottle_description": row.get("bottle_description") or "Custom golden Zamac cap inspired by ancient Ionic columns. Amber glass with deep-to-golden gradient. Brass label plate with embossed detailing.",
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
         "stock": int(row.get("stock") or 0),
@@ -1667,6 +1678,22 @@ def _validate_product_payload(body: dict, *, require_all: bool):
         if field in body:
             out[field] = body.get(field) or ""
 
+    # Per-product editable page copy (migration 012). Empty strings are allowed
+    # on PATCH (the DB DEFAULT will not fire on UPDATE, so an empty value is
+    # what the owner intentionally saved — template fallback covers it).
+    for field in (
+        "essence_label",
+        "essence_tagline",
+        "wearer_label",
+        "composition_label",
+        "composition_subtitle",
+        "bottle_label",
+        "bottle_size",
+        "bottle_description",
+    ):
+        if field in body:
+            out[field] = body.get(field) or ""
+
     if "display_order" in body:
         try:
             out["display_order"] = int(body.get("display_order") or 0)
@@ -1876,17 +1903,38 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "hero", "field": "video", "type": "video",
          "label": "Hero video (silent autoplay)", "group": "Hero",
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4"},
+        {"section": "hero", "field": "tagline", "type": "text", "required": True,
+         "label": "Hero tagline (italic line over video)", "group": "Hero",
+         "default": "Fragrance is not worn. It is lived."},
 
         # The House (brand quote on landing)
+        {"section": "about", "field": "label", "type": "text", "required": True,
+         "label": "House section label", "group": "The House",
+         "default": "The House"},
         {"section": "about", "field": "quote", "type": "longtext", "required": True,
          "label": "Brand quote", "group": "The House",
          "default": '"Memory over product. Emotion over visibility."'},
         {"section": "about", "field": "subtext", "type": "longtext", "required": True,
          "label": "Brand description (paragraph below quote)", "group": "The House",
          "default": "Maison Henius transforms scent into memory. Each creation is an emotional identity rooted in craftsmanship and storytelling - not simply worn, but lived. The house exists between contrasts: garden and desert, life and silence. This duality defines every creation."},
+        {"section": "about", "field": "origin_label", "type": "text", "required": True,
+         "label": "Origin sub-label", "group": "The House",
+         "default": "Our Origin"},
+        {"section": "about", "field": "origin_heading", "type": "longtext", "required": True,
+         "label": "Origin headline (two lines — use a line break)", "group": "The House",
+         "default": "Where fragrant gardens meet\nthe mineral vastness of the desert"},
+        {"section": "about", "field": "origin_body", "type": "longtext", "required": True,
+         "label": "Origin body (separate paragraphs with a blank line)", "group": "The House",
+         "default": (
+             "Inspired by the landscapes of Jordan - where roses bloom beside ancient stone and amber sands stretch to the horizon - each composition reveals a subtle balance of freshness, depth, and character.\n\n"
+             "Shaped by nature, memory, and exceptional raw materials, our fragrances unfold gradually, leaving an impression as unique as the land that inspired them."
+         )},
         {"section": "about", "field": "image", "type": "image",
          "label": "Origin image (Wadi Rum)", "group": "The House",
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-about-wadi-rum.webp"},
+        {"section": "about", "field": "closing_quote", "type": "longtext", "required": True,
+         "label": "Closing quote (after the origin block)", "group": "The House",
+         "default": '"You do not buy a fragrance. You enter a story."'},
 
         # The Collection (heading above the 5-card grid)
         {"section": "collection", "field": "label", "type": "text", "required": True,
@@ -1958,6 +2006,9 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "hero", "field": "title", "type": "text", "required": True,
          "label": "Hero — main title", "group": "Hero",
          "default": "Our Story"},
+        {"section": "hero", "field": "subtitle", "type": "text", "required": True,
+         "label": "Hero — subtitle (under the title)", "group": "Hero",
+         "default": "Where Memory Becomes Fragrance"},
         {"section": "hero", "field": "image", "type": "image",
          "label": "Hero — background image", "group": "Hero",
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-hero-wadi-rum.webp"},
@@ -1991,6 +2042,16 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "craft", "field": "heading", "type": "text", "required": True,
          "label": "Craft — headline", "group": "The Craft",
          "default": "Every Detail, an Intention"},
+        {"section": "craft", "field": "body", "type": "longtext", "required": True,
+         "label": "Craft — body (separate paragraphs with a blank line)", "group": "The Craft",
+         "default": (
+             "At Maison Henius, fragrance begins with raw material. Rare, Expressive. Uncompromised. Each composition is built around what matters most \"the essence of the material itself\", Nothing is added to distract. Nothing is softened to please.\n\n"
+             "The fragrance unfolds slowly. It evolves with skin, warmth and time.\n\n"
+             "The bottle is an object of quiet refinement. Thick amber glass, lacquered in a gradient that deepens from warm golden-amber at the base to a rich darkness at the shoulder - evoking the transition from desert sand to twilight sky.\n\n"
+             "A brass label plate, embossed and syringed with the Maison crest, rests against the glass like a jeweller's plaque. Serif lettering in deep Orange speaks of heritage without raising its voice.\n\n"
+             "The cap tells its own story. Custom-cast in golden Zamac, its form draws from the ancient Ionic column - a fluted shaft rising to spiral volutes, crowned with a Greek key pattern band. The name of the house is engraved around the neck, a quiet signature of provenance and care.\n\n"
+             "This is not packaging. It is an expression of the same artistry held within."
+         )},
         {"section": "craft", "field": "image", "type": "image",
          "label": "Craft — image", "group": "The Craft",
          "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/universe-craft-collection.webp"},
@@ -2002,6 +2063,55 @@ PAGE_CONTENT_SCHEMA = {
         {"section": "values", "field": "heading", "type": "text", "required": True,
          "label": "Pillars — headline", "group": "Our Pillars",
          "default": "What We Hold True"},
+        {"section": "values", "field": "pillar_1_name", "type": "text", "required": True,
+         "label": "Pillar 1 — name", "group": "Our Pillars",
+         "default": "Elegance"},
+        {"section": "values", "field": "pillar_1_desc", "type": "longtext", "required": True,
+         "label": "Pillar 1 — description", "group": "Our Pillars",
+         "default": "Refined, sophisticated, never loud. Every element is considered, every gesture precise."},
+        {"section": "values", "field": "pillar_2_name", "type": "text", "required": True,
+         "label": "Pillar 2 — name", "group": "Our Pillars",
+         "default": "Exclusivity"},
+        {"section": "values", "field": "pillar_2_desc", "type": "longtext", "required": True,
+         "label": "Pillar 2 — description", "group": "Our Pillars",
+         "default": "Not secretive, but selective. Designed for the connoisseur who values substance over spectacle."},
+        {"section": "values", "field": "pillar_3_name", "type": "text", "required": True,
+         "label": "Pillar 3 — name", "group": "Our Pillars",
+         "default": "Warmth"},
+        {"section": "values", "field": "pillar_3_desc", "type": "longtext", "required": True,
+         "label": "Pillar 3 — description", "group": "Our Pillars",
+         "default": "Inspired by ochre sands, amber tones, and golden heritage. A house that invites, never intimidates."},
+        {"section": "values", "field": "pillar_4_name", "type": "text", "required": True,
+         "label": "Pillar 4 — name", "group": "Our Pillars",
+         "default": "Timelessness"},
+        {"section": "values", "field": "pillar_4_desc", "type": "longtext", "required": True,
+         "label": "Pillar 4 — description", "group": "Our Pillars",
+         "default": "Enduring creations that transcend seasons and trends. What is true today remains true tomorrow."},
+        {"section": "values", "field": "pillar_5_name", "type": "text", "required": True,
+         "label": "Pillar 5 — name", "group": "Our Pillars",
+         "default": "Cultural Depth"},
+        {"section": "values", "field": "pillar_5_desc", "type": "longtext", "required": True,
+         "label": "Pillar 5 — description", "group": "Our Pillars",
+         "default": "Subtle references to heritage, travel, and artistry. A dialogue between civilisations, never a cliché."},
+
+        # Parallax quote (over the Perfumer's Table image)
+        {"section": "parallax", "field": "quote", "type": "longtext", "required": True,
+         "label": "Parallax quote (over the Perfumer's Table image — use a line break to split lines)", "group": "Parallax Quote",
+         "default": '"You do not buy a fragrance.\nYou enter a story."'},
+
+        # Bottom CTA
+        {"section": "cta", "field": "label", "type": "text", "required": True,
+         "label": "Bottom CTA — small label", "group": "Bottom CTA",
+         "default": "Beyond Borders"},
+        {"section": "cta", "field": "heading", "type": "text", "required": True,
+         "label": "Bottom CTA — headline", "group": "Bottom CTA",
+         "default": "Discover the Collection"},
+        {"section": "cta", "field": "subtext", "type": "text", "required": True,
+         "label": "Bottom CTA — subtext", "group": "Bottom CTA",
+         "default": "Five fragrances. Five journeys. One house."},
+        {"section": "cta", "field": "button", "type": "text", "required": True,
+         "label": "Bottom CTA — button text", "group": "Bottom CTA",
+         "default": "Explore Fragrances"},
     ],
 }
 

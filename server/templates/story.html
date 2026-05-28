@@ -532,7 +532,7 @@
     <div class="story-hero__content">
       <span class="story-hero__label">{{ content('hero', 'label', 'Maison Henius') }}</span>
       <h1 class="story-hero__title">{{ content('hero', 'title', 'Our Story') }}</h1>
-      <p class="story-hero__sub">Where Memory Becomes Fragrance</p>
+      <p class="story-hero__sub">{{ content('hero', 'subtitle', 'Where Memory Becomes Fragrance') }}</p>
     </div>
   </section>
 
@@ -573,12 +573,17 @@
         <h2 class="story-craft__heading">{{ content('craft', 'heading', 'Every Detail, an Intention') }}</h2>
         <hr class="story-craft__divider">
         <div class="story-craft__body">
+          {% set _craft_body = content('craft', 'body', '') %}
+          {% if _craft_body %}
+            {% for para in _craft_body.split('\n\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}
+          {% else %}
           <p>At Maison Henius, fragrance begins with raw material. Rare, Expressive. Uncompromised. Each composition is built around what matters most "the essence of the material itself", Nothing is added to distract. Nothing is softened to please.</p>
           <p>The fragrance unfolds slowly. It evolves with skin, warmth and time.</p>
           <p>The bottle is an object of quiet refinement. Thick amber glass, lacquered in a gradient that deepens from warm golden-amber at the base to a rich darkness at the shoulder - evoking the transition from desert sand to twilight sky.</p>
           <p>A brass label plate, embossed and syringed with the Maison crest, rests against the glass like a jeweller's plaque. Serif lettering in deep Orange speaks of heritage without raising its voice.</p>
           <p>The cap tells its own story. Custom-cast in golden Zamac, its form draws from the ancient Ionic column - a fluted shaft rising to spiral volutes, crowned with a Greek key pattern band. The name of the house is engraved around the neck, a quiet signature of provenance and care.</p>
           <p>This is not packaging. It is an expression of the same artistry held within.</p>
+          {% endif %}
         </div>
       </div>
     </div>
@@ -592,28 +597,28 @@
     <div class="story-values__grid">
       <div class="story-value">
         <div class="story-value__icon"></div>
-        <h3 class="story-value__name">Elegance</h3>
-        <p class="story-value__desc">Refined, sophisticated, never loud. Every element is considered, every gesture precise.</p>
+        <h3 class="story-value__name">{{ content('values', 'pillar_1_name', 'Elegance') }}</h3>
+        <p class="story-value__desc">{{ content('values', 'pillar_1_desc', 'Refined, sophisticated, never loud. Every element is considered, every gesture precise.') }}</p>
       </div>
       <div class="story-value">
         <div class="story-value__icon"></div>
-        <h3 class="story-value__name">Exclusivity</h3>
-        <p class="story-value__desc">Not secretive, but selective. Designed for the connoisseur who values substance over spectacle.</p>
+        <h3 class="story-value__name">{{ content('values', 'pillar_2_name', 'Exclusivity') }}</h3>
+        <p class="story-value__desc">{{ content('values', 'pillar_2_desc', 'Not secretive, but selective. Designed for the connoisseur who values substance over spectacle.') }}</p>
       </div>
       <div class="story-value">
         <div class="story-value__icon"></div>
-        <h3 class="story-value__name">Warmth</h3>
-        <p class="story-value__desc">Inspired by ochre sands, amber tones, and golden heritage. A house that invites, never intimidates.</p>
+        <h3 class="story-value__name">{{ content('values', 'pillar_3_name', 'Warmth') }}</h3>
+        <p class="story-value__desc">{{ content('values', 'pillar_3_desc', 'Inspired by ochre sands, amber tones, and golden heritage. A house that invites, never intimidates.') }}</p>
       </div>
       <div class="story-value">
         <div class="story-value__icon"></div>
-        <h3 class="story-value__name">Timelessness</h3>
-        <p class="story-value__desc">Enduring creations that transcend seasons and trends. What is true today remains true tomorrow.</p>
+        <h3 class="story-value__name">{{ content('values', 'pillar_4_name', 'Timelessness') }}</h3>
+        <p class="story-value__desc">{{ content('values', 'pillar_4_desc', 'Enduring creations that transcend seasons and trends. What is true today remains true tomorrow.') }}</p>
       </div>
       <div class="story-value">
         <div class="story-value__icon"></div>
-        <h3 class="story-value__name">Cultural Depth</h3>
-        <p class="story-value__desc">Subtle references to heritage, travel, and artistry. A dialogue between civilisations, never a clich&eacute;.</p>
+        <h3 class="story-value__name">{{ content('values', 'pillar_5_name', 'Cultural Depth') }}</h3>
+        <p class="story-value__desc">{{ content('values', 'pillar_5_desc', 'Subtle references to heritage, travel, and artistry. A dialogue between civilisations, never a cliché.') }}</p>
       </div>
     </div>
   </section>
@@ -623,16 +628,17 @@
     <img src="/static/assets/pictures/Jordan%20Landscape/Story.webp" alt="Perfumer's table with oils, figs, and raw materials" class="story-parallax__img" width="1356" height="757" loading="lazy" decoding="async">
     <div class="story-parallax__overlay"></div>
     <div class="story-parallax__text">
-      <p class="story-parallax__quote">"You do not buy a fragrance.<br>You enter a story."</p>
+      {% set _parallax_quote = content('parallax', 'quote', '"You do not buy a fragrance.\nYou enter a story."') %}
+      <p class="story-parallax__quote">{{ _parallax_quote.replace('\n', '<br>')|safe }}</p>
     </div>
   </section>
 
   <!-- ═══════════ COLLECTION CTA ═══════════ -->
   <section class="story-cta">
-    <span class="story-cta__label">Beyond Borders</span>
-    <h2 class="story-cta__heading">Discover the Collection</h2>
-    <p class="story-cta__sub">Five fragrances. Five journeys. One house.</p>
-    <a href="/#fragrances" class="story-cta__link">Explore Fragrances</a>
+    <span class="story-cta__label">{{ content('cta', 'label', 'Beyond Borders') }}</span>
+    <h2 class="story-cta__heading">{{ content('cta', 'heading', 'Discover the Collection') }}</h2>
+    <p class="story-cta__sub">{{ content('cta', 'subtext', 'Five fragrances. Five journeys. One house.') }}</p>
+    <a href="/#fragrances" class="story-cta__link">{{ content('cta', 'button', 'Explore Fragrances') }}</a>
   </section>
 
 </main>

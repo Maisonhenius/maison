@@ -7,11 +7,12 @@
 <meta property="og:type" content="product">
 <meta property="og:title" content="{{ product.name }} - Maison Henius">
 <meta property="og:description" content="{{ product.character }}">
-<meta property="og:url" content="https://web-production-cc74a0.up.railway.app/products/{{ product.slug }}">
+<meta property="og:url" content="{{ site_url }}/products/{{ product.slug }}">
 {% endblock %}
 
 {% block og %}
-<meta property="og:image" content="https://web-production-cc74a0.up.railway.app{{ product.card_image | product_image }}">
+{% set _og_img = product.card_image | product_image %}
+<meta property="og:image" content="{{ _og_img if _og_img.startswith('http') else site_url ~ _og_img }}">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="1200">
 <meta property="og:site_name" content="Maison Henius">
@@ -458,7 +459,7 @@
         <h1 class="product-hero__name">{{ product.name }}</h1>
       </div>
       <div class="product-hero__actions">
-        <span class="product-hero__price">${{ product.price }}</span>
+        <span class="product-hero__price">${{ "%.0f"|format(product.price) }}</span>
         {% if product.in_stock %}
         <button class="product-hero__cart-btn" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart</button>
         {% else %}
@@ -539,7 +540,7 @@
     <div class="product-bottle__details">{{ product.bottle_size }}</div>
     <p class="product-bottle__craft">{{ product.bottle_description }}</p>
     {% if product.in_stock %}
-    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart - ${{ product.price }}</button>
+    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart - ${{ "%.0f"|format(product.price) }}</button>
     {% else %}
     <button class="product-bottle__cta product-bottle__cta--oos" disabled aria-disabled="true">Out of Stock</button>
     {% endif %}

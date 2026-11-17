@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Form, Request, UploadFile, File
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse, Response
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pathlib import Path
@@ -14,6 +14,7 @@ import re
 import json
 import time
 import uuid
+from urllib.parse import quote
 import mimetypes
 import traceback
 from stripe import StripeClient, Webhook, SignatureVerificationError
@@ -190,8 +191,33 @@ async def root_static_files(filename: str):
             return FileResponse(file_path)
     return JSONResponse({"error": "Not found"}, status_code=404)
 
+# Canonical public address. Used for social-share previews (og:url / og:image),
+# the canonical link and the sitemap, so shares never show the railway.app host.
+SITE_URL = "https://www.maisonhenius.com"
+
+
+# Search engines look for these two files at the site root, not under /static.
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    return FileResponse(BASE_DIR / "robots.txt", media_type="text/plain")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    paths = ["/", "/shop", "/story", "/terms", "/privacy"]
+    paths += [f"/products/{quote(slug)}" for slug in get_products_dict()]
+    urls = "".join(f"<url><loc>{SITE_URL}{p}</loc></url>" for p in paths)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>'
+           f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
+    return Response(content=xml, media_type="application/xml")
+
+
 # Templates
 templates = Jinja2Templates(directory=str(TEMPLATES_DIR))
+templates.env.globals["site_url"] = SITE_URL
+# Website translation (Weglot). Empty = feature off; set the public API key from
+# the Weglot dashboard in Railway's environment variables to turn it on.
+templates.env.globals["weglot_api_key"] = os.environ.get("WEGLOT_API_KEY", "")
 
 
 # --- Image URL resolution filters ---

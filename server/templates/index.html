@@ -4,13 +4,13 @@
 
 {% block meta %}
   <meta name="description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
-  <link rel="canonical" href="https://maisonhenius.com/">
+  <link rel="canonical" href="{{ site_url }}/">
 
   <!-- Open Graph -->
   <meta property="og:type" content="website">
   <meta property="og:title" content="Maison Henius - Luxury Fragrances Inspired by Jordan">
   <meta property="og:description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
-  <meta property="og:url" content="https://web-production-cc74a0.up.railway.app/">
+  <meta property="og:url" content="{{ site_url }}/">
 
   <!-- High-priority preload of the hero video. Without this, browsers wait
        to fetch the video until they parse the <video> tag in <body>; with
@@ -856,6 +856,7 @@
         </div>
         <ul class="nav__links nav__right">
           <li class="nav__hide-mobile"><a href="/#contact">Contact</a></li>
+          <li class="nav__lang" data-lang-menu="compact" hidden></li>
           <li><a href="/cart" class="nav__cart" aria-label="Shopping cart">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
             <span class="cart-badge" style="display:none">0</span>

@@ -322,6 +322,15 @@ Three layers near the top of `server/app.py`:
 - **Four anti-oversell gates**: product Add-to-Cart, cart `+` stepper (`at_max` disables), `/api/cart` add/update clamp, `create-session` hard-reject (409, no number in the message).
 - Out-of-stock products STAY VISIBLE with an "Out of Stock" badge + disabled CTA. `_row_to_product` exposes `stock`+`in_stock`; product form has a required Stock field; `/admin/products` shows a Stock column (amber ≤5, red 0). `cart.js` carries `at_max`/`in_stock` into localStorage + fires `maison:cart-synced` so the cart re-renders on a server clamp.
 
+## Languages (Weglot)
+
+- **Weglot does the translating; `js/language.js` + `css/language.css` do the UI.** Weglot loads in `layout.html` ONLY when the `WEGLOT_API_KEY` env var is set (Jinja global `weglot_api_key`). No key → no Weglot → menus stay `hidden`, no banner: the site is unchanged.
+- Languages: en (original), ar, fr, es, it, ru — the `LANGS` map in `language.js` must match the languages enabled in the Weglot dashboard. Weglot's own switcher is hidden (`hide_switcher: true`) and its auto-redirect is off (`auto_switch: false`).
+- **Suggestion banner**: once per device, suggests the visitor's language from the device time zone (`TZ_LANG` country map), falling back to browser language. Choice stored in `localStorage['maison_lang_choice']`. Banner copy is hand-written per language and marked `data-wg-notranslate`.
+- **Dropdown menus** render into every `[data-lang-menu]`: header nav (`compact`, tablet/desktop only — in BOTH `layout.html` nav and the `index.html` hero nav), the `#mobileNav` overlay (phones), and the footer. Hidden < 768px in the header because it pushes the logo off-centre.
+- **Arabic** sets `<html dir="rtl" lang="ar">`, lazy-loads Amiri + IBM Plex Sans Arabic, and forces `letter-spacing:0` + no italics (wide tracking breaks joined Arabic script).
+- Turbo swaps `<body>` on navigation: `language.js` re-renders on `turbo:load`. After adding the real key, verify Weglot re-translates pages reached via Turbo navigation (not just full loads).
+
 ## Stripe (current state)
 
 - **Pre-launch checkout gate**: `CHECKOUT_COMING_SOON` constant in `app.py` (single source of truth). While `True`, `/checkout`'s "Continue to Payment" opens an "Arriving Soon" modal (gated by `{% if coming_soon %}` + `var COMING_SOON`) instead of redirecting to Stripe, AND `create_checkout_session` short-circuits with `{"coming_soon": true}` so a direct API hit can't pay. Flip to `False` + redeploy to enable real checkout. (Checkout requires login → registered users are the launch notify-list.)
@@ -335,10 +344,10 @@ Three layers near the top of `server/app.py`:
 - **Repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB). **Builder**: Dockerfile (clones from GitHub on Railway servers).
 - **Railway**: project `maison-henius` (`f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web` (`d363d941-07c4-4383-b0a2-c12ebd5a8cbd`), env `production` (`b99a4d18-a9fc-4742-b874-c0b4d38e5ade`). Owner account: **husein.aldarawish@gmail.com** (for `railway login`).
 - **Redeploy + the critical `ARG CACHEBUST` bump, custom-domain DNS, and the broken `railway domain` CLI workaround → `docs/DEPLOY.md`.**
+- Social-share tags, canonical link and `/sitemap.xml` (dynamic, in `app.py`) use `SITE_URL` = `https://www.maisonhenius.com`. `/robots.txt` is served at the root.
 
 ### Still needed
 - **Stripe webhook secret** (currently `whsec_placeholder`) — create the webhook in Stripe Dashboard → `/api/stripe/webhook`, paste the signing secret into Railway env.
-- Replace the `https://maisonhenius.com/` placeholder in `index.html` `og:image`; add `sitemap.xml` + a proper 1200×630 `og:image`.
 
 ## Future
 

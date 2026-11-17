@@ -324,12 +324,12 @@ Three layers near the top of `server/app.py`:
 
 ## Languages (Weglot)
 
-- **Weglot does the translating; `js/language.js` + `css/language.css` do the UI.** Weglot loads in `layout.html` ONLY when the `WEGLOT_API_KEY` env var is set (Jinja global `weglot_api_key`). No key → no Weglot → menus stay `hidden`, no banner: the site is unchanged.
-- Languages: en (original), ar, fr, es, it, ru — the `LANGS` map in `language.js` must match the languages enabled in the Weglot dashboard. Weglot's own switcher is hidden (`hide_switcher: true`) and its auto-redirect is off (`auto_switch: false`).
-- **Suggestion banner**: once per device, suggests the visitor's language from the device time zone (`TZ_LANG` country map), falling back to browser language. Choice stored in `localStorage['maison_lang_choice']`. Banner copy is hand-written per language and marked `data-wg-notranslate`.
+- **Weglot does the translating; `js/language.js` + `css/language.css` do the UI.** Weglot loads in `layout.html` ONLY when the `WEGLOT_API_KEY` env var is set (Jinja global `weglot_api_key`). No key → no Weglot → menus stay `hidden`, no banner.
+- **Languages: English (original) + French.** `LANGS` / `BANNER` / `TZ_LANG` in `language.js` must match the languages enabled in the Weglot dashboard. Menus and banner only offer languages that are BOTH in `LANGS` and enabled in Weglot (`Weglot.getAvailableLanguages()`); with only English available the menus hide. A visitor stuck in a language no longer in `LANGS` is switched back to English. Weglot's own switcher is hidden (`hide_switcher: true`), auto-redirect off (`auto_switch: false`).
+- **Suggestion banner**: once per device, suggests French from the device time zone (`TZ_LANG`: France, Monaco, Luxembourg, Quebec, French overseas), falling back to browser language. Choice stored in `localStorage['maison_lang_choice']`. Banner copy is hand-written and marked `data-wg-notranslate`.
 - **Dropdown menus** render into every `[data-lang-menu]`: header nav (`compact`, tablet/desktop only — in BOTH `layout.html` nav and the `index.html` hero nav), the `#mobileNav` overlay (phones), and the footer. Hidden < 768px in the header because it pushes the logo off-centre.
-- **Arabic** sets `<html dir="rtl" lang="ar">`, lazy-loads Amiri + IBM Plex Sans Arabic, and forces `letter-spacing:0` + no italics (wide tracking breaks joined Arabic script).
-- Turbo swaps `<body>` on navigation: `language.js` re-renders on `turbo:load`. After adding the real key, verify Weglot re-translates pages reached via Turbo navigation (not just full loads).
+- **Weglot does NOT re-translate after a Turbo `<body>` swap** (tested on prod: neither `Weglot.addNodes` nor re-`switchTo` works). So while a translated language is active, `turbo:before-visit` is cancelled and the link does a full page load. English keeps Turbo navigation.
+- Arabic/RTL support was built then removed (owner chose French only) — see git history of `language.js`/`language.css` (`0debe91`) if RTL is ever needed again.
 
 ## Stripe (current state)
 

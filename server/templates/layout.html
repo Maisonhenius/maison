@@ -36,15 +36,15 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap" media="print" onload="this.media='all'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Montserrat:wght@300;400;500&display=swap"></noscript>
   <link rel="stylesheet" href="/static/css/style.css?v=8">
-  <link rel="stylesheet" href="/static/css/language.css?v=3">
+  <link rel="stylesheet" href="/static/css/language.css?v=4">
   {% if weglot_api_key %}
-  <!-- Weglot translates the page; js/language.js adds the banner, language menus and RTL. -->
+  <!-- Weglot translates the page; js/language.js adds the banner and language menus. -->
   <script src="https://cdn.weglot.com/weglot.min.js"></script>
   <script>
     Weglot.initialize({ api_key: '{{ weglot_api_key }}', hide_switcher: true, auto_switch: false });
   </script>
   {% endif %}
-  <script src="/static/js/language.js?v=3" defer></script>
+  <script src="/static/js/language.js?v=5" defer></script>
   {% block styles %}{% endblock %}
 
   <script type="importmap">

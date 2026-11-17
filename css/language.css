@@ -1,4 +1,4 @@
-/* Maison Henius — language banner, footer language links, Arabic (RTL) typography.
+/* Maison Henius — language suggestion banner + language dropdown menus.
    Companion to js/language.js. */
 
 /* ---------- Suggestion banner ---------- */
@@ -39,12 +39,6 @@
   font-size: 1.2rem;
   line-height: 1.4;
 }
-.lang-banner__question[lang="ar"] {
-  font-family: 'Amiri', 'Noto Naskh Arabic', serif;
-  font-style: normal;
-  font-size: 1.15rem;
-  text-align: right;
-}
 .lang-banner__actions {
   display: flex;
   flex-direction: column;
@@ -69,11 +63,6 @@
   border: 1px solid #e9db90;
 }
 .lang-banner__yes:hover { background: #b8a44e; border-color: #b8a44e; }
-.lang-banner__yes[lang="ar"] {
-  font-family: 'IBM Plex Sans Arabic', sans-serif;
-  font-size: 0.95rem;
-  letter-spacing: 0;
-}
 .lang-banner__no {
   background: transparent;
   color: rgba(245, 240, 232, 0.7);
@@ -90,7 +79,6 @@
     bottom: 1rem;
     padding: 1.3rem 1.2rem;
   }
-  .lang-banner__question[lang="ar"] { text-align: center; }
   .lang-banner__actions { flex-direction: column; }
 }
 
@@ -122,10 +110,6 @@
 .lang-menu__toggle svg { flex-shrink: 0; }
 .lang-menu__caret { transition: transform 0.3s ease; }
 .lang-menu.is-open .lang-menu__caret { transform: rotate(180deg); }
-.lang-menu__current[lang="ar"] {
-  font-family: 'IBM Plex Sans Arabic', 'Montserrat', sans-serif;
-  letter-spacing: 0;
-}
 .lang-menu__list {
   position: absolute;
   top: calc(100% + 0.4rem);
@@ -177,11 +161,6 @@
   color: rgba(245, 240, 232, 0.75);
   transition: color 0.2s ease, background 0.2s ease;
 }
-.lang-menu__option[lang="ar"] {
-  font-family: 'IBM Plex Sans Arabic', 'Montserrat', sans-serif;
-  font-size: 0.95rem;
-  letter-spacing: 0;
-}
 .lang-menu__option:hover,
 .lang-menu__option:focus-visible {
   color: #e9db90;
@@ -209,29 +188,6 @@
 }
 .footer__langs .lang-menu__toggle { font-size: 0.68rem; letter-spacing: 0.15em; }
 .footer__langs .lang-menu__toggle:hover { color: #e9db90; opacity: 1; }
-
-/* Arabic: the dropdown opens toward the page's left edge */
-html[dir="rtl"] .nav__lang .lang-menu__list { right: auto; left: 0; }
-
-/* ---------- Arabic: right-to-left + Arabic typefaces ----------
-   Cormorant Garamond and Montserrat have no Arabic letters, and the brand's wide
-   letter-spacing and italics break Arabic script (letters must join), so both
-   are replaced while Arabic is active. Headline-style text gets Amiri (classic
-   calligraphic Naskh); body text gets IBM Plex Sans Arabic Light. */
-html[lang="ar"] body * {
-  letter-spacing: 0 !important;
-  font-style: normal !important;
-}
-html[lang="ar"] body :is(p, span, a, li, button, label, input, textarea, select, small, div, em, strong) {
-  font-family: 'IBM Plex Sans Arabic', 'Montserrat', sans-serif !important;
-}
-html[lang="ar"] body :is(h1, h2, h3, h4, h5, h6, blockquote,
-  [class*="heading"], [class*="quote"], [class*="title"], [class*="__name"],
-  [class*="tagline"], [class*="character"]) {
-  font-family: 'Amiri', 'Cormorant Garamond', serif !important;
-  line-height: 1.6;
-}
-html[dir="rtl"] .scroll-top { right: auto; left: 2rem; }
 
 /* Phones: the header is too narrow for another icon (it would push the logo
    off-centre), so the language menu lives in the ☰ menu overlay instead. */

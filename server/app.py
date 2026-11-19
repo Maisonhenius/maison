@@ -15,6 +15,7 @@ import json
 import time
 import uuid
 from urllib.parse import quote
+from markupsafe import Markup, escape
 import mimetypes
 import traceback
 from stripe import StripeClient, Webhook, SignatureVerificationError
@@ -264,6 +265,24 @@ templates.env.filters["product_image"] = jinja_product_image
 templates.env.filters["ingredient_image"] = jinja_ingredient_image
 templates.env.filters["product_video"] = jinja_product_video
 templates.env.filters["page_media"] = jinja_page_media
+
+
+# A paragraph may start with a short label between dashes, e.g.
+# "- The House - From the lush gardens…". `lead_label` renders that label in a
+# <span class="lead-label"> so it can be styled like a heading; the rest of the
+# text is unchanged. Text without such a label is returned as-is (escaped).
+_LEAD_LABEL_RE = re.compile(r"^\s*([-–—])\s*([^-–—\n]{1,40}?)\s*[-–—]\s*(.*)$", re.S)
+
+
+def jinja_lead_label(value: str) -> Markup:
+    text = value or ""
+    m = _LEAD_LABEL_RE.match(text)
+    if not m:
+        return escape(text)
+    return Markup('<span class="lead-label">{}</span> {}').format(f"- {m.group(2)} -", m.group(3))
+
+
+templates.env.filters["lead_label"] = jinja_lead_label
 
 
 def is_video_url(value: str) -> bool:

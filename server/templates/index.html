@@ -732,6 +732,17 @@
       letter-spacing: 0.03em;
     }
 
+    /* "- The House -" / "- The Founder -": same typeface as the section heading */
+    .story__col .lead-label {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-style: italic;
+      font-size: 1.45em;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: #f5f0e8;
+    }
+
     .story__atelier {
       max-width: 800px;
       margin: 0 auto;
@@ -1021,10 +1032,10 @@
 
     <div class="story__narrative">
       <div class="story__col">
-        <p>{{ content('story', 'col1', 'Where roses bloom beside ancient stone and amber sands stretch to the horizon - this is where Maison Henius begins. Each creation draws from the duality of Jordan: the lush fragrant gardens and the mineral vastness of the desert.') }}</p>
+        <p>{{ content('story', 'col1', 'Where roses bloom beside ancient stone and amber sands stretch to the horizon - this is where Maison Henius begins. Each creation draws from the duality of Jordan: the lush fragrant gardens and the mineral vastness of the desert.') | lead_label }}</p>
       </div>
       <div class="story__col">
-        <p>{{ content('story', 'col2', 'From these contrasts - life and silence, freshness and depth - emerges a language of scent that speaks to memory and emotion. Each composition unfolds gradually, leaving an impression as enduring as the land itself.') }}</p>
+        <p>{{ content('story', 'col2', 'From these contrasts - life and silence, freshness and depth - emerges a language of scent that speaks to memory and emotion. Each composition unfolds gradually, leaving an impression as enduring as the land itself.') | lead_label }}</p>
       </div>
     </div>
 

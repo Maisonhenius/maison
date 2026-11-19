@@ -76,38 +76,6 @@
     border-bottom: 1px solid rgba(250, 249, 246, 0.1);
   }
 
-  .shop__filters {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 2rem;
-    align-items: center;
-  }
-
-  .shop__chip {
-    background: transparent;
-    border: 0;
-    padding: 0.3rem 0;
-    font-family: 'Montserrat', sans-serif;
-    font-weight: 400;
-    font-size: 0.74rem;
-    letter-spacing: 0.25em;
-    text-transform: uppercase;
-    color: rgba(250, 249, 246, 0.5);
-    cursor: pointer;
-    transition: color 0.3s ease, border-color 0.3s ease;
-    border-bottom: 1px solid transparent;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .shop__chip:hover {
-    color: #e9db90;
-  }
-
-  .shop__chip.is-active {
-    color: #faf9f6;
-    border-bottom-color: #b8a44e;
-  }
-
   .shop__sort {
     display: flex;
     align-items: center;
@@ -327,7 +295,6 @@
     border-radius: 999px;
   }
 
-  .shop-card.is-filtered-out { display: none; }
 
   /* ─── Tablet ───────────────────────────────────────────────────────── */
   @media (max-width: 1024px) {
@@ -349,16 +316,6 @@
       gap: 1.5rem;
       margin-bottom: 2.5rem;
     }
-    .shop__filters {
-      overflow-x: auto;
-      flex-wrap: nowrap;
-      -webkit-overflow-scrolling: touch;
-      width: 100%;
-      padding-bottom: 0.5rem;
-      gap: 1.5rem;
-      justify-content: flex-start;
-    }
-    .shop__chip { flex-shrink: 0; }
     .shop__sort {
       justify-content: space-between;
       width: 100%;
@@ -383,13 +340,6 @@
   </header>
 
   <div class="shop__controls">
-    <div class="shop__filters" id="shopFilters" role="tablist" aria-label="Filter by fragrance family">
-      <button class="shop__chip is-active" data-filter="all" role="tab" aria-selected="true">All</button>
-      {% for family in families %}
-      <button class="shop__chip" data-filter="{{ family }}" role="tab" aria-selected="false">{{ family }}</button>
-      {% endfor %}
-    </div>
-
     <div class="shop__sort">
       <label for="shopSort" class="shop__sort-label">Sort</label>
       <select id="shopSort" class="shop__sort-select" aria-label="Sort products">
@@ -410,6 +360,7 @@
              data-price="{{ p.price }}"
              data-name="{{ p.name }}"
              data-order="{{ p.display_order }}"
+             data-set="{{ '1' if is_product_set(p) else '0' }}"
              data-created="{{ p.created_at }}">
       <a href="/products/{{ slug }}" class="shop-card__link">
         <div class="shop-card__media">
@@ -454,27 +405,18 @@
       if (!grid) return;
 
       const cards = Array.from(grid.querySelectorAll('.shop-card'));
-      const filters = document.querySelectorAll('#shopFilters .shop__chip');
       const sortSelect = document.getElementById('shopSort');
       const countEl = document.getElementById('shopCount');
 
-      let activeFilter = 'all';
       let activeSort = 'featured';
-
-      function applyFilters() {
-        let visible = 0;
-        cards.forEach(card => {
-          const matches = activeFilter === 'all' || card.dataset.family === activeFilter;
-          card.classList.toggle('is-filtered-out', !matches);
-          if (matches) visible++;
-        });
-        if (countEl) {
-          countEl.textContent = visible + ' fragrance' + (visible === 1 ? '' : 's');
-        }
-      }
 
       function applySort() {
         const sorted = cards.slice().sort((a, b) => {
+          // Sets (Discovery Collection) stay last, except in "Newest first",
+          // where they sort by date like everything else.
+          if (activeSort !== 'newest' && a.dataset.set !== b.dataset.set) {
+            return a.dataset.set === '1' ? 1 : -1;
+          }
           if (activeSort === 'name') return a.dataset.name.localeCompare(b.dataset.name);
           if (activeSort === 'name-desc') return b.dataset.name.localeCompare(a.dataset.name);
           if (activeSort === 'newest') {
@@ -489,19 +431,6 @@
         sorted.forEach(card => grid.appendChild(card));
         if (countEl) grid.insertBefore(countEl, grid.firstChild);
       }
-
-      filters.forEach(btn => {
-        btn.addEventListener('click', () => {
-          filters.forEach(b => {
-            b.classList.remove('is-active');
-            b.setAttribute('aria-selected', 'false');
-          });
-          btn.classList.add('is-active');
-          btn.setAttribute('aria-selected', 'true');
-          activeFilter = btn.dataset.filter;
-          applyFilters();
-        });
-      });
 
       if (sortSelect) {
         sortSelect.addEventListener('change', () => {

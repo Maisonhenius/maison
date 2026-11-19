@@ -49,7 +49,7 @@ server/
       product_form.html   <- Create + edit (mode=create|edit); image+video upload widgets
       content.html / content_edit.html  <- CMS overview + per-page PAGE_CONTENT_SCHEMA editor
       messages.html       <- Messages list + read/unread (from /api/admin/messages)
-    shop.html             <- /shop e-commerce grid (dark theme, filter chips, sort dropdown)
+    shop.html             <- /shop e-commerce grid (dark theme, sort dropdown; no family filter)
   migrations/             <- Schema + seed scripts (run via `python migrations/run_migration.py <file.sql>`)
 
 # Root-level files (outside server/)
@@ -308,7 +308,9 @@ Three layers near the top of `server/app.py`:
 - **Two Storage buckets** (migration 003, public-read RLS): `product-images` (10 MB, image/webp+jpeg+png, path `products/{slug}/{filename}`); `page-media` (50 MB, images + video/mp4+webm, path `defaults/{name}` or `{stem}-{uuid8}{ext}`).
 - **Storage upload signature** (supabase-py 2.x): `c.storage.from_(bucket).upload(path, bytes, {"content-type":"image/webp","cache-control":"..."})` — third arg is a positional `file_options` dict, keys **kebab-case** (`content-type`, NOT `contentType`). Wrap in `await _to_thread(...)`.
 - **PostgREST upsert only writes columns in the payload** — the Content save handler omits `display_order` so rows keep seeded ordering; re-adding it causes silent drift on every save (fixed in `9373160`).
-- **Landing "The Collection" shows `LANDING_PRODUCT_COUNT` (= 6) visible products** (`home()` in `app.py`): single fragrances first, newest first by `created_at`; then sets/coffrets (family `"Collection"`, e.g. the Discovery Collection) LAST. Owner request: the Discovery Collection must be the last card. Any product beyond the count appears on `/shop` only. Hiding a product in admin removes its card.
+- **Landing "The Collection" shows `LANDING_PRODUCT_COUNT` (= 6) visible products** (`home()` in `app.py`): single fragrances first, newest first by `created_at`; then sets/coffrets LAST. Owner request: the Discovery Collection must be the last card. Any product beyond the count appears on `/shop` only. Hiding a product in admin removes its card.
+- **"Set" = `is_product_set(p)` in `app.py`** (family `"Collection"`, case-insensitive; also a Jinja global). Used by the homepage AND the shop — change the rule in one place.
+- **`/shop` has NO family filter row** (removed at the owner's request — don't re-add). Only the Sort dropdown remains. Sets stay LAST in Featured (default; server renders display_order with sets moved last), A–Z and Z–A; ONLY "Newest first" sorts them purely by `created_at` (so the Discovery Collection comes first there). Client sort reads `data-set` on each `.shop-card`.
 - **Products CRUD**: `/admin/products` (list), `/new`, `/{id}/edit`. Hide via `PATCH /api/admin/products/{id}/visibility`. Delete is blocked when the product has `order_items` rows — use Hide. Cache invalidates on every mutation.
 - **Per-fragrance editable copy on `products` row** (migration 012, "Page Labels & Copy" section in the edit form): `essence_label`, `essence_tagline` (longtext, paragraphs split on `\n\n`), `wearer_label`, `composition_label`, `composition_subtitle`, `bottle_label`, `bottle_size`, `bottle_description`. All NOT NULL with DB-level DEFAULTs matching the original hardcoded strings; `_row_to_product` also has Python fallbacks so a missing column never breaks render.
 - **Adding a new CMS field needs NO migration** — `page_content` is generic `(page, section, field, value)`; appending to `PAGE_CONTENT_SCHEMA` + a `{{ content(...) }}` in the template is enough. `admin_get_content` merges schema+saved and uses `default` as the pre-fill, so the row gets created on first save.

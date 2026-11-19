@@ -394,6 +394,15 @@ def get_context():
 LANDING_PRODUCT_COUNT = 6
 
 
+def is_product_set(p: dict) -> bool:
+    """Sets/coffrets (family "Collection", e.g. the Discovery Collection) are
+    listed after single fragrances on the homepage and in the shop (owner request)."""
+    return (p.get("family") or "").strip().lower() == "collection"
+
+
+templates.env.globals["is_product_set"] = is_product_set
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     content_map = await load_page_content("main")
@@ -404,7 +413,7 @@ async def home(request: Request):
     # Any beyond the count live on /shop only.
     all_visible = list(get_products_dict().values())
     all_visible.sort(key=lambda p: p.get("created_at") or "", reverse=True)
-    all_visible.sort(key=lambda p: (p.get("family") or "").strip().lower() == "collection")  # stable: keeps newest-first within each group
+    all_visible.sort(key=is_product_set)  # stable: keeps newest-first within each group
     landing_products = all_visible[:LANDING_PRODUCT_COUNT]
     return templates.TemplateResponse(
         request=request,
@@ -425,20 +434,15 @@ async def products_index():
 
 @app.get("/shop", response_class=HTMLResponse)
 async def shop(request: Request):
-    """E-commerce grid showing all visible products with filter + sort."""
-    products = get_products_dict()
-    # Distinct families preserving display_order; templates iterate this for filter chips.
-    families = []
-    seen = set()
-    for p in products.values():
-        fam = p.get("family", "").strip()
-        if fam and fam not in seen:
-            seen.add(fam)
-            families.append(fam)
+    """E-commerce grid showing all visible products with a sort control.
+    No family filter row (removed at the owner's request). Default ("Featured")
+    order is display_order with sets (Discovery Collection) moved last; the
+    page's sort script keeps sets last for every option except "Newest first"."""
+    products = dict(sorted(get_products_dict().items(), key=lambda kv: is_product_set(kv[1])))  # stable
     return templates.TemplateResponse(
         request=request,
         name="shop.html",
-        context={**get_context(), "products": products, "families": families},
+        context={**get_context(), "products": products},
     )
 
 @app.get("/products/{slug}", response_class=HTMLResponse)

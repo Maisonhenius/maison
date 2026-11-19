@@ -992,7 +992,7 @@
              width="1200" height="1200" loading="lazy" decoding="async">
         <div class="collection__card-text">
           <span class="collection__card-family">{{ p.family }}</span>
-          {% if not p.in_stock %}<span class="collection__card-oos">Out of Stock</span>{% endif %}
+          {% if not p.in_stock %}<span class="collection__card-oos">{{ 'Coming Soon' if p.coming_soon else 'Out of Stock' }}</span>{% endif %}
           <h3 class="collection__card-name">{{ p.name }}</h3>
           <p class="collection__card-desc">{{ p.character }}</p>
           <div class="collection__card-meta">

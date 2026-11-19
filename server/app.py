@@ -293,6 +293,17 @@ PRODUCT_FIELDS = (
 )
 
 
+# Products shown as "Coming Soon" (instead of "Out of Stock") everywhere on the
+# public site, by slug. They can't be bought while listed here, whatever their
+# stock. Remove a slug (and redeploy) when that product launches.
+COMING_SOON_SLUGS = {"discovery-collection"}
+
+# Products whose price is never shown on the public site, and whose Price field
+# is optional in the admin form (owner request: the Discovery Collection only).
+# Leaving Price empty in admin keeps the stored price unchanged.
+NO_PRICE_SLUGS = {"discovery-collection"}
+
+
 def _row_to_product(row: dict) -> dict:
     """Normalize a Supabase products row to the dict shape templates + routes expect.
 
@@ -330,8 +341,13 @@ def _row_to_product(row: dict) -> dict:
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
         "stock": int(row.get("stock") or 0),
+        # Price hidden on the public site (see NO_PRICE_SLUGS).
+        "show_price": (row.get("slug") or row.get("id", "")) not in NO_PRICE_SLUGS,
+        # Not yet launched: badge + buttons say "Coming Soon" instead of "Out of Stock".
+        "coming_soon": (row.get("slug") or row.get("id", "")) in COMING_SOON_SLUGS,
         # Derived boolean for templates — the raw count never reaches the customer.
-        "in_stock": int(row.get("stock") or 0) > 0,
+        # Coming-soon products are never purchasable.
+        "in_stock": int(row.get("stock") or 0) > 0 and (row.get("slug") or row.get("id", "")) not in COMING_SOON_SLUGS,
         "created_at": row.get("created_at", ""),
     }
 
@@ -543,6 +559,7 @@ async def admin_products_edit(request: Request, product_id: str):
             "mode": "edit",
             "product_id": product_id,
             "product_json": json.dumps(p),
+            "price_optional": (p.get("slug") or product_id) in NO_PRICE_SLUGS,
         },
     )
 

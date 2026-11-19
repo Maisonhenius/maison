@@ -459,11 +459,11 @@
         <h1 class="product-hero__name">{{ product.name }}</h1>
       </div>
       <div class="product-hero__actions">
-        <span class="product-hero__price">${{ "%.0f"|format(product.price) }}</span>
+        {% if product.show_price %}<span class="product-hero__price">${{ "%.0f"|format(product.price) }}</span>{% endif %}
         {% if product.in_stock %}
         <button class="product-hero__cart-btn" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart</button>
         {% else %}
-        <button class="product-hero__cart-btn product-hero__cart-btn--oos" disabled aria-disabled="true">Out of Stock</button>
+        <button class="product-hero__cart-btn product-hero__cart-btn--oos" disabled aria-disabled="true">{{ 'Coming Soon' if product.coming_soon else 'Out of Stock' }}</button>
         {% endif %}
       </div>
     </div>
@@ -540,9 +540,9 @@
     <div class="product-bottle__details">{{ product.bottle_size }}</div>
     <p class="product-bottle__craft">{{ product.bottle_description }}</p>
     {% if product.in_stock %}
-    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart - ${{ "%.0f"|format(product.price) }}</button>
+    <button class="product-bottle__cta" onclick="MaisonCart.addItem({id:'{{ product.slug }}',name:'{{ product.name }}',family:'{{ product.family }}',price:{{ product.price }},image:'{{ product.card_image | product_image }}'})">Add to Cart{% if product.show_price %} - ${{ "%.0f"|format(product.price) }}{% endif %}</button>
     {% else %}
-    <button class="product-bottle__cta product-bottle__cta--oos" disabled aria-disabled="true">Out of Stock</button>
+    <button class="product-bottle__cta product-bottle__cta--oos" disabled aria-disabled="true">{{ 'Coming Soon' if product.coming_soon else 'Out of Stock' }}</button>
     {% endif %}
   </section>
 
@@ -556,7 +556,7 @@
       {% for slug, other in others.items() %}
       <a href="/products/{{ slug }}" class="product-explore__card">
         <div class="product-explore__card-img">
-          {% if not other.in_stock %}<span class="explore-oos">Out of Stock</span>{% endif %}
+          {% if not other.in_stock %}<span class="explore-oos">{{ 'Coming Soon' if other.coming_soon else 'Out of Stock' }}</span>{% endif %}
           <img src="{{ other.card_image | product_image }}" alt="{{ other.name }}" width="1200" height="1200" loading="lazy" decoding="async">
         </div>
         <span class="product-explore__card-name">{{ other.name }}</span>

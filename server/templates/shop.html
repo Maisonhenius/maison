@@ -364,14 +364,14 @@
              data-created="{{ p.created_at }}">
       <a href="/products/{{ slug }}" class="shop-card__link">
         <div class="shop-card__media">
-          {% if not p.in_stock %}<span class="oos-badge">Out of Stock</span>{% endif %}
+          {% if not p.in_stock %}<span class="oos-badge">{{ 'Coming Soon' if p.coming_soon else 'Out of Stock' }}</span>{% endif %}
           <img src="{{ p.card_image | product_image }}"
                alt="{{ p.name }} - {{ p.family }} Eau de Parfum"
                loading="lazy" decoding="async">
         </div>
         <span class="shop-card__family">{{ p.family }}</span>
         <h2 class="shop-card__name">{{ p.name }}</h2>
-        <span class="shop-card__price">${{ "%.0f"|format(p.price) }}</span>
+        {% if p.show_price %}<span class="shop-card__price">${{ "%.0f"|format(p.price) }}</span>{% endif %}
       </a>
       <div class="shop-card__actions">
         <a href="/products/{{ slug }}" class="shop-card__view">Discover</a>
@@ -386,7 +386,7 @@
         </button>
         {% else %}
         <button type="button" class="shop-card__add shop-card__add--oos" disabled aria-disabled="true">
-          Out of Stock
+          {{ 'Coming Soon' if p.coming_soon else 'Out of Stock' }}
         </button>
         {% endif %}
       </div>

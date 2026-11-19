@@ -390,15 +390,22 @@ def get_context():
 
 # --- Page Routes ---
 
+# How many products the landing page's "The Collection" section shows.
+LANDING_PRODUCT_COUNT = 6
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     content_map = await load_page_content("main")
-    # Landing "The Collection" section shows the newest 5 visible products,
-    # ordered by created_at desc. Hidden products (admin toggle) are excluded
-    # by get_products_dict(). Cards beyond 5 live on /shop only.
+    # Landing "The Collection" section shows LANDING_PRODUCT_COUNT visible
+    # products: single fragrances first (newest first, by created_at), then
+    # sets/coffrets (family "Collection", e.g. the Discovery Collection) last.
+    # Hidden products (admin toggle) are excluded by get_products_dict().
+    # Any beyond the count live on /shop only.
     all_visible = list(get_products_dict().values())
     all_visible.sort(key=lambda p: p.get("created_at") or "", reverse=True)
-    landing_products = all_visible[:5]
+    all_visible.sort(key=lambda p: (p.get("family") or "").strip().lower() == "collection")  # stable: keeps newest-first within each group
+    landing_products = all_visible[:LANDING_PRODUCT_COUNT]
     return templates.TemplateResponse(
         request=request,
         name="index.html",

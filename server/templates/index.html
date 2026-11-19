@@ -980,9 +980,10 @@
     </div>
 
     <div class="collection__list">
-      {# Newest 5 visible products. Hidden products are filtered out at the
+      {# LANDING_PRODUCT_COUNT (app.py, currently 6) visible products: fragrances
+         newest first, then sets (family "Collection") last. Hidden products are filtered out at the
          route, so toggling visibility in /admin/products instantly removes a
-         card here on next page load. Ordered by created_at desc. #}
+         card here on next page load. #}
       {% for p in landing_products %}
       <article class="collection__card">
         <img class="collection__card-mood{% if not p.in_stock %} is-oos{% endif %}"

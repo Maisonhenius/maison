@@ -1973,9 +1973,36 @@ ALLOWED_CONTENT_PAGES = {"main", "universe"}
 PAGE_CONTENT_SCHEMA = {
     "main": [
         # Hero (looping brand film at the top of the landing)
+        # Hero film: one version per screen shape (the page picks automatically
+        # and switches on rotation). All silent MP4; sound is a separate file.
         {"section": "hero", "field": "video", "type": "video",
-         "label": "Hero video (silent autoplay)", "group": "Hero",
-         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4"},
+         "label": "Hero film — wide, computers & screens held sideways (MP4, 1920×1080)", "group": "Hero",
+         "help": "Used on: computers and large screens, and tablets held sideways. Wide (16:9) silent MP4, ideally 1920×1080, under 50 MB.",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-1080.mp4"},
+        {"section": "hero", "field": "video_mobile", "type": "video",
+         "label": "Hero film — wide, smaller file for small screens held sideways (MP4, 1280×720)", "group": "Hero",
+         "help": "Used on: small screens held sideways (phones turned sideways, small laptops). Wide (16:9) silent MP4, ideally 1280×720.",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-720.mp4"},
+        {"section": "hero", "field": "video_tablet", "type": "video",
+         "label": "Hero film — upright tablets (MP4, 3:4, e.g. 810×1080)", "group": "Hero",
+         "help": "Used on: tablets held upright. Upright 3:4 silent MP4, ideally 810×1080 or larger.",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-tablet.mp4"},
+        {"section": "hero", "field": "video_phone", "type": "video",
+         "label": "Hero film — upright phones (MP4, 9:16, e.g. 720×1280)", "group": "Hero",
+         "help": "Used on: phones held upright. Upright 9:16 silent MP4, ideally 720×1280 or 1080×1920.",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-phone.mp4"},
+        {"section": "hero", "field": "poster", "type": "image",
+         "label": "Hero still image — wide (shown instantly while the film loads)", "group": "Hero",
+         "help": "Still picture shown on computers and sideways screens for the first moment, while the film loads (ideally its first frame).",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-poster.webp"},
+        {"section": "hero", "field": "poster_tablet", "type": "image",
+         "label": "Hero still image — upright tablets", "group": "Hero",
+         "help": "Still picture shown on upright tablets while the film loads.",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-poster-tablet.webp"},
+        {"section": "hero", "field": "poster_phone", "type": "image",
+         "label": "Hero still image — upright phones", "group": "Hero",
+         "help": "Still picture shown on upright phones while the film loads.",
+         "default": "https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-poster-phone.webp"},
         {"section": "hero", "field": "tagline", "type": "text", "required": True,
          "label": "Hero tagline (italic line over video)", "group": "Hero",
          "default": "Fragrance is not worn. It is lived."},
@@ -2292,6 +2319,7 @@ async def admin_get_content(request: Request, page: str):
             "value": s.get("value", ""),
             "default": entry.get("default", ""),
             "required": bool(entry.get("required", False)),
+            "help": entry.get("help", ""),
             "is_customized": bool(s.get("value")),
         })
     return JSONResponse({"page": page, "blocks": blocks})

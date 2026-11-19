@@ -148,6 +148,10 @@
   }
   .file-btn:hover { background: #efeee9; }
   .file-btn input { display: none; }
+  a.file-btn { text-decoration: none; color: inherit; }
+  a.file-btn[hidden] { display: none; }
+  .field-help { margin: 0.2rem 0 0.6rem; font-size: 0.78rem; color: #777; line-height: 1.5; }
+  .link-warn { margin: 0.4rem 0 0; font-size: 0.78rem; color: #b3261e; line-height: 1.5; }
 
   .upload-status { font-size: 0.7rem; color: #888; }
   .upload-status.ok { color: #587b3f; }
@@ -302,6 +306,12 @@
         label.appendChild(star);
       }
       wrap.appendChild(label);
+      if (b.help) {
+        const help = document.createElement('p');
+        help.className = 'field-help';
+        help.textContent = b.help;
+        wrap.appendChild(help);
+      }
 
       if (b.field_type === 'text') {
         const inp = document.createElement('input');
@@ -359,12 +369,17 @@
       urlInput.value = initial || '';
       urlInput.dataset.role = 'value-input';
       urlInput.placeholder = b.field_type === 'video'
-        ? 'Upload a video or paste a URL'
+        ? 'Upload a video, or paste a direct link to an .mp4 file'
         : 'Upload an image or paste a URL';
-      urlInput.addEventListener('input', () => {
-        updatePreview(preview, urlInput.value, b.field_type);
-      });
       controls.appendChild(urlInput);
+
+      // Video links must point at the file itself; web pages (Vimeo, YouTube,
+      // Google Drive viewers) can't play in the page — warn right away.
+      const linkWarn = document.createElement('p');
+      linkWarn.className = 'link-warn';
+      linkWarn.hidden = true;
+      linkWarn.textContent = 'This link is not a video file, so the website can\'t play it (it will keep using the built-in film). Upload the .mp4 here instead, or paste a direct link ending in .mp4.';
+      if (b.field_type === 'video') controls.appendChild(linkWarn);
 
       const actions = document.createElement('div');
       actions.style.display = 'flex';
@@ -382,7 +397,31 @@
       fileInput.addEventListener('change', () => handleUpload(fileInput, urlInput, preview, status, b.field_type));
       fileBtn.appendChild(fileInput);
 
+      // Download the file currently set in this field (keeps a copy / reuse elsewhere)
+      const dl = document.createElement('a');
+      dl.className = 'file-btn';
+      dl.textContent = 'Download';
+      dl.target = '_blank';
+      dl.rel = 'noopener';
+
+      function refresh() {
+        const v = urlInput.value.trim();
+        updatePreview(preview, v, b.field_type);
+        const url = resolveMedia(v);
+        dl.hidden = !v;
+        if (v) {
+          const name = decodeURIComponent(url.split('?')[0].split('/').pop() || 'file');
+          // Supabase Storage serves the file as a download with ?download=<name>
+          dl.href = url.includes('/storage/v1/object/public/') ? url.split('?')[0] + '?download=' + encodeURIComponent(name) : url;
+          dl.setAttribute('download', name);
+        }
+        if (b.field_type === 'video') linkWarn.hidden = !v || /\.(mp4|webm|mov|m4v)(\?|#|$)/i.test(v);
+      }
+      urlInput.addEventListener('input', refresh);
+      refresh();
+
       actions.appendChild(fileBtn);
+      actions.appendChild(dl);
       actions.appendChild(status);
       controls.appendChild(actions);
 

@@ -1,0 +1,22 @@
+[
+ {
+  "id": "cf52ca85-8734-4ad9-83cb-827e3798d308",
+  "page": "main",
+  "section": "hero",
+  "field": "tagline",
+  "field_type": "text",
+  "value": "Fragrance is not worn. It is lived.",
+  "display_order": 0,
+  "updated_at": "2026-11-17T21:30:28.110955+00:00"
+ },
+ {
+  "id": "999cfea6-69c1-491d-be9d-ed9d445749e9",
+  "page": "main",
+  "section": "hero",
+  "field": "video",
+  "field_type": "video",
+  "value": "https://vimeo.com/1195103113",
+  "display_order": 0,
+  "updated_at": "2026-11-17T21:30:28.110955+00:00"
+ }
+]

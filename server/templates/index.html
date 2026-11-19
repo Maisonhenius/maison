@@ -12,14 +12,11 @@
   <meta property="og:description" content="A house of memory, emotion, and timeless craftsmanship. Discover luxury fragrances shaped by nature, heritage, and exceptional raw materials.">
   <meta property="og:url" content="{{ site_url }}/">
 
-  <!-- High-priority preload of the hero video. Without this, browsers wait
-       to fetch the video until they parse the <video> tag in <body>; with
-       this, the fetch starts the moment the HTML head is parsed, ~500-1000
-       ms earlier on first paint. Using `as="video"` and `type="video/mp4"`
-       ensures only the MP4 is preloaded (Safari uses MP4; Chrome/Firefox
-       handle MP4 fine too). The faststart-encoded moov atom is at the
-       front of the file, so the first ~1 MB is enough to start playback. -->
-  <link rel="preload" as="video" type="video/mp4" href="{{ content('hero', 'video', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4') | page_media }}" fetchpriority="high">
+  {# Hero still image for this screen shape, preloaded so it paints instantly
+     while the matching film version starts on top of it. #}
+  <link rel="preload" as="image" media="(min-aspect-ratio: 1/1)" href="{{ content('hero', 'poster', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-poster.webp') | page_media }}" fetchpriority="high">
+  <link rel="preload" as="image" media="(max-aspect-ratio: 999/1000) and (min-aspect-ratio: 62/100)" href="{{ content('hero', 'poster_tablet', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-poster-tablet.webp') | page_media }}" fetchpriority="high">
+  <link rel="preload" as="image" media="(max-aspect-ratio: 619/1000)" href="{{ content('hero', 'poster_phone', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/mh-brand-film-poster-phone.webp') | page_media }}" fetchpriority="high">
 
 {% endblock %}
 
@@ -40,20 +37,28 @@
       z-index: 1;
     }
 
+    /* Fill the hero exactly (cover), whatever the film's own resolution:
+       the old min-width/min-height + auto sizing displayed a Full HD file at
+       its natural 1920×1080 size, over-cropping laptop screens. */
     .hero__video {
       position: absolute;
       top: 50%;
       left: 50%;
-      min-width: 100%;
-      min-height: 100%;
-      width: auto;
-      height: auto;
+      width: 100%;
+      height: 100%;
       transform: translate(-50%, -50%);
       object-fit: cover;
       z-index: 0;
     }
 
     /* Subtle dark overlay for text legibility */
+    /* ── Hero film by screen shape (automatic) ──
+       Every screen is filled edge to edge (cover, no bands). The page picks
+       the film version made for the screen's shape — wide (computers, screens
+       held sideways), 3:4 (upright tablets) or 9:16 (upright phones), each
+       reframed scene by scene — so the subject of every shot stays in view.
+       See the script right after the <video>. */
+
     .hero__overlay {
       position: absolute;
       inset: 0;
@@ -835,10 +840,70 @@
   <h1 class="sr-only">Maison Henius - Luxury Perfume House</h1>
 
   <section class="hero">
-    <video class="hero__video" autoplay muted loop playsinline preload="auto">
-      <source src="{{ content('hero', 'video', 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/defaults/main-hero-brand-film.mp4') | page_media }}" type="video/mp4">
-      <source src="/static/assets/videos/web/brand-film-silent.webm" type="video/webm">
-    </video>
+    {# Hero film: four versions from the admin (Content → Hero). The script
+       below picks the one made for this screen's shape before anything
+       downloads, and swaps (same moment, still playing) on rotation. Anything
+       that isn't a video file (e.g. a Vimeo page link) falls back to the
+       built-in versions, so the film always plays. #}
+    {% set _B = 'https://rmliognhrimbcwbyjikf.supabase.co/storage/v1/object/public/page-media/hero/' %}
+    {% set _v = {
+      'wide': content('hero', 'video', _B ~ 'mh-brand-film-1080.mp4') | page_media,
+      'wideSmall': content('hero', 'video_mobile', _B ~ 'mh-brand-film-720.mp4') | page_media,
+      'tablet': content('hero', 'video_tablet', _B ~ 'mh-brand-film-tablet.mp4') | page_media,
+      'phone': content('hero', 'video_phone', _B ~ 'mh-brand-film-phone.mp4') | page_media,
+    } %}
+    {% set _d = {'wide': _B ~ 'mh-brand-film-1080.mp4', 'wideSmall': _B ~ 'mh-brand-film-720.mp4', 'tablet': _B ~ 'mh-brand-film-tablet.mp4', 'phone': _B ~ 'mh-brand-film-phone.mp4'} %}
+    <video class="hero__video" autoplay muted loop playsinline preload="none"
+           data-src-wide="{{ _v.wide if is_video_url(_v.wide) else _d.wide }}"
+           data-src-wide-small="{{ _v.wideSmall if is_video_url(_v.wideSmall) else _d.wideSmall }}"
+           data-src-tablet="{{ _v.tablet if is_video_url(_v.tablet) else _d.tablet }}"
+           data-src-phone="{{ _v.phone if is_video_url(_v.phone) else _d.phone }}"
+           data-src-fallback="/static/assets/videos/web/brand-film-silent.mp4"
+           data-poster-wide="{{ content('hero', 'poster', _B ~ 'mh-brand-film-poster.webp') | page_media }}"
+           data-poster-tablet="{{ content('hero', 'poster_tablet', _B ~ 'mh-brand-film-poster-tablet.webp') | page_media }}"
+           data-poster-phone="{{ content('hero', 'poster_phone', _B ~ 'mh-brand-film-poster-phone.webp') | page_media }}"></video>
+    <script>
+    /* Pick the film version for this screen's shape (width ÷ height):
+         ≥ 1      wide film — Full HD, or 720p if it covers ≤ 1400 device px
+         0.62–1   upright tablet cut (3:4)
+         < 0.62   upright phone cut (9:16)
+       Re-checked on resize/rotation; a swap keeps the same moment and keeps
+       playing. If a file fails, the next best version is tried. */
+    (function (v) {
+      if (!v || v.dataset.filmInit) return;
+      v.dataset.filmInit = '1';
+      var d = v.dataset;
+      function pick() {
+        var w = window.innerWidth, h = window.innerHeight, r = w / h, dpr = window.devicePixelRatio || 1;
+        if (r >= 1) return Math.max(w, h * 16 / 9) * dpr <= 1400 ? 'wideSmall' : 'wide';
+        return r >= 0.62 ? 'tablet' : 'phone';
+      }
+      var chain = { wide: ['wide', 'wideSmall'], wideSmall: ['wideSmall', 'wide'], tablet: ['tablet', 'phone', 'wide'], phone: ['phone', 'tablet', 'wide'] };
+      var poster = { wide: d.posterWide, wideSmall: d.posterWide, tablet: d.posterTablet, phone: d.posterPhone };
+      var srcOf = { wide: d.srcWide, wideSmall: d.srcWideSmall, tablet: d.srcTablet, phone: d.srcPhone };
+      var current = null, tries = [], at = 0, resumeAt = 0;
+      function load(list) {
+        tries = list.map(function (k) { return srcOf[k]; }).concat([d.srcFallback]); at = 0;
+        v.src = tries[0]; v.load();
+      }
+      v.addEventListener('error', function () { if (++at < tries.length) { v.src = tries[at]; v.load(); } });
+      v.addEventListener('loadedmetadata', function () {
+        if (resumeAt) { try { v.currentTime = Math.min(resumeAt, (v.duration || resumeAt) - 0.1); } catch (e) {} resumeAt = 0; }
+        var p = v.play(); if (p && p.catch) p.catch(function () {});
+      });
+      function apply() {
+        if (!document.body.contains(v)) return;  // left the homepage (Turbo)
+        var f = pick();
+        if (f === current || (current && current.indexOf('wide') === 0 && f.indexOf('wide') === 0)) return;
+        resumeAt = current ? v.currentTime : 0;
+        current = f; d.film = f;
+        v.poster = poster[f]; v.preload = 'auto';
+        load(chain[f]);
+      }
+      apply();
+      var t; window.addEventListener('resize', function () { clearTimeout(t); t = setTimeout(apply, 250); });
+    })(document.currentScript && document.currentScript.previousElementSibling);
+    </script>
     <!-- Hero audio is a SEPARATE element (not the video's audio track) because
          macOS Safari blocks autoplay of any video that contains an audio track,
          even when `muted` is set. Stripping the audio from the video unblocks
@@ -846,7 +911,7 @@
          element instead. The two loop independently (~62s each) — minor drift
          after the first cycle is imperceptible for ambient brand music. -->
     <audio id="heroAudio" loop preload="auto">
-      <source src="/static/assets/videos/web/brand-film-audio.m4a" type="audio/mp4">
+      <source src="/static/assets/videos/web/mh-brand-film-audio.m4a" type="audio/mp4">
     </audio>
 
     <div class="hero__overlay"></div>
@@ -1114,6 +1179,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
   } else {
     heroVideo.addEventListener('loadeddata', tryHeroPlay, { once: true });
   }
+
 
   /* ═══════════════════════════════════════
      0b. HERO SOUND TOGGLE

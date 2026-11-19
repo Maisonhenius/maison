@@ -269,6 +269,7 @@ Mobile-first. Tested viewports: 320×568 (iPhone SE worst case), 375×812, 768 (
 ### CSS / layout
 - **Footer has three rows**: `.footer__social` (Instagram/TikTok) → `.footer__links` (Terms/Privacy) → `.footer__legal` (copyright). New footer links go in `.footer__links`.
 - **Legal pages share `.legal-*` CSS** (terms + privacy define identical inline `.legal-hero`/`.legal-body`/`.legal-section`). Copy the class system for any new legal page. `signup.html` `.auth__agree` links to `/terms` + `/privacy`.
+- **Our Story "The Craft" (≥769px): picture spans the full height of the text column** (owner chose "Option A"). `.story-craft__inner` stretches, `.story-craft__img` is `position:absolute; inset:0` inside its frame (so the image never sets the row height) with `object-fit: cover`; top aligns with the label, bottom with the last paragraph whatever the text length. Phones keep the stacked layout. Note: `position: sticky` does NOT work on this site — `html`/`body` `overflow-x: hidden` makes body a scroll container; use ScrollTrigger pinning instead.
 - **Pseudo-element overflow on mobile**: `.story-craft__image::before` (`inset:-10% -5%` gold halo) bleeds past the viewport; `.story-craft` gets `overflow:hidden` < 768px. Check decorative `::before`/`::after` with negative inset.
 - **Cart badge offset on mobile**: `.nav__cart` mobile `padding:13px` shifts the absolute `.cart-badge`; the mobile breakpoint overrides it to `top:2px; right:0px`. Recalc if you change the padding.
 

@@ -453,6 +453,18 @@
   /* ═══════════════════════════════════════
      STORY PAGE - RESPONSIVE
      ═══════════════════════════════════════ */
+  /* The Craft (≥769px): picture spans the full height of the text column, so its
+     top lines up with "The Craft" label and its bottom with the last paragraph,
+     whatever the text length (owner request). The image is absolutely positioned
+     inside its frame so it never dictates the row height; object-fit crops the
+     sides slightly instead of distorting. Phones keep the stacked layout below. */
+  @media (min-width: 769px) {
+    .story-craft__inner { align-items: stretch; }
+    .story-craft__image { align-items: stretch; padding: 0 1rem; }
+    .story-craft__img-frame { height: auto; min-height: 420px; }
+    .story-craft__img { position: absolute; inset: 0; }
+  }
+
   @media (max-width: 768px) {
     .story-origin__image {
       border-radius: 8px;

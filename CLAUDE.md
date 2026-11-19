@@ -62,7 +62,7 @@ css/style.css             <- Shared public styles (nav, footer, typography, rese
 admin/admin.css           <- Shared admin styles (sidebar, layout, responsive)
 BRAND.md                  <- Brand strategy, tone, visual identity, collection details
 assets/
-  images/logo.svg         <- Gold monogram logo (#E9DB90)
+  images/logo-crest-gold.webp / logotype-gold.webp  <- Gold logos (#E9DB90), public pages; logo.svg/logotype.webp = admin only
   videos/web/             <- Web-optimized videos: brand-film-silent.{mp4,webm} + brand-film-audio.m4a (hero) + scroll-cinematic.mp4
   pictures/               <- Product photography, landscapes, olfactory pyramids
   pictures/ingredients/   <- 32 ingredient WebP photos (800px, ~170KB each). 4K PNG originals gitignored
@@ -285,7 +285,7 @@ Repo images are WebP (PNG/JPG originals gitignored). Size targets + cwebp/ffmpeg
   - `{{ value | page_media }}` → `/static/assets/` (CMS images/videos)
 
   Migration 008 moved existing product media to Supabase Storage URLs; new admin uploads write there too.
-- **Logotype**: `assets/images/logotype.webp` (800×873, alpha) — crest + "Maison Henius" + "Collection Eaux de Parfums"; used in footer + auth pages. Monogram SVG `assets/images/logo.svg` still used in nav + favicons.
+- **Logos (2026-11-19, owner's new artwork recoloured to the site gold #E9DB90):** public pages use `assets/images/logo-crest-gold.webp` (crest, 320², nav + mobile menu + forgot/reset pages), `assets/images/logotype-gold.webp` (crest + "Maison Henius" between two dots, 420w; footer + login/signup), and `logo-crest-gold.png` (256², tab icon + JSON-LD logo). Root `favicon.ico` / `favicon-32x32.png` / `apple-touch-icon.png` regenerated from the same crest. NEW file names on purpose: `/static/assets/*` is cached 30 days, so swapping a file in place would show the old logo to returning visitors. The old gold `logo.svg` / `logotype.webp` are kept and still used by the **admin pages only** (owner's choice). The new logotype has no "Collection Eaux de Parfums" subtitle.
 
 ## Performance
 

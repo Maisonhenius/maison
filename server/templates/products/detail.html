@@ -244,6 +244,44 @@
   .product-comp__group {
     max-width: 900px; margin: 0 auto 4rem;
   }
+  /* Sets: list of the fragrances inside (instead of notes) */
+  .product-comp__set {
+    max-width: 760px; margin: 0 auto;
+    border-top: 1px solid rgba(233, 219, 144, 0.18);
+  }
+  .product-comp__set-item {
+    display: grid; grid-template-columns: 1fr auto; column-gap: 2rem; align-items: baseline;
+    padding: 1.8rem 0.5rem;
+    border-bottom: 1px solid rgba(233, 219, 144, 0.18);
+    color: inherit; text-decoration: none;
+    transition: background 0.3s ease;
+  }
+  .product-comp__set-item:hover { background: rgba(233, 219, 144, 0.04); }
+  .product-comp__set-family {
+    grid-column: 1; font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.68rem; letter-spacing: 0.3em; text-transform: uppercase;
+    color: #b8a44e; margin-bottom: 0.4rem;
+  }
+  .product-comp__set-name {
+    grid-column: 1; font-family: 'Cormorant Garamond', serif; font-weight: 300;
+    font-style: italic; font-size: clamp(1.4rem, 2.2vw, 1.8rem); color: #faf9f6;
+  }
+  .product-comp__set-desc {
+    grid-column: 1; margin-top: 0.6rem;
+    font-family: 'Montserrat', sans-serif; font-weight: 300;
+    font-size: clamp(0.82rem, 1vw, 0.9rem); line-height: 1.7;
+    color: rgba(245, 240, 232, 0.55);
+  }
+  .product-comp__set-cta {
+    grid-column: 2; grid-row: 1 / span 3; align-self: center;
+    font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.7rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #e9db90; white-space: nowrap;
+  }
+  @media (max-width: 640px) {
+    .product-comp__set-item { grid-template-columns: 1fr; padding: 1.5rem 0.25rem; }
+    .product-comp__set-cta { grid-column: 1; grid-row: auto; margin-top: 0.9rem; }
+  }
   .product-comp__group:last-child { margin-bottom: 0; }
   .product-comp__group-label {
     font-family: 'Montserrat', sans-serif; font-weight: 400;
@@ -455,7 +493,7 @@
     <div class="product-hero__overlay"></div>
     <div class="product-hero__bar">
       <div>
-        <div class="product-hero__family">{{ product.family }} · Eau de Parfum · 100ml</div>
+        <div class="product-hero__family">{{ product.family }}{% if product.bottle_size %} · {{ product.bottle_size }}{% endif %}</div>
         <h1 class="product-hero__name">{{ product.name }}</h1>
       </div>
       <div class="product-hero__actions">
@@ -514,6 +552,21 @@
       <h2 class="product-comp__heading">{{ product.composition_subtitle }}</h2>
     </div>
 
+    {% if is_product_set(product) %}
+    {# Sets (e.g. the Discovery Collection) have no notes of their own: list the
+       visible single fragrances instead, each linking to its page. #}
+    <div class="product-comp__set">
+      {% for slug, f in others.items() if not is_product_set(f) %}
+      <a href="/products/{{ slug }}" class="product-comp__set-item">
+        <span class="product-comp__set-family">{{ f.family }}</span>
+        <span class="product-comp__set-name">{{ f.name }}</span>
+        {% set first = (f.character or '').split('. ')[0] %}
+        {% if first %}<p class="product-comp__set-desc">{{ first if first.endswith('.') else first ~ '.' }}</p>{% endif %}
+        <span class="product-comp__set-cta">Discover &rarr;</span>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
     {% for key in ['top', 'heart', 'base'] %}
     {% set group = product.notes[key] %}
     <div class="product-comp__group">
@@ -529,6 +582,7 @@
       </div>
     </div>
     {% endfor %}
+    {% endif %}
   </section>
 
   <!-- ═══ THE BOTTLE ═══ -->

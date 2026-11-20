@@ -22,6 +22,28 @@
 
 {% block styles %}
   <style>
+      /* ── Hero "Replay" button (film plays once) — same look as the sound button, sits to its left ── */
+      .hero-replay {
+        position: absolute; bottom: 2rem; right: calc(2rem + 52px); z-index: 10;
+        width: 40px; height: 40px; padding: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: none;
+        border: 1px solid rgba(233, 219, 144, 0.4); border-radius: 50%;
+        cursor: pointer; opacity: 0;
+        transition: opacity 0.6s ease, border-color 0.4s ease, background 0.4s ease;
+      }
+      .hero-replay[hidden] { display: none; }
+      .hero-replay.is-visible { opacity: 1; }
+      .hero-replay:hover { border-color: rgba(233, 219, 144, 0.8); background: rgba(233, 219, 144, 0.08); }
+      .hero-replay svg {
+        width: 16px; height: 16px; fill: none;
+        stroke: rgba(233, 219, 144, 0.7); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+      }
+      .hero-replay:hover svg { stroke: rgba(233, 219, 144, 1); }
+      /* small phones: the button comes close to the centre, so the scroll line steps aside */
+      @media (max-width: 600px) {
+        .hero:has(.hero-replay.is-visible) .scroll-indicator { opacity: 0; transition: opacity 0.6s ease; }
+      }
     /* ── Full-screen video ── */
     .hero {
       position: relative;
@@ -853,7 +875,7 @@
       'phone': content('hero', 'video_phone', _B ~ 'mh-brand-film-phone.mp4') | page_media,
     } %}
     {% set _d = {'wide': _B ~ 'mh-brand-film-1080.mp4', 'wideSmall': _B ~ 'mh-brand-film-720.mp4', 'tablet': _B ~ 'mh-brand-film-tablet.mp4', 'phone': _B ~ 'mh-brand-film-phone.mp4'} %}
-    <video class="hero__video" autoplay muted loop playsinline preload="none"
+    <video class="hero__video" autoplay muted playsinline preload="none"
            data-src-wide="{{ _v.wide if is_video_url(_v.wide) else _d.wide }}"
            data-src-wide-small="{{ _v.wideSmall if is_video_url(_v.wideSmall) else _d.wideSmall }}"
            data-src-tablet="{{ _v.tablet if is_video_url(_v.tablet) else _d.tablet }}"
@@ -868,7 +890,10 @@
          0.62–1   upright tablet cut (3:4)
          < 0.62   upright phone cut (9:16)
        Re-checked on resize/rotation; a swap keeps the same moment and keeps
-       playing. If a file fails, the next best version is tried. */
+       playing. If a file fails, the next best version is tried.
+       The film plays ONCE (no loop); at the end a "Replay" button appears
+       (see 0c in the page script). data-ended marks the watched state, so a
+       rotation after the end does not start it again. */
     (function (v) {
       if (!v || v.dataset.filmInit) return;
       v.dataset.filmInit = '1';
@@ -888,6 +913,10 @@
       }
       v.addEventListener('error', function () { if (++at < tries.length) { v.src = tries[at]; v.load(); } });
       v.addEventListener('loadedmetadata', function () {
+        if (d.ended) {  // film already watched: show its last picture, stay still
+          try { v.currentTime = Math.max(0, (v.duration || 0.1) - 0.05); } catch (e) {}
+          resumeAt = 0; return;
+        }
         if (resumeAt) { try { v.currentTime = Math.min(resumeAt, (v.duration || resumeAt) - 0.1); } catch (e) {} resumeAt = 0; }
         var p = v.play(); if (p && p.catch) p.catch(function () {});
       });
@@ -908,9 +937,8 @@
          macOS Safari blocks autoplay of any video that contains an audio track,
          even when `muted` is set. Stripping the audio from the video unblocks
          autoplay everywhere; the sound toggle below plays/pauses this audio
-         element instead. The two loop independently (~62s each) — minor drift
-         after the first cycle is imperceptible for ambient brand music. -->
-    <audio id="heroAudio" loop preload="auto">
+         element instead. Film and sound play once (~62s); Replay restarts both. -->
+    <audio id="heroAudio" preload="auto">
       <source src="/static/assets/videos/web/mh-brand-film-audio.m4a" type="audio/mp4">
     </audio>
 
@@ -956,6 +984,13 @@
     <div class="scroll-indicator">
       <div class="scroll-indicator__line"></div>
     </div>
+
+    <button class="hero-replay" id="heroReplay" type="button" aria-label="Replay the film" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 3-6.7"/>
+        <polyline points="3 3 3 9 9 9"/>
+      </svg>
+    </button>
 
     <button class="sound-toggle" id="soundToggle" aria-label="Toggle sound">
       <svg id="iconMuted" viewBox="0 0 24 24">
@@ -1169,6 +1204,7 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
      frame is decodable and the .catch() lets us fall back to the browser's
      play-button UI gracefully if engagement-gauge or LPM blocks us. */
   function tryHeroPlay() {
+    if (heroVideo.dataset.ended) return;  // watched once: wait for Replay
     try {
       var p = heroVideo.play();
       if (p && p.catch) p.catch(function() {});
@@ -1197,6 +1233,10 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
   var iconPlaying = document.getElementById('iconPlaying');
   if (soundToggle && heroAudio) {
     soundToggle.addEventListener('click', function() {
+      if (heroAudio.paused && heroVideo.dataset.ended && window._heroReplay) {
+        window._heroReplay(true);
+        return;
+      }
       if (heroAudio.paused) {
         // Sync audio to whatever moment the video is currently showing
         try {
@@ -1215,6 +1255,42 @@ document.addEventListener("turbo:load", function initLandingAnimations() {
         iconPlaying.style.display = 'none';
       }
     });
+  }
+
+  /* ═══════════════════════════════════════
+     0c. PLAY ONCE + REPLAY
+     ═══════════════════════════════════════
+     The film plays once and rests on its last picture. A "Replay" button
+     then fades in beside the sound button; it starts film (and sound, if it
+     was on) from the beginning. */
+  var replayBtn = document.getElementById('heroReplay');
+  if (replayBtn && !heroVideo.dataset.replayInit) {
+    heroVideo.dataset.replayInit = '1';
+    var soundWasOn = false;
+    heroVideo.addEventListener('ended', function() {
+      heroVideo.dataset.ended = '1';
+      soundWasOn = !!(heroAudio && !heroAudio.paused);
+      if (heroAudio) heroAudio.pause();
+      replayBtn.hidden = false;
+      requestAnimationFrame(function() { replayBtn.classList.add('is-visible'); });
+    });
+    window._heroReplay = function(withSound) {
+      delete heroVideo.dataset.ended;
+      replayBtn.classList.remove('is-visible');
+      setTimeout(function() { if (!heroVideo.dataset.ended) replayBtn.hidden = true; }, 400);
+      try { heroVideo.currentTime = 0; } catch (e) {}
+      var p = heroVideo.play(); if (p && p.catch) p.catch(function() {});
+      if (heroAudio && (withSound || soundWasOn)) {
+        try { heroAudio.currentTime = 0; } catch (e) {}
+        var a = heroAudio.play(); if (a && a.catch) a.catch(function() {});
+        iconMuted.style.display = 'none';
+        iconPlaying.style.display = 'block';
+      } else if (heroAudio) {
+        iconMuted.style.display = 'block';
+        iconPlaying.style.display = 'none';
+      }
+    };
+    replayBtn.addEventListener('click', function() { window._heroReplay(false); });
   }
 
   if (typeof gsap === "undefined") return;

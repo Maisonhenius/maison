@@ -72,7 +72,7 @@ STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET")
 stripe_client = StripeClient(STRIPE_SECRET_KEY) if STRIPE_SECRET_KEY else None
 
 # Allowed emails for admin magic link login
-ALLOWED_EMAILS = ["osamah96@gmail.com", "husein.aldarawish@gmail.com"]
+ALLOWED_EMAILS = ["husein.aldarawish@gmail.com"]  # sole owner since 2026-11-27 (owner request: second address removed)
 
 # --- Admin upload constraints ---
 # Two Supabase Storage buckets gated by the admin endpoints below:

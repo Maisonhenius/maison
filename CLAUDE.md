@@ -97,7 +97,7 @@ profile, addresses, orders = await asyncio.gather(...)                      # pa
 ## Auth System
 
 - **Customer**: email/password via Supabase Auth (`/login`, `/signup`). API `POST /api/auth/login|signup`. Token in `localStorage['maison_auth']`.
-- **Admin**: magic link (`/admin/login`), restricted to `osamah96@gmail.com`, `husein.aldarawish@gmail.com`. API `POST /api/admin/auth/send-link`. Token in `localStorage['maison_admin_auth']`. All `/api/admin/*` check it via `get_admin_user()`.
+- **Admin**: magic link (`/admin/login`), restricted to `husein.aldarawish@gmail.com` only (the second owner address was removed 2026-11-27 at the owner's request — do not re-add it). API `POST /api/admin/auth/send-link`. Token in `localStorage['maison_admin_auth']`. All `/api/admin/*` check it via `get_admin_user()`.
 - Nav profile icon → `/profile` when logged in, `/login` when not.
 - **Magic-link redirect allowlist (silent-fail trap)**: `send-link` / forgot-password build `redirect_to` from the live `host` header, so EVERY auth-serving domain (canonical `www.maisonhenius.com`) must have its callback paths on the Supabase Redirect URLs allowlist (Auth > URL Configuration). A `redirect_to` not on the list does NOT error — Supabase silently falls back to the Site URL, dumping the user on the home page instead of `/admin/auth/callback`. Fixed with wildcards `https://www.maisonhenius.com/**` + `https://maisonhenius.com/**`; Site URL = `https://www.maisonhenius.com/`.
 - **Checkout requires login**: `/checkout` → `/login?redirect=/checkout` if not authed. Login/signup pass `?redirect=` between each other.
@@ -214,7 +214,7 @@ Mobile-first. Tested viewports: 320×568 (iPhone SE worst case), 375×812, 768 (
 - **`localStorage["maison_admin_auth"]` is JSON-stringified, NOT a raw token** (trap: silent 401s). Auth-callback stores `JSON.stringify({access_token,...})`. Every admin page MUST `JSON.parse(auth).access_token` before sending it as a Bearer header. Working pattern in `admin/dashboard.html`; mirror it on every new admin page.
 - **Admin pages must auto-redirect to `/admin/login` on 401** — Supabase JWTs expire ~1h. Detect `r.status === 401`, clear the localStorage key, `window.location.href = '/admin/login'`. Otherwise the page sits on "Failed to load (status 401)" forever.
 - **Admin auth guard**: `admin/layout.html` JS checks `maison_admin_auth` and redirects before render.
-- **Headless admin auth for tests**: mint a one-shot magic link via `supabase.auth.admin.generate_link({"type":"magiclink","email":"osamah96@gmail.com","options":{"redirect_to":".../admin/auth/callback"}})`, navigate to it (stores token in localStorage). Single-use, ~1h TTL; `error=otp_expired` → regenerate.
+- **Headless admin auth for tests**: mint a one-shot magic link via `supabase.auth.admin.generate_link({"type":"magiclink","email":"husein.aldarawish@gmail.com","options":{"redirect_to":".../admin/auth/callback"}})`, navigate to it (stores token in localStorage). Single-use, ~1h TTL; `error=otp_expired` → regenerate.
 
 ### Turbo / JS lifecycle
 - **`turbo:load` listeners need TWO guards** (trap: real bugs, not just warnings):

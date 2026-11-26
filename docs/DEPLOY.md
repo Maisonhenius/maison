@@ -8,7 +8,7 @@ DNS setup, and the broken-CLI workaround.
 
 - **Live URL**: canonical `https://www.maisonhenius.com` (also `https://web-production-cc74a0.up.railway.app`)
 - **GitHub repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB)
-- **Railway project**: `maison-henius` (id: `f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web` (id: `d363d941-07c4-4383-b0a2-c12ebd5a8cbd`), environment `production` (`b99a4d18-a9fc-4742-b874-c0b4d38e5ade`). Owner Railway account: **husein.aldarawish@gmail.com** (NOT osamah96 — relevant for `railway login`).
+- **Railway project**: `maison-henius` (id: `f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web` (id: `d363d941-07c4-4383-b0a2-c12ebd5a8cbd`), environment `production` (`b99a4d18-a9fc-4742-b874-c0b4d38e5ade`). Owner Railway account: **husein.aldarawish@gmail.com** (relevant for `railway login`).
 - **Builder**: Dockerfile (clones from GitHub on Railway servers — bypasses upload size limits)
 - **Deploy directory**: `/tmp/claude/maison-docker-deploy/` — ephemeral, recreated each session (see Redeploy steps)
 

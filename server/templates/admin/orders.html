@@ -216,6 +216,19 @@
     </select>
   </div>
   <div class="filter-bar__group">
+    <label class="filter-bar__label" for="fulfilFilter">Fulfilment</label>
+    <select id="fulfilFilter">
+      <option value="all">All steps</option>
+      <option value="new">New (awaiting warehouse)</option>
+      <option value="received">Received</option>
+      <option value="preparing">Preparing</option>
+      <option value="packed">Ready for dispatch</option>
+      <option value="dispatched">Dispatched</option>
+      <option value="delivered">Delivered</option>
+      <option value="issue">With an issue</option>
+    </select>
+  </div>
+  <div class="filter-bar__group">
     <label class="filter-bar__label">From</label>
     <input type="date" id="dateFrom">
   </div>
@@ -238,6 +251,7 @@
           <th>Items</th>
           <th>Total</th>
           <th>Status</th>
+          <th>Fulfilment</th>
         </tr>
       </thead>
       <tbody id="ordersBody">
@@ -255,6 +269,8 @@
   window._ordersInitBound = true;
 
   var STATUSES = ['confirmed', 'pending', 'shipped', 'delivered', 'cancelled'];
+  var FF_LABELS = { new: 'New', received: 'Received', preparing: 'Preparing', packed: 'Ready for dispatch', dispatched: 'Dispatched', delivered: 'Delivered' };
+  var FF_BG = { new: '#e4ebf4', received: '#e4ebf4', preparing: '#fbf1d6', packed: '#fbf1d6', dispatched: '#e7f1e8', delivered: '#e7f1e8' };
   var STATUS_COLORS = {
     confirmed: '#7eda9a',
     pending:   '#e9db90',
@@ -268,6 +284,7 @@
     var emptyEl   = document.getElementById('ordersEmpty');
     var searchIn  = document.getElementById('orderSearch');
     var statusSel = document.getElementById('statusFilter');
+    var fulfilSel = document.getElementById('fulfilFilter');
     var dateFrom  = document.getElementById('dateFrom');
     var dateTo    = document.getElementById('dateTo');
     var countEl   = document.getElementById('resultsCount');
@@ -313,6 +330,12 @@
         list = list.filter(function(o) { return o.status === st; });
       }
 
+      var fs = fulfilSel ? fulfilSel.value : 'all';
+      if (fs === 'issue') {
+        list = list.filter(function(o) { return !!o.issue_type; });
+      } else if (fs && fs !== 'all') {
+        list = list.filter(function(o) { return (o.fulfilment_status || 'new') === fs && ['confirmed', 'shipped', 'delivered'].indexOf(o.status) !== -1; });
+      }
       var q = searchIn.value.trim().toLowerCase();
       if (q) {
         list = list.filter(function(o) {
@@ -396,7 +419,7 @@
       tr.setAttribute('data-detail', order.id);
 
       var td = document.createElement('td');
-      td.colSpan = 6;
+      td.colSpan = 7;
 
       var wrap = document.createElement('div');
       wrap.className = 'order-detail__content';
@@ -475,6 +498,36 @@
       }
 
       right.appendChild(ul);
+
+      /* Fulfilment summary: courier, actual cost vs charged, link to full history */
+      if (['confirmed', 'shipped', 'delivered'].indexOf(order.status) !== -1) {
+        var flbl = document.createElement('div');
+        flbl.className = 'order-detail__label';
+        flbl.style.marginTop = '1rem';
+        flbl.textContent = 'Fulfilment';
+        right.appendChild(flbl);
+        var ftxt = document.createElement('div');
+        ftxt.className = 'order-detail__text';
+        ftxt.style.whiteSpace = 'pre-line';
+        var a1 = order.actual_shipping_cost, a2 = order.actual_additional_cost;
+        var charged = parseFloat(order.shipping || 0);
+        var lines = [(FF_LABELS[order.fulfilment_status || 'new'] || '') + (order.issue_type ? ' \u00b7 Issue: ' + order.issue_type : '')];
+        if (order.courier) lines.push(order.courier + (order.tracking_number ? ' \u00b7 ' + order.tracking_number : ''));
+        if (a1 != null || a2 != null) {
+          var actual = (parseFloat(a1) || 0) + (parseFloat(a2) || 0), diff = charged - actual;
+          lines.push('Delivery charged $' + charged.toFixed(2) + ' \u00b7 actual $' + actual.toFixed(2) + ' \u00b7 difference ' + (diff >= 0 ? '+' : '\u2212') + '$' + Math.abs(diff).toFixed(2));
+        } else {
+          lines.push('Actual delivery cost not reported yet');
+        }
+        ftxt.textContent = lines.join('\n');
+        right.appendChild(ftxt);
+        var open = document.createElement('a');
+        open.href = '/admin/fulfilment/orders/' + encodeURIComponent(order.id);
+        open.textContent = 'Open fulfilment details & history \u2192';
+        open.style.cssText = 'display:inline-block;margin-top:0.5rem;font-size:0.75rem;color:#8a7a30;';
+        open.addEventListener('click', function(e) { e.stopPropagation(); });
+        right.appendChild(open);
+      }
 
       if (order.stripe_session_id) {
         var slbl = document.createElement('div');
@@ -562,6 +615,27 @@
         tdSt.appendChild(makeStatusSelect(order));
         tr.appendChild(tdSt);
 
+        /* Fulfilment step (paid orders only) + issue flag */
+        var tdFf = document.createElement('td');
+        if (['confirmed', 'shipped', 'delivered'].indexOf(order.status) !== -1) {
+          var fsKey = order.fulfilment_status || 'new';
+          var ffChip = document.createElement('span');
+          ffChip.textContent = FF_LABELS[fsKey] || fsKey;
+          ffChip.style.cssText = 'display:inline-block;font-size:0.68rem;padding:0.15rem 0.5rem;border-radius:999px;white-space:nowrap;background:' + (FF_BG[fsKey] || '#eee') + ';';
+          tdFf.appendChild(ffChip);
+          if (order.issue_type) {
+            var iss = document.createElement('span');
+            iss.textContent = 'Issue';
+            iss.title = order.issue_type;
+            iss.style.cssText = 'display:inline-block;margin-left:0.3rem;font-size:0.68rem;padding:0.15rem 0.5rem;border-radius:999px;background:#f8e3df;color:#b23b2a;';
+            tdFf.appendChild(iss);
+          }
+        } else {
+          tdFf.textContent = '\u2014';
+          tdFf.style.color = '#bbb';
+        }
+        tr.appendChild(tdFf);
+
         /* Click to toggle detail */
         var detail = makeDetail(order);
 
@@ -583,6 +657,7 @@
 
     /* ---- Filter event listeners ---- */
     statusSel.addEventListener('change', render);
+    if (fulfilSel) fulfilSel.addEventListener('change', render);
     dateFrom.addEventListener('change', render);
     dateTo.addEventListener('change', render);
 

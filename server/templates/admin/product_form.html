@@ -320,6 +320,11 @@
           <span class="form-field__hint">Units available. Drops automatically as orders are paid; 0 shows "Out of Stock". Never shown to customers.</span>
         </div>
         <div class="form-field">
+          <label for="sku">SKU / reference</label>
+          <input type="text" id="sku" maxlength="40" placeholder="e.g. MH-OUD-100">
+          <span class="form-field__hint">The warehouse's reference for this product. Shown on the Fulfilment page and in warehouse emails.</span>
+        </div>
+        <div class="form-field">
           <label for="display_order">Display order</label>
           <input type="number" id="display_order" min="0" step="1" value="0">
           <span class="form-field__hint">Lower numbers appear first in the collection.</span>
@@ -811,6 +816,7 @@
       document.getElementById('family').value = product.family || '';
       document.getElementById('price').value = product.price != null ? product.price : '';
       document.getElementById('stock').value = product.stock != null ? product.stock : 0;
+      document.getElementById('sku').value = product.sku || '';
       document.getElementById('display_order').value = product.display_order != null ? product.display_order : 0;
       document.getElementById('mood').value = product.mood || '';
       document.getElementById('character').value = product.character || '';
@@ -893,6 +899,7 @@
         family: document.getElementById('family').value.trim(),
         price: parseFloat(document.getElementById('price').value),
         stock: parseInt(document.getElementById('stock').value, 10) || 0,
+        sku: document.getElementById('sku').value.trim(),
         display_order: parseInt(document.getElementById('display_order').value, 10) || 0,
         video: document.getElementById('video').value.trim(),
         mood: document.getElementById('mood').value.trim(),

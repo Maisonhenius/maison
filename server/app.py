@@ -5,10 +5,11 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, File
 from fastapi.middleware.gzip import GZipMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from typing import Optional
 import asyncio
+import base64
 import os
 import re
 import json
@@ -143,17 +144,14 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 async def get_admin_user(request: Request) -> Optional[object]:
-    """Extract and validate admin user from auth header"""
-    auth_header = request.headers.get("authorization", "")
-    if not auth_header.startswith("Bearer "):
-        return None
-    token = auth_header.split(" ")[1]
-    try:
-        user_resp = await _to_thread(supabase.auth.get_user, token)
-        if user_resp and user_resp.user and str(user_resp.user.email) in ALLOWED_EMAILS:
-            return user_resp.user
-    except Exception:
-        pass
+    """Owner/admin only. Every /api/admin/* endpoint calls this, so warehouse
+    (fulfilment) accounts are refused everywhere by default — and the attempt is
+    logged. Roles are resolved in _resolve_staff() (Team access section below)."""
+    staff = await _resolve_staff(request)
+    if staff and staff.role in ("owner", "admin"):
+        return staff.user
+    if staff:
+        await _log_staff(staff, "denied", f"{request.method} {request.url.path}", request)
     return None
 
 
@@ -360,6 +358,9 @@ def _row_to_product(row: dict) -> dict:
         "is_hidden": bool(row.get("is_hidden", False)),
         "display_order": int(row.get("display_order") or 0),
         "stock": int(row.get("stock") or 0),
+        # Warehouse reference code (migration 014). Empty until the owner sets it;
+        # the fulfilment pages fall back to the product slug.
+        "sku": row.get("sku") or "",
         # Price hidden on the public site (see NO_PRICE_SLUGS).
         "show_price": (row.get("slug") or row.get("id", "")) not in NO_PRICE_SLUGS,
         # Not yet launched: badge + buttons say "Coming Soon" instead of "Out of Stock".
@@ -767,7 +768,7 @@ async def admin_auth_callback(request: Request):
 
 # --- Stripe Checkout API ---
 
-async def _decrement_stock_for_items(items: list, source: str) -> None:
+async def _decrement_stock_for_items(items: list, source: str, order_id: Optional[str] = None) -> None:
     """Atomically reduce product stock for each line in a paid order.
 
     Called exactly once per order, on the pending→confirmed transition (and the
@@ -796,12 +797,14 @@ async def _decrement_stock_for_items(items: list, source: str) -> None:
             # clamp to zero, and flag it for the admin to reconcile.
             await _db(supabase.table("products").update({"stock": 0}).eq("id", pid))
             print(f"[{source}] ⚠ OVERSELL: '{pid}' x{qty} exceeded stock; clamped to 0")
+        await _stock_move(pid, -qty, "sale", 0 if new_stock is None else int(new_stock), order_id=order_id,
+                          reason="" if new_stock is not None else "Sold more than was in stock: level set to 0, please check")
         touched = True
     if touched:
         await reload_products_cache()
 
 
-async def _restock_for_items(items: list, source: str) -> None:
+async def _restock_for_items(items: list, source: str, order_id: Optional[str] = None, actor=None) -> None:
     """Return units to stock when a previously-paid order is cancelled."""
     if not isinstance(items, list):
         return
@@ -813,7 +816,10 @@ async def _restock_for_items(items: list, source: str) -> None:
         qty = int(item.get("quantity", 1) or 1)
         if not pid or qty <= 0:
             continue
-        await _db(supabase.rpc("restock", {"p_id": pid, "p_qty": qty}))
+        res = await _db(supabase.rpc("restock", {"p_id": pid, "p_qty": qty}))
+        after = res.data[0] if isinstance(res.data, list) and res.data else res.data
+        await _stock_move(pid, qty, "cancel_return", after if isinstance(after, int) else None,
+                          order_id=order_id, actor=actor, reason="Order cancelled")
         touched = True
     if touched:
         await reload_products_cache()
@@ -852,7 +858,7 @@ async def _confirm_order(order: dict, source: str) -> dict:
             await _db(supabase.table("order_items").insert(rows))
 
     # Reduce stock now that payment succeeded (idempotent: this transition runs once).
-    await _decrement_stock_for_items(items, source)
+    await _decrement_stock_for_items(items, source, order_id)
 
     # Clear server cart
     user_id = order.get("user_id")
@@ -860,6 +866,8 @@ async def _confirm_order(order: dict, source: str) -> dict:
         await _db(supabase.table("cart_items").delete().eq("user_id", user_id))
 
     print(f"[{source}] Order {order_id} pending → confirmed")
+    await _order_event(order_id, None, "payment", "pending", "confirmed",
+                       {"summary": "Payment confirmed. The order is ready for the warehouse."})
     return order
 
 
@@ -971,7 +979,7 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
 
     # Reduce stock for this freshly-confirmed order (same as _confirm_order does
     # for the normal pre-created path).
-    await _decrement_stock_for_items(validated_items, source)
+    await _decrement_stock_for_items(validated_items, source, order_id)
 
     # Clear server cart
     user_id = meta.get("user_id")
@@ -979,6 +987,8 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
         await _db(supabase.table("cart_items").delete().eq("user_id", user_id))
 
     print(f"[{source}] Order {order_id} created from session metadata (fallback path)")
+    await _order_event(order_id, None, "payment", None, "confirmed",
+                       {"summary": "Payment confirmed. The order is ready for the warehouse."})
     return order_data
 
 
@@ -1585,6 +1595,1084 @@ async def sync_cart(request: Request):
     merged = await _db(supabase.table("cart_items").select("*").eq("user_id", user_id))
     return JSONResponse({"success": True, "items": _enrich_cart_items(merged.data)})
 
+# ═══════════════════════════════════════════════════════════════════════════
+# TEAM ACCESS + WAREHOUSE FULFILMENT (migration 014)
+#
+# Roles: "owner" (ALLOWED_EMAILS, hard-coded safety net, magic-link login),
+#        "admin" (reserved for later), "fulfilment" (warehouse company).
+# Enforcement lives HERE, on the server: every /api/admin/* endpoint goes through
+# get_admin_user(), which refuses fulfilment accounts (deny by default). The
+# warehouse only reaches the /api/fulfilment/* + /api/staff/* endpoints below,
+# which return a fixed list of fields and accept only fulfilment actions.
+# Staff accounts must be status "active" AND signed in with the 2-step code
+# (JWT aal2) on every request, so suspending/revoking takes effect immediately.
+# ═══════════════════════════════════════════════════════════════════════════
+
+FULFILMENT_FLOW = ["new", "received", "preparing", "packed", "dispatched", "delivered"]
+FULFILMENT_LABELS = {
+    "new": "New", "received": "Received", "preparing": "Preparing",
+    "packed": "Ready for dispatch", "dispatched": "Dispatched", "delivered": "Delivered",
+}
+ISSUE_TYPES = [
+    "Incorrect or incomplete address",
+    "Stock unavailable",
+    "Damaged product",
+    "Delay in preparation or dispatch",
+    "Other",
+]
+# Only PAID orders reach the warehouse (no abandoned checkouts, no cancelled orders).
+FULFILMENT_ORDER_STATUSES = ("confirmed", "shipped", "delivered")
+# Customer contact details + street address are hidden from the warehouse on
+# orders delivered longer ago than this.
+PERSONAL_DATA_DAYS = 60
+STAFF_PASSWORD_MIN = 10
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_BAN_FOREVER = "876000h"  # ~100 years: banned users cannot sign in or refresh
+
+_ORDER_FIELDS = (
+    "id,created_at,status,fulfilment_status,customer_name,customer_email,customer_phone,"
+    "shipping_address,items,subtotal,shipping,total,courier,shipping_method,tracking_number,"
+    "shipment_ref,dispatch_date,expected_delivery,actual_shipping_cost,actual_additional_cost,"
+    "issue_type,issue_note,issue_raised_by,issue_raised_at,dispatched_at,delivered_at,"
+    "fulfilment_updated_at"
+)
+_SHIPMENT_TEXT_FIELDS = ("courier", "shipping_method", "tracking_number", "shipment_ref", "expected_delivery")
+_SHIPMENT_MONEY_FIELDS = ("actual_shipping_cost", "actual_additional_cost")
+_SHIPMENT_LABELS = {
+    "courier": "Courier", "shipping_method": "Shipping method", "tracking_number": "Tracking number",
+    "shipment_ref": "Shipment reference", "dispatch_date": "Dispatch date",
+    "expected_delivery": "Expected delivery", "actual_shipping_cost": "Actual shipping cost",
+    "actual_additional_cost": "Additional delivery costs",
+}
+
+
+class Staff:
+    """The signed-in person behind a request, with their role."""
+    __slots__ = ("user", "user_id", "email", "role", "name", "staff_id")
+
+    def __init__(self, user, email: str, role: str, name: str = "", staff_id: Optional[str] = None):
+        self.user = user
+        self.user_id = str(user.id)
+        self.email = email
+        self.role = role
+        self.name = name
+        self.staff_id = staff_id
+
+    @property
+    def label(self) -> str:
+        if self.role == "owner":
+            return "Maison Henius (owner)"
+        return self.name or self.email
+
+
+def _bearer(request: Request) -> str:
+    h = request.headers.get("authorization", "")
+    return h.split(" ", 1)[1].strip() if h.startswith("Bearer ") else ""
+
+
+def _jwt_claims(token: str) -> dict:
+    """Read the claims of a JWT that Supabase has ALREADY validated (get_user)."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        return json.loads(base64.urlsafe_b64decode(payload.encode()))
+    except Exception:
+        return {}
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()[:64]
+    return (request.client.host if request.client else "")[:64]
+
+
+_STAFF_LAST_SEEN: dict = {}  # user_id -> epoch seconds of the last last_seen_at write
+
+
+async def _resolve_staff(request: Request) -> Optional[Staff]:
+    """Who is calling, and may they act? None = not signed in, or not allowed."""
+    token = _bearer(request)
+    if not token:
+        return None
+    try:
+        resp = await _to_thread(supabase.auth.get_user, token)
+        user = resp.user if resp else None
+    except Exception:
+        return None
+    if not user:
+        return None
+    email = str(user.email or "").lower()
+    if email in ALLOWED_EMAILS:
+        return Staff(user, email, "owner")
+    try:
+        res = await _db(
+            supabase.table("staff_accounts").select("id,full_name,role,status")
+            .eq("user_id", str(user.id)).limit(1)
+        )
+    except Exception as e:
+        print(f"[staff] lookup failed: {e}")
+        return None
+    row = res.data[0] if res.data else None
+    if not row or row.get("status") != "active":
+        return None
+    if _jwt_claims(token).get("aal") != "aal2":  # 2-step code is mandatory for staff
+        return None
+    now = time.time()
+    if now - _STAFF_LAST_SEEN.get(str(user.id), 0) > 300:
+        _STAFF_LAST_SEEN[str(user.id)] = now
+        try:
+            await _db(supabase.table("staff_accounts").update(
+                {"last_seen_at": datetime.now(timezone.utc).isoformat()}).eq("id", row["id"]))
+        except Exception:
+            pass
+    return Staff(user, email, row.get("role", "fulfilment"), row.get("full_name", ""), row["id"])
+
+
+async def get_fulfilment_staff(request: Request) -> Optional[Staff]:
+    """Anyone allowed on the Fulfilment pages: owner, admin, fulfilment."""
+    return await _resolve_staff(request)
+
+
+async def get_owner(request: Request) -> Optional[Staff]:
+    staff = await _resolve_staff(request)
+    return staff if staff and staff.role == "owner" else None
+
+
+async def _log_staff(who, action: str, detail: str = "", request: Optional[Request] = None) -> None:
+    """Activity log. Never breaks the request it records."""
+    try:
+        await _db(supabase.table("staff_activity").insert({
+            "staff_email": getattr(who, "email", who or "") or "",
+            "role": getattr(who, "role", ""),
+            "action": action,
+            "detail": (detail or "")[:500],
+            "ip": _client_ip(request) if request else "",
+        }))
+    except Exception as e:
+        print(f"[staff activity] log failed ({action}): {e}")
+
+
+async def _order_event(order_id: str, actor: Optional[Staff], action: str,
+                       from_value=None, to_value=None, details: Optional[dict] = None) -> None:
+    """Append to the permanent order history. Never breaks the request it records."""
+    try:
+        await _db(supabase.table("order_events").insert({
+            "order_id": order_id,
+            "actor_email": actor.email if actor else "",
+            "actor_name": actor.label if actor else "System",
+            "actor_role": actor.role if actor else "system",
+            "action": action,
+            "from_value": None if from_value is None else str(from_value),
+            "to_value": None if to_value is None else str(to_value),
+            "details": details or {},
+        }))
+    except Exception as e:
+        print(f"[order history] write failed for {order_id} ({action}): {e}")
+
+
+def _money(v) -> Optional[float]:
+    try:
+        return None if v is None or v == "" else round(float(v), 2)
+    except (TypeError, ValueError):
+        return None
+
+
+def _parse_ts(v) -> Optional[datetime]:
+    if not v:
+        return None
+    try:
+        d = datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+
+
+def _order_view(o: dict, staff: Staff) -> dict:
+    """The ONLY shape in which an order leaves the server on the Fulfilment pages.
+
+    Never includes user_id, stripe_session_id or anything not listed here.
+    Owners/admins additionally get the delivery-cost comparison.
+    """
+    items = []
+    for it in o.get("items") or []:
+        if not isinstance(it, dict):
+            continue
+        p = get_product(it.get("id"), include_hidden=True) or {}
+        qty = int(it.get("quantity") or 1)
+        price = float(it.get("price") or 0)
+        items.append({
+            "name": it.get("name") or p.get("name", ""),
+            "brand": "Maison Henius",
+            "sku": p.get("sku") or str(it.get("id") or ""),
+            "variant": p.get("bottle_size", ""),
+            "family": it.get("family") or p.get("family", ""),
+            "quantity": qty,
+            "unit_price": price,
+            "line_total": round(price * qty, 2),
+        })
+    addr = o.get("shipping_address") or {}
+    delivered_at = _parse_ts(o.get("delivered_at"))
+    hide = (
+        staff.role == "fulfilment"
+        and o.get("fulfilment_status") == "delivered"
+        and delivered_at is not None
+        and datetime.now(timezone.utc) - delivered_at > timedelta(days=PERSONAL_DATA_DAYS)
+    )
+    customer = None if hide else {
+        "name": o.get("customer_name", ""),
+        "email": o.get("customer_email", ""),
+        "phone": o.get("customer_phone", ""),
+        "address": {k: addr.get(k, "") for k in ("line1", "line2", "city", "state", "postal_code", "country")},
+        "instructions": addr.get("instructions", ""),
+    }
+    shipping = float(o.get("shipping") or 0)
+    charges = {
+        "subtotal": float(o.get("subtotal") or 0),
+        "shipping": shipping,
+        "door_to_door": 0.0,   # step 3 (shipping rates) adds these as stored amounts
+        "additional": 0.0,
+        "tax": 0.0,
+        "discount": 0.0,
+        "total": float(o.get("total") or 0),
+    }
+    view = {
+        "id": o.get("id"),
+        "created_at": o.get("created_at"),
+        "payment_status": "Paid" if o.get("status") in FULFILMENT_ORDER_STATUSES else
+                          ("Not paid" if o.get("status") == "pending" else "Cancelled"),
+        "order_status": o.get("status"),
+        "fulfilment_status": o.get("fulfilment_status") or "new",
+        "items": items,
+        "destination": {"city": addr.get("city", ""), "country": addr.get("country", "")},
+        "customer": customer,
+        "personal_data_hidden": hide,
+        "charges": charges,
+        "shipment": {
+            "courier": o.get("courier") or "",
+            "shipping_method": o.get("shipping_method") or "",
+            "tracking_number": o.get("tracking_number") or "",
+            "shipment_ref": o.get("shipment_ref") or "",
+            "dispatch_date": o.get("dispatch_date") or "",
+            "expected_delivery": o.get("expected_delivery") or "",
+            "actual_shipping_cost": _money(o.get("actual_shipping_cost")),
+            "actual_additional_cost": _money(o.get("actual_additional_cost")),
+        },
+        "issue": {
+            "type": o.get("issue_type"), "note": o.get("issue_note") or "",
+            "raised_by": o.get("issue_raised_by") or "", "raised_at": o.get("issue_raised_at"),
+        } if o.get("issue_type") else None,
+        "dispatched_at": o.get("dispatched_at"),
+        "delivered_at": o.get("delivered_at"),
+    }
+    if staff.role == "fulfilment":
+        # Owner decision: the warehouse sees ONE amount per order, the product
+        # value for customs/insurance. No prices, fees or totals leave the server.
+        for i in view["items"]:
+            i.pop("unit_price", None)
+            i.pop("line_total", None)
+        view["charges"] = {"declared_value": charges["subtotal"]}
+    if staff.role in ("owner", "admin"):
+        charged = round(charges["shipping"] + charges["door_to_door"] + charges["additional"], 2)
+        a1, a2 = view["shipment"]["actual_shipping_cost"], view["shipment"]["actual_additional_cost"]
+        actual = None if a1 is None and a2 is None else round((a1 or 0) + (a2 or 0), 2)
+        view["costs"] = {
+            "charged": charged,
+            "actual": actual,
+            "difference": None if actual is None else round(charged - actual, 2),
+        }
+    return view
+
+
+def _event_view(e: dict) -> dict:
+    return {
+        "at": e.get("created_at"),
+        "who": e.get("actor_name") or e.get("actor_email") or "System",
+        "role": e.get("actor_role", ""),
+        "action": e.get("action", ""),
+        "summary": (e.get("details") or {}).get("summary", ""),
+    }
+
+
+async def _load_order(order_id: str) -> Optional[dict]:
+    res = await _db(supabase.table("orders").select(_ORDER_FIELDS).eq("id", order_id).limit(1))
+    return res.data[0] if res.data else None
+
+
+async def _order_detail(order_id: str, staff: Staff) -> Optional[dict]:
+    o = await _load_order(order_id)
+    if not o:
+        return None
+    if staff.role == "fulfilment" and o.get("status") not in FULFILMENT_ORDER_STATUSES:
+        return None
+    ev = await _db(
+        supabase.table("order_events").select("created_at,actor_name,actor_email,actor_role,action,details")
+        .eq("order_id", order_id).order("created_at", desc=False).limit(300)
+    )
+    return {"order": _order_view(o, staff), "history": [_event_view(e) for e in (ev.data or [])],
+            "role": staff.role, "issue_types": ISSUE_TYPES}
+
+
+def _clean_shipment(body: dict, current: dict):
+    """Validate shipment fields the warehouse may write. Returns (changes, error)."""
+    changes = {}
+    for k in _SHIPMENT_TEXT_FIELDS:
+        if k in body:
+            v = str(body.get(k) or "").strip()
+            if len(v) > 120:
+                return None, f"{_SHIPMENT_LABELS[k]} must be 120 characters or fewer."
+            if v != (current.get(k) or ""):
+                changes[k] = v or None
+    if "dispatch_date" in body:
+        v = str(body.get("dispatch_date") or "").strip()
+        if v:
+            try:
+                d = datetime.strptime(v, "%Y-%m-%d").date()
+            except ValueError:
+                return None, "Dispatch date must be a valid date."
+            if d > (datetime.now(timezone.utc) + timedelta(days=1)).date():
+                return None, "Dispatch date cannot be in the future."
+        if v != (str(current.get("dispatch_date") or "")):
+            changes["dispatch_date"] = v or None
+    for k in _SHIPMENT_MONEY_FIELDS:
+        if k in body:
+            raw = body.get(k)
+            if raw in (None, ""):
+                v = None
+            else:
+                v = _money(raw)
+                if v is None or v < 0 or v > 100000:
+                    return None, f"{_SHIPMENT_LABELS[k]} must be an amount between 0 and 100,000."
+            if v != _money(current.get(k)):
+                changes[k] = v
+    return changes, None
+
+
+def _fmt_change(k, v) -> str:
+    if v is None or v == "":
+        return "—"
+    if k in _SHIPMENT_MONEY_FIELDS:
+        return f"USD {float(v):.2f}"
+    return str(v)
+
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _order_status_for(fs: str) -> str:
+    return "delivered" if fs == "delivered" else "shipped" if fs == "dispatched" else "confirmed"
+
+
+async def _notify_customer_status(order_id: str, new_status: str, request: Request,
+                                  courier: str = "", tracking: str = "") -> bool:
+    """Shipped / delivered email to the customer (same branded email as the Orders page)."""
+    try:
+        res = await _db(supabase.table("orders").select("customer_email,customer_name").eq("id", order_id))
+        if not res.data or not res.data[0].get("customer_email"):
+            return False
+        scheme = request.headers.get("x-forwarded-proto", "http")
+        host = request.headers.get("host", "localhost:3000")
+        await _to_thread(
+            email_service.send_order_status_email,
+            res.data[0]["customer_email"], order_id, res.data[0].get("customer_name", ""),
+            new_status, f"{scheme}://{host}", courier, tracking,
+        )
+        return True
+    except Exception as e:
+        print(f"[fulfilment] customer {new_status} email failed for {order_id}: {e}")
+        return False
+
+
+# ── Pages (HTML shells; data comes from the APIs, which enforce the roles) ──
+
+@app.get("/admin/fulfilment", response_class=HTMLResponse)
+async def admin_fulfilment_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/fulfilment.html", context=get_context())
+
+
+@app.get("/admin/fulfilment/orders/{order_id}", response_class=HTMLResponse)
+async def admin_fulfilment_order_page(request: Request, order_id: str):
+    return templates.TemplateResponse(
+        request=request, name="admin/fulfilment_order.html",
+        context={**get_context(), "order_id": order_id},
+    )
+
+
+@app.get("/admin/fulfilment/login", response_class=HTMLResponse)
+async def fulfilment_login_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/fulfilment_login.html",
+                                      context={"mode": "login"})
+
+
+@app.get("/admin/fulfilment/welcome", response_class=HTMLResponse)
+async def fulfilment_welcome_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/fulfilment_login.html",
+                                      context={"mode": "welcome"})
+
+
+@app.get("/admin/team", response_class=HTMLResponse)
+async def admin_team_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/team.html", context=get_context())
+
+
+@app.get("/admin/account", response_class=HTMLResponse)
+async def admin_account_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/account.html", context=get_context())
+
+
+# ── Staff sign-in (password + mandatory 2-step code, via a per-request anon client) ──
+
+def _anon_client():
+    # Isolated client per request: set_session()/sign-in mutate the client's auth state.
+    return create_client(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+
+def _verified_totp(user) -> list:
+    return [f for f in (getattr(user, "factors", None) or [])
+            if getattr(f, "factor_type", "") == "totp" and getattr(f, "status", "") == "verified"]
+
+
+async def _staff_row_for(user_id: str) -> Optional[dict]:
+    res = await _db(supabase.table("staff_accounts").select("*").eq("user_id", user_id).limit(1))
+    return res.data[0] if res.data else None
+
+
+async def _start_enrolment(client, user) -> dict:
+    """Begin linking an authenticator app. Drops any half-finished earlier attempt."""
+    for f in (getattr(user, "factors", None) or []):
+        if getattr(f, "factor_type", "") == "totp" and getattr(f, "status", "") != "verified":
+            try:
+                await _to_thread(client.auth.mfa.unenroll, {"factor_id": f.id})
+            except Exception:
+                pass
+    enrol = await _to_thread(client.auth.mfa.enroll, {
+        "factor_type": "totp", "issuer": "Maison Henius",
+        "friendly_name": f"Maison Henius {int(time.time())}",
+    })
+    return {"factor_id": enrol.id, "qr_code": enrol.totp.qr_code, "secret": enrol.totp.secret}
+
+
+def _tokens(session) -> dict:
+    return {"access_token": session.access_token, "refresh_token": session.refresh_token,
+            "expires_at": getattr(session, "expires_at", None)}
+
+
+@app.post("/api/staff/login")
+async def staff_login(request: Request):
+    body = await request.json()
+    email = str(body.get("email") or "").strip().lower()
+    password = str(body.get("password") or "")
+    generic = JSONResponse({"error": "Incorrect email or password."}, status_code=401)
+    if not email or not password:
+        return generic
+    if email in ALLOWED_EMAILS:
+        return JSONResponse({"error": "Owners sign in with the email link on the Admin sign-in page."}, status_code=400)
+    client = _anon_client()
+    try:
+        res = await _to_thread(client.auth.sign_in_with_password, {"email": email, "password": password})
+    except Exception as e:
+        if "rate" in str(e).lower():
+            return JSONResponse({"error": "Too many attempts. Please wait a few minutes."}, status_code=429)
+        await _log_staff(email, "sign_in_failed", "wrong email or password", request)
+        return generic
+    if not res or not res.user or not res.session:
+        return generic
+    row = await _staff_row_for(str(res.user.id))
+    if not row or row.get("role") != "fulfilment":
+        await _log_staff(email, "sign_in_failed", "not a fulfilment account", request)
+        return generic
+    if row.get("status") in ("suspended", "revoked"):
+        await _log_staff(email, "sign_in_failed", f"account {row['status']}", request)
+        return JSONResponse({"error": "This account does not have access. Please contact Maison Henius."}, status_code=403)
+    verified = _verified_totp(res.user)
+    if verified:
+        return JSONResponse({"step": "verify", "factor_id": verified[0].id, **_tokens(res.session)})
+    try:
+        enrol = await _start_enrolment(client, res.user)
+    except Exception as e:
+        print(f"[staff] enrol failed for {email}: {e}")
+        return JSONResponse({"error": "Could not start the 2-step set-up. Please try again."}, status_code=500)
+    session = client.auth.get_session() or res.session
+    return JSONResponse({"step": "enroll", **enrol, **_tokens(session)})
+
+
+@app.post("/api/staff/accept")
+async def staff_accept(request: Request):
+    """Invitation / new set-up link: choose a password, then link the authenticator app."""
+    body = await request.json()
+    access_token = str(body.get("access_token") or "")
+    refresh_token = str(body.get("refresh_token") or "")
+    password = str(body.get("password") or "")
+    if len(password) < STAFF_PASSWORD_MIN:
+        return JSONResponse({"error": f"Please choose a password of at least {STAFF_PASSWORD_MIN} characters."}, status_code=400)
+    client = _anon_client()
+    try:
+        res = await _to_thread(client.auth.set_session, access_token, refresh_token)
+    except Exception:
+        return JSONResponse({"error": "This link has expired or was already used. Please ask Maison Henius for a new one."}, status_code=401)
+    user = res.user if res else None
+    if not user:
+        return JSONResponse({"error": "This link has expired or was already used. Please ask Maison Henius for a new one."}, status_code=401)
+    row = await _staff_row_for(str(user.id))
+    if not row or row.get("status") != "invited":
+        return JSONResponse({"error": "This set-up link is no longer valid. Please contact Maison Henius."}, status_code=403)
+    try:
+        await _to_thread(client.auth.update_user, {"password": password})
+    except Exception as e:
+        msg = str(e).lower()
+        if "weak" in msg or "password" in msg:
+            return JSONResponse({"error": "Please choose a stronger password (mix words, numbers and symbols)."}, status_code=400)
+        return JSONResponse({"error": "Could not save the password. Please try again."}, status_code=500)
+    try:
+        fresh = await _to_thread(client.auth.get_user)
+        enrol = await _start_enrolment(client, fresh.user if fresh else user)
+    except Exception as e:
+        print(f"[staff] enrol failed: {e}")
+        return JSONResponse({"error": "Could not start the 2-step set-up. Please try again."}, status_code=500)
+    await _log_staff(str(user.email or ""), "password_set", "", request)
+    return JSONResponse({"step": "enroll", **enrol, **_tokens(client.auth.get_session())})
+
+
+@app.post("/api/staff/mfa/verify")
+async def staff_mfa_verify(request: Request):
+    body = await request.json()
+    code = re.sub(r"\D", "", str(body.get("code") or ""))
+    if len(code) != 6:
+        return JSONResponse({"error": "Enter the 6-digit code from your authenticator app."}, status_code=400)
+    client = _anon_client()
+    try:
+        await _to_thread(client.auth.set_session, str(body.get("access_token") or ""), str(body.get("refresh_token") or ""))
+        res = await _to_thread(client.auth.mfa.challenge_and_verify,
+                               {"factor_id": str(body.get("factor_id") or ""), "code": code})
+    except Exception as e:
+        msg = str(e).lower()
+        if "expired" in msg or "session" in msg or "jwt" in msg:
+            return JSONResponse({"error": "Your sign-in timed out. Please start again."}, status_code=401)
+        return JSONResponse({"error": "That code is not right. Check the time on your phone is correct and try again."}, status_code=400)
+    user = res.user
+    row = await _staff_row_for(str(user.id)) if user else None
+    if not row or row.get("role") != "fulfilment" or row.get("status") not in ("active", "invited"):
+        return JSONResponse({"error": "This account does not have access. Please contact Maison Henius."}, status_code=403)
+    email = str(user.email or "")
+    if row["status"] == "invited":
+        await _db(supabase.table("staff_accounts").update(
+            {"status": "active", "activated_at": _now_iso(), "updated_at": _now_iso()}).eq("id", row["id"]))
+        await _log_staff(email, "account_activated", "password and 2-step code set", request)
+    await _log_staff(email, "sign_in", "", request)
+    return JSONResponse({"success": True, "role": "fulfilment", "name": row.get("full_name", ""),
+                         "access_token": res.access_token, "refresh_token": res.refresh_token,
+                         "expires_at": int(time.time()) + int(res.expires_in or 3600)})
+
+
+@app.post("/api/staff/refresh")
+async def staff_refresh(request: Request):
+    """Keep a working session alive (works for owners' sessions too). Banned users cannot refresh."""
+    body = await request.json()
+    rt = str(body.get("refresh_token") or "")
+    if not rt:
+        return JSONResponse({"error": "Signed out"}, status_code=401)
+    try:
+        res = await _to_thread(_anon_client().auth.refresh_session, rt)
+    except Exception:
+        return JSONResponse({"error": "Signed out"}, status_code=401)
+    if not res or not res.session:
+        return JSONResponse({"error": "Signed out"}, status_code=401)
+    return JSONResponse(_tokens(res.session))
+
+
+@app.get("/api/staff/me")
+async def staff_me(request: Request):
+    staff = await _resolve_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    return JSONResponse({"email": staff.email, "role": staff.role, "name": staff.name})
+
+
+@app.post("/api/staff/password")
+async def staff_change_password(request: Request):
+    staff = await _resolve_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    if staff.role == "owner":
+        return JSONResponse({"error": "Owners sign in with an email link and have no password here."}, status_code=400)
+    body = await request.json()
+    password = str(body.get("password") or "")
+    if len(password) < STAFF_PASSWORD_MIN:
+        return JSONResponse({"error": f"Please choose a password of at least {STAFF_PASSWORD_MIN} characters."}, status_code=400)
+    client = _anon_client()
+    try:
+        await _to_thread(client.auth.set_session, _bearer(request), str(body.get("refresh_token") or ""))
+        await _to_thread(client.auth.update_user, {"password": password})
+    except Exception as e:
+        print(f"[staff] password change failed for {staff.email}: {e}")
+        return JSONResponse({"error": "Could not change the password. Please sign in again and retry."}, status_code=400)
+    await _log_staff(staff, "password_changed", "", request)
+    return JSONResponse({"success": True})
+
+
+# ── Fulfilment API (owner, admin, fulfilment) ──
+
+@app.get("/api/fulfilment/orders")
+async def fulfilment_orders(request: Request):
+    staff = await get_fulfilment_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    res = await _db(
+        supabase.table("orders").select(_ORDER_FIELDS)
+        .in_("status", list(FULFILMENT_ORDER_STATUSES))
+        .order("created_at", desc=True).limit(500)
+    )
+    return JSONResponse({"orders": [_order_view(o, staff) for o in (res.data or [])], "role": staff.role})
+
+
+@app.get("/api/fulfilment/orders/{order_id}")
+async def fulfilment_order(order_id: str, request: Request):
+    staff = await get_fulfilment_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    detail = await _order_detail(order_id, staff)
+    if not detail:
+        return JSONResponse({"error": "Order not found"}, status_code=404)
+    if staff.role == "fulfilment":
+        await _log_staff(staff, "view_order", order_id, request)
+    return JSONResponse(detail)
+
+
+@app.patch("/api/fulfilment/orders/{order_id}")
+async def fulfilment_update(order_id: str, request: Request):
+    """Fulfilment actions only. Prices, fees, items, customer details and cancel/refund
+    are NOT writable here, whatever the request contains."""
+    staff = await get_fulfilment_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    o = await _load_order(order_id)
+    if not o or o.get("status") not in FULFILMENT_ORDER_STATUSES:
+        return JSONResponse({"error": "Order not found"}, status_code=404)
+    body = await request.json()
+    action = body.get("action")
+    cur_fs = o.get("fulfilment_status") or "new"
+
+    async def apply_shipment(fields: dict):
+        if staff.role == "fulfilment" and o.get("fulfilment_status") in ("dispatched", "delivered"):
+            return ("Shipment details are locked once an order is dispatched. "
+                    "Add a comment to ask Maison Henius for a correction.")
+        changes, err = _clean_shipment(fields, o)
+        if err:
+            return err
+        if changes:
+            changes["fulfilment_updated_at"] = _now_iso()
+            await _db(supabase.table("orders").update(changes).eq("id", order_id))
+            diff = {k: [_fmt_change(k, o.get(k)), _fmt_change(k, v)] for k, v in changes.items() if k in _SHIPMENT_LABELS}
+            summary = "Shipment details: " + "; ".join(
+                f"{_SHIPMENT_LABELS[k]}: {b}" if a == "—" else f"{_SHIPMENT_LABELS[k]}: {a} → {b}"
+                for k, (a, b) in diff.items())
+            await _order_event(order_id, staff, "shipment", None, None, {"changes": diff, "summary": summary})
+            o.update(changes)
+        return None
+
+    if action == "shipment":
+        err = await apply_shipment(body.get("shipment") or {})
+        if err:
+            return JSONResponse({"error": err}, status_code=400)
+
+    elif action == "status":
+        to = body.get("to")
+        if to not in FULFILMENT_FLOW or to == cur_fs:
+            return JSONResponse({"error": "Choose a different status."}, status_code=400)
+        if staff.role == "fulfilment" and FULFILMENT_FLOW.index(to) < FULFILMENT_FLOW.index(cur_fs):
+            return JSONResponse({"error": "Only Maison Henius can move an order back a step."}, status_code=403)
+        if isinstance(body.get("shipment"), dict):
+            err = await apply_shipment(body["shipment"])
+            if err:
+                return JSONResponse({"error": err}, status_code=400)
+        if FULFILMENT_FLOW.index(to) >= FULFILMENT_FLOW.index("dispatched"):
+            missing = [_SHIPMENT_LABELS[k].lower() for k in ("courier", "tracking_number", "dispatch_date") if not o.get(k)]
+            if missing:
+                return JSONResponse({"error": "Before dispatch, please enter: " + ", ".join(missing) + "."}, status_code=400)
+        new_status = _order_status_for(to)
+        upd = {"fulfilment_status": to, "fulfilment_updated_at": _now_iso(), "status": new_status}
+        if to in ("dispatched", "delivered") and not o.get("dispatched_at"):
+            upd["dispatched_at"] = _now_iso()
+        if to == "delivered":
+            upd["delivered_at"] = _now_iso()
+        # Optimistic lock: only applies if nobody changed the step meanwhile.
+        res = await _db(supabase.table("orders").update(upd).eq("id", order_id).eq("fulfilment_status", cur_fs))
+        if not res.data:
+            return JSONResponse({"error": "Someone else just updated this order. Please refresh the page."}, status_code=409)
+        await _order_event(order_id, staff, "status", cur_fs, to, {
+            "summary": f"Status: {FULFILMENT_LABELS[cur_fs]} → {FULFILMENT_LABELS[to]}"})
+        if new_status != o.get("status") and new_status in ("shipped", "delivered"):
+            sent = await _notify_customer_status(order_id, new_status, request,
+                                                 o.get("courier") or "", o.get("tracking_number") or "")
+            await _order_event(order_id, None, "email", None, new_status, {
+                "summary": f"Customer emailed: order {new_status}" + (" (with courier and tracking)" if new_status == "shipped" else "")
+                if sent else f"Customer {new_status} email could not be sent"})
+
+    elif action == "raise_issue":
+        itype = body.get("type")
+        note = str(body.get("note") or "").strip()
+        if itype not in ISSUE_TYPES:
+            return JSONResponse({"error": "Choose the type of issue."}, status_code=400)
+        if not note or len(note) > 1000:
+            return JSONResponse({"error": "Please describe the issue (up to 1,000 characters)."}, status_code=400)
+        await _db(supabase.table("orders").update({
+            "issue_type": itype, "issue_note": note, "issue_raised_by": staff.label,
+            "issue_raised_at": _now_iso(), "fulfilment_updated_at": _now_iso()}).eq("id", order_id))
+        await _order_event(order_id, staff, "issue", None, itype, {"note": note, "summary": f"Issue raised: {itype}. {note}"})
+
+    elif action == "resolve_issue":
+        if not o.get("issue_type"):
+            return JSONResponse({"error": "This order has no open issue."}, status_code=400)
+        note = str(body.get("note") or "").strip()[:1000]
+        await _db(supabase.table("orders").update({
+            "issue_type": None, "issue_note": None, "issue_raised_by": None, "issue_raised_at": None,
+            "fulfilment_updated_at": _now_iso()}).eq("id", order_id))
+        await _order_event(order_id, staff, "issue_resolved", o.get("issue_type"), None, {
+            "note": note, "summary": f"Issue resolved: {o.get('issue_type')}" + (f". {note}" if note else "")})
+
+    elif action == "comment":
+        text = str(body.get("text") or "").strip()
+        if not text or len(text) > 1000:
+            return JSONResponse({"error": "Write a comment (up to 1,000 characters)."}, status_code=400)
+        await _order_event(order_id, staff, "comment", None, None, {"summary": f"Comment: {text}"})
+
+    else:
+        return JSONResponse({"error": "Unknown action"}, status_code=400)
+
+    return JSONResponse(await _order_detail(order_id, staff))
+
+
+# ── Team access (owners only) ──
+
+def _staff_view(r: dict) -> dict:
+    return {k: r.get(k) for k in ("id", "email", "full_name", "company", "role", "status",
+                                  "invited_by", "invited_at", "activated_at", "last_seen_at")}
+
+
+def _base_url(request: Request) -> str:
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    host = request.headers.get("host", "localhost:3000")
+    return f"{scheme}://{host}"
+
+
+async def _send_setup_link(request: Request, email: str, name: str, reset: bool) -> bool:
+    """Generate a one-time set-up link (invite, or recovery if the user already exists) and email it."""
+    redirect = f"{_base_url(request)}/admin/fulfilment/welcome"
+    link = None
+    for kind in (("recovery", "invite") if reset else ("invite", "recovery")):
+        try:
+            resp = await _to_thread(supabase.auth.admin.generate_link,
+                                    {"type": kind, "email": email, "options": {"redirect_to": redirect}})
+            link = resp.properties.action_link
+            break
+        except Exception as e:
+            print(f"[team] {kind} link failed for {email}: {e}")
+    if not link:
+        return False
+    try:
+        await _to_thread(email_service.send_staff_invite, email, link, name, reset)
+        return True
+    except Exception as e:
+        print(f"[team] invite email failed for {email}: {e}")
+        return False
+
+
+@app.get("/api/admin/team")
+async def admin_team(request: Request):
+    owner = await get_owner(request)
+    if not owner:
+        return JSONResponse({"error": "Owner access required"}, status_code=401)
+    staff_rows, activity = await asyncio.gather(
+        _db(supabase.table("staff_accounts").select("*").order("invited_at", desc=True)),
+        _db(supabase.table("staff_activity").select("*").order("created_at", desc=True).limit(100)),
+    )
+    return JSONResponse({
+        "owners": list(ALLOWED_EMAILS),
+        "staff": [_staff_view(r) for r in (staff_rows.data or [])],
+        "activity": [{k: a.get(k) for k in ("created_at", "staff_email", "role", "action", "detail")}
+                     for a in (activity.data or [])],
+    })
+
+
+@app.post("/api/admin/team/invite")
+async def admin_team_invite(request: Request):
+    owner = await get_owner(request)
+    if not owner:
+        return JSONResponse({"error": "Owner access required"}, status_code=401)
+    body = await request.json()
+    email = str(body.get("email") or "").strip().lower()
+    name = str(body.get("full_name") or "").strip()[:120]
+    company = str(body.get("company") or "").strip()[:120]
+    if not _EMAIL_RE.match(email):
+        return JSONResponse({"error": "Enter a valid work email address."}, status_code=400)
+    if email in ALLOWED_EMAILS:
+        return JSONResponse({"error": "This is an owner address."}, status_code=400)
+    existing = await _db(supabase.table("staff_accounts").select("id,status").eq("email", email).limit(1))
+    if existing.data:
+        return JSONResponse({"error": "This person is already on the team list. Use the buttons on their row."}, status_code=409)
+    try:
+        resp = await _to_thread(supabase.auth.admin.generate_link, {
+            "type": "invite", "email": email,
+            "options": {"redirect_to": f"{_base_url(request)}/admin/fulfilment/welcome"}})
+    except Exception as e:
+        if "already" in str(e).lower() or "registered" in str(e).lower():
+            return JSONResponse({"error": "This email already has an account on the website (for example as a customer). Please use a different work email."}, status_code=409)
+        print(f"[team] invite link failed for {email}: {e}")
+        return JSONResponse({"error": "Could not create the invitation. Please try again."}, status_code=500)
+    await _db(supabase.table("staff_accounts").insert({
+        "user_id": str(resp.user.id), "email": email, "full_name": name, "company": company,
+        "role": "fulfilment", "status": "invited", "invited_by": owner.email,
+    }))
+    sent = True
+    try:
+        await _to_thread(email_service.send_staff_invite, email, resp.properties.action_link, name, False)
+    except Exception as e:
+        print(f"[team] invite email failed for {email}: {e}")
+        sent = False
+    await _log_staff(owner, "team_invite", email, request)
+    return JSONResponse({"success": True, "email_sent": sent})
+
+
+@app.post("/api/admin/team/{staff_id}/action")
+async def admin_team_action(staff_id: str, request: Request):
+    owner = await get_owner(request)
+    if not owner:
+        return JSONResponse({"error": "Owner access required"}, status_code=401)
+    body = await request.json()
+    action = body.get("action")
+    res = await _db(supabase.table("staff_accounts").select("*").eq("id", staff_id).limit(1))
+    if not res.data:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    row = res.data[0]
+    status, uid = row.get("status"), row.get("user_id")
+
+    async def ban(on: bool):
+        if uid:
+            await _to_thread(supabase.auth.admin.update_user_by_id, uid,
+                             {"ban_duration": _BAN_FOREVER if on else "none"})
+
+    async def has_factor() -> bool:
+        if not uid:
+            return False
+        try:
+            u = await _to_thread(supabase.auth.admin.get_user_by_id, uid)
+            return bool(_verified_totp(u.user))
+        except Exception:
+            return False
+
+    new_status, note, sent = status, "", None
+    try:
+        if action == "suspend" and status in ("active", "invited"):
+            await ban(True); new_status = "suspended"
+        elif action == "revoke" and status != "revoked":
+            await ban(True); new_status = "revoked"
+        elif action == "reactivate" and status in ("suspended", "revoked"):
+            await ban(False); new_status = "active" if await has_factor() else "invited"
+        elif action == "resend" and status == "invited":
+            sent = await _send_setup_link(request, row["email"], row.get("full_name", ""), reset=False)
+        elif action == "reset" and status in ("active", "invited"):
+            # New set-up link: choose a new password + link a new authenticator app.
+            if uid:
+                fl = await _to_thread(supabase.auth.admin.mfa.list_factors, {"user_id": uid})
+                for f in (getattr(fl, "factors", None) or []):
+                    await _to_thread(supabase.auth.admin.mfa.delete_factor, {"user_id": uid, "id": f.id})
+            new_status = "invited"
+            sent = await _send_setup_link(request, row["email"], row.get("full_name", ""), reset=True)
+        else:
+            return JSONResponse({"error": "This action is not available for this person right now."}, status_code=400)
+    except Exception as e:
+        print(f"[team] {action} failed for {row['email']}: {e}")
+        return JSONResponse({"error": "That did not work. Please try again."}, status_code=500)
+    if new_status != status:
+        await _db(supabase.table("staff_accounts").update(
+            {"status": new_status, "updated_at": _now_iso()}).eq("id", staff_id))
+    await _log_staff(owner, f"team_{action}", row["email"], request)
+    return JSONResponse({"success": True, "status": new_status, "email_sent": sent})
+
+
+# ── Stock levels + stock history (migration 014, stock_movements) ──
+# Every change to products.stock is recorded with its reason. Sales and
+# cancellations are recorded automatically; owners adjust with a reason; the
+# warehouse can only REQUEST "received" / "damaged" changes, which touch the
+# stock only after an owner approves them on the Stock page (owners are emailed).
+
+STOCK_KIND_LABELS = {
+    "opening": "Starting level", "sale": "Sale", "cancel_return": "Returned (order cancelled)",
+    "adjustment": "Adjustment", "received": "Stock received", "damaged": "Damaged / written off",
+}
+STOCK_REQUEST_KINDS = ("received", "damaged")
+LOW_STOCK = 5
+
+
+async def _stock_move(product_id: str, quantity: int, kind: str, stock_after, *, actor: Optional[Staff] = None,
+                      reason: str = "", order_id: Optional[str] = None, status: str = "applied") -> Optional[dict]:
+    """Write one stock history row. Never breaks the sale/cancel it records."""
+    p = get_product(product_id, include_hidden=True) or {}
+    try:
+        res = await _db(supabase.table("stock_movements").insert({
+            "product_id": product_id, "product_name": p.get("name", product_id), "kind": kind,
+            "quantity": int(quantity), "stock_after": stock_after, "status": status,
+            "reason": (reason or "")[:500], "order_id": order_id,
+            "actor_email": actor.email if actor else "", "actor_name": actor.label if actor else "System",
+            "actor_role": actor.role if actor else "system",
+        }))
+        return res.data[0] if res.data else None
+    except Exception as e:
+        print(f"[stock history] write failed for {product_id} ({kind}): {e}")
+        return None
+
+
+async def _apply_stock_change(product_id: str, change: int) -> Optional[int]:
+    """Atomic +/- on products.stock. Returns the new level, or None if a removal
+    would take it below zero (nothing changes then)."""
+    if change >= 0:
+        res = await _db(supabase.rpc("restock", {"p_id": product_id, "p_qty": change}))
+    else:
+        res = await _db(supabase.rpc("decrement_stock", {"p_id": product_id, "p_qty": -change}))
+    v = res.data[0] if isinstance(res.data, list) and res.data else res.data
+    return int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
+
+
+def _movement_view(r: dict) -> dict:
+    return {
+        "id": r.get("id"), "at": r.get("created_at"), "product_id": r.get("product_id"),
+        "product": r.get("product_name"), "kind": r.get("kind"), "kind_label": STOCK_KIND_LABELS.get(r.get("kind"), r.get("kind")),
+        "quantity": r.get("quantity"), "stock_after": r.get("stock_after"), "status": r.get("status"),
+        "reason": r.get("reason") or "", "order_id": r.get("order_id"),
+        "by": r.get("actor_name") or r.get("actor_email") or "System",
+        "decided_by": r.get("decided_by"), "decided_at": r.get("decided_at"), "decision_note": r.get("decision_note") or "",
+    }
+
+
+@app.get("/admin/stock", response_class=HTMLResponse)
+async def admin_stock_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/stock.html", context=get_context())
+
+
+@app.get("/api/stock")
+async def stock_overview(request: Request):
+    """Stock levels (read-only for the warehouse) + history + pending requests."""
+    staff = await get_fulfilment_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    own = staff.role in ("owner", "admin")
+    products = []
+    for p in sorted(get_products_dict(include_hidden=True).values(), key=lambda x: x.get("display_order", 0)):
+        row = {"id": p.get("slug"), "name": p.get("name"), "sku": p.get("sku") or p.get("slug"),
+               "stock": int(p.get("stock") or 0)}
+        if own:
+            row["hidden"] = bool(p.get("is_hidden"))
+        products.append(row)
+    res = await _db(supabase.table("stock_movements").select("*").order("created_at", desc=True).limit(400))
+    moves = [_movement_view(r) for r in (res.data or [])]
+    return JSONResponse({
+        "role": staff.role, "low": LOW_STOCK, "products": products,
+        "pending": [m for m in moves if m["status"] == "pending"],
+        "history": [m for m in moves if m["status"] != "pending"],
+    })
+
+
+@app.post("/api/stock/requests")
+async def stock_request(request: Request):
+    """Warehouse records stock received / damaged. Waits for an owner's approval."""
+    staff = await get_fulfilment_staff(request)
+    if not staff:
+        return JSONResponse({"error": "Not signed in"}, status_code=401)
+    if staff.role != "fulfilment":
+        return JSONResponse({"error": "Owners change stock directly with Adjust."}, status_code=400)
+    body = await request.json()
+    pid, kind = str(body.get("product_id") or ""), body.get("kind")
+    p = get_product(pid, include_hidden=True)
+    if not p:
+        return JSONResponse({"error": "Choose a product."}, status_code=400)
+    if kind not in STOCK_REQUEST_KINDS:
+        return JSONResponse({"error": "Choose received or damaged."}, status_code=400)
+    try:
+        qty = int(body.get("quantity"))
+    except (TypeError, ValueError):
+        qty = 0
+    if qty < 1 or qty > 100000:
+        return JSONResponse({"error": "Enter a quantity of at least 1."}, status_code=400)
+    note = str(body.get("note") or "").strip()
+    if not note or len(note) > 500:
+        return JSONResponse({"error": "Add a short note (for example the delivery reference or what was damaged)."}, status_code=400)
+    change = qty if kind == "received" else -qty
+    row = await _stock_move(pid, change, kind, None, actor=staff, reason=note, status="pending")
+    if not row:
+        return JSONResponse({"error": "Could not save the request. Please try again."}, status_code=500)
+    await _log_staff(staff, f"stock_{kind}_requested", f"{p['name']} {change:+d}", request)
+    try:
+        await _to_thread(email_service.send_stock_request_notice, list(ALLOWED_EMAILS), staff.label,
+                         p["name"], STOCK_KIND_LABELS[kind], change, int(p.get("stock") or 0), note,
+                         f"{_base_url(request)}/admin/stock")
+    except Exception as e:
+        print(f"[stock] owner notification failed: {e}")
+    return JSONResponse({"success": True})
+
+
+@app.post("/api/admin/stock/adjust")
+async def stock_adjust(request: Request):
+    """Owner sets stock up or down, with a required reason."""
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    owner = await _resolve_staff(request)
+    body = await request.json()
+    pid = str(body.get("product_id") or "")
+    if not get_product(pid, include_hidden=True):
+        return JSONResponse({"error": "Product not found."}, status_code=404)
+    try:
+        change = int(body.get("change"))
+    except (TypeError, ValueError):
+        change = 0
+    reason = str(body.get("reason") or "").strip()
+    if change == 0 or abs(change) > 100000:
+        return JSONResponse({"error": "Enter a change such as 10 or -2."}, status_code=400)
+    if not reason or len(reason) > 500:
+        return JSONResponse({"error": "Please give a reason."}, status_code=400)
+    after = await _apply_stock_change(pid, change)
+    if after is None:
+        return JSONResponse({"error": "There is not enough stock to remove that many."}, status_code=409)
+    await _stock_move(pid, change, "adjustment", after, actor=owner, reason=reason)
+    await reload_products_cache()
+    return JSONResponse({"success": True, "stock": after})
+
+
+@app.post("/api/admin/stock/requests/{move_id}/decision")
+async def stock_decision(move_id: str, request: Request):
+    """Owner approves (applies) or rejects a warehouse stock request."""
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    owner = await _resolve_staff(request)
+    body = await request.json()
+    decision = body.get("decision")
+    note = str(body.get("note") or "").strip()[:500]
+    if decision not in ("approve", "reject"):
+        return JSONResponse({"error": "Unknown decision"}, status_code=400)
+    res = await _db(supabase.table("stock_movements").select("*").eq("id", move_id).limit(1))
+    row = res.data[0] if res.data else None
+    if not row or row.get("status") != "pending":
+        return JSONResponse({"error": "This request was already decided. Please refresh."}, status_code=409)
+    upd = {"decided_by": owner.label if owner else "Owner", "decided_at": _now_iso(), "decision_note": note}
+    if decision == "reject":
+        done = await _db(supabase.table("stock_movements").update({**upd, "status": "rejected"})
+                         .eq("id", move_id).eq("status", "pending"))
+        if not done.data:
+            return JSONResponse({"error": "This request was already decided. Please refresh."}, status_code=409)
+    else:
+        after = await _apply_stock_change(row["product_id"], int(row["quantity"]))
+        if after is None:
+            return JSONResponse({"error": "There is not enough stock left to remove that many. Reject it, or adjust the stock first."}, status_code=409)
+        done = await _db(supabase.table("stock_movements").update({**upd, "status": "applied", "stock_after": after})
+                         .eq("id", move_id).eq("status", "pending"))
+        if not done.data:  # decided by someone else in the same moment: undo our change
+            await _apply_stock_change(row["product_id"], -int(row["quantity"]))
+            return JSONResponse({"error": "This request was already decided. Please refresh."}, status_code=409)
+        await reload_products_cache()
+    await _log_staff(owner, f"stock_request_{decision}d", f"{row.get('product_name')} {int(row['quantity']):+d}", request)
+    return JSONResponse({"success": True})
+
+
 # --- Admin API Routes ---
 
 @app.get("/api/admin/orders")
@@ -1654,12 +2742,34 @@ async def update_order_status(order_id: str, request: Request):
 
     await _db(supabase.table("orders").update({"status": new_status}).eq("id", order_id))
 
+    # Keep the warehouse view in step with a status changed from the Orders page,
+    # and record it in the order history. Non-fatal (e.g. before migration 014).
+    try:
+        owner = await _resolve_staff(request)
+        await _order_event(order_id, owner, "order_status", prior_status, new_status,
+                           {"summary": f"Order status (Orders page): {prior_status} → {new_status}"})
+        sync = {}
+        if new_status == "shipped":
+            sync = {"fulfilment_status": "dispatched"}
+        elif new_status == "delivered":
+            sync = {"fulfilment_status": "delivered", "delivered_at": _now_iso()}
+        if sync:
+            cur = await _db(supabase.table("orders").select("fulfilment_status,dispatched_at").eq("id", order_id))
+            cur_fs = (cur.data[0].get("fulfilment_status") if cur.data else None) or "new"
+            if FULFILMENT_FLOW.index(sync["fulfilment_status"]) > FULFILMENT_FLOW.index(cur_fs):
+                if not (cur.data and cur.data[0].get("dispatched_at")):
+                    sync["dispatched_at"] = _now_iso()
+                sync["fulfilment_updated_at"] = _now_iso()
+                await _db(supabase.table("orders").update(sync).eq("id", order_id))
+    except Exception as e:
+        print(f"[orders] fulfilment sync skipped for {order_id}: {e}")
+
     # Auto-restock on cancel: only when moving INTO cancelled FROM a paid state that
     # had decremented stock (confirmed/shipped/delivered). Skips pending (never
     # decremented) and skips re-cancelling an already-cancelled order (no double-restock).
     DECREMENTED_STATUSES = {"confirmed", "shipped", "delivered"}
     if new_status == "cancelled" and prior_status in DECREMENTED_STATUSES:
-        await _restock_for_items(prior_items or [], "cancel")
+        await _restock_for_items(prior_items or [], "cancel", order_id, await _resolve_staff(request))
 
     # Send email notification for shipped/delivered/cancelled
     email_sent = False
@@ -1754,6 +2864,12 @@ def _validate_product_payload(body: dict, *, require_all: bool):
     # Per-product editable page copy (migration 012). Empty strings are allowed
     # on PATCH (the DB DEFAULT will not fire on UPDATE, so an empty value is
     # what the owner intentionally saved — template fallback covers it).
+    if "sku" in body:
+        sku = str(body.get("sku") or "").strip().upper()
+        if len(sku) > 40:
+            return None, "SKU must be 40 characters or fewer"
+        out["sku"] = sku
+
     for field in (
         "essence_label",
         "essence_tagline",
@@ -1817,6 +2933,8 @@ async def admin_create_product(request: Request):
         result = await _db(supabase.table("products").insert(data))
         await reload_products_cache()
         product = (result.data or [None])[0]
+        await _stock_move(data["id"], int(data.get("stock") or 0), "opening", int(data.get("stock") or 0),
+                          actor=await _resolve_staff(request), reason="New product")
         return JSONResponse({"success": True, "product": product})
     except Exception as e:
         msg = str(e)
@@ -1850,6 +2968,7 @@ async def admin_update_product(request: Request, product_id: str):
     data.pop("slug", None)
     if not data:
         return JSONResponse({"error": "No fields to update"}, status_code=400)
+    before = get_product(product_id, include_hidden=True) or {}
     result = await _db(
         supabase.table("products").update(data).eq("id", product_id)
     )
@@ -1857,6 +2976,9 @@ async def admin_update_product(request: Request, product_id: str):
     rows = result.data or []
     if not rows:
         return JSONResponse({"error": "Product not found"}, status_code=404)
+    if "stock" in data and before and int(before.get("stock", 0)) != data["stock"]:
+        await _stock_move(product_id, data["stock"] - int(before.get("stock", 0)), "adjustment", data["stock"],
+                          actor=await _resolve_staff(request), reason="Set on the product page")
     return JSONResponse({"success": True, "product": rows[0]})
 
 

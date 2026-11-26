@@ -1,0 +1,67 @@
+{% extends "admin/layout.html" %}
+{% block title %}My account - Maison Henius{% endblock %}
+{% block nav_account %}admin__nav-item--active{% endblock %}
+{% block heading %}My account{% endblock %}
+
+{% block styles %}
+{% include "admin/_fulfilment_styles.html" %}
+{% endblock %}
+
+{% block content %}
+<div class="ff-card" style="max-width:560px" id="acRoot">
+  <h3 class="ff-h3">Your sign-in</h3>
+  <dl class="ff-form" style="margin:0 0 1rem">
+    <div class="ff-field"><span class="ff-label">Email</span><span id="acEmail">…</span></div>
+    <div class="ff-field"><span class="ff-label">Access</span><span id="acRole">…</span></div>
+  </dl>
+  <form id="acForm" class="ff-form" novalidate hidden>
+    <div class="ff-field ff-wide"><label for="acPw">New password</label><input id="acPw" type="password" autocomplete="new-password" minlength="10"></div>
+    <div class="ff-field ff-wide"><label for="acPw2">Repeat new password</label><input id="acPw2" type="password" autocomplete="new-password" minlength="10"></div>
+    <div class="ff-wide">
+      <button class="ff-btn" type="submit" id="acSave">Change password</button>
+      <div class="ff-error" id="acErr" hidden></div><div class="ff-ok" id="acOk" hidden></div>
+    </div>
+  </form>
+  <p class="ff-muted" id="acNote" style="margin:1rem 0 0"></p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (window._accountBound) return;
+  window._accountBound = true;
+  document.addEventListener('turbo:load', function () {
+    var form = document.getElementById('acForm');
+    if (!form || !document.getElementById('acRoot')) return;
+    MH.fetch('/api/staff/me').then(function (r) { return r.ok ? r.json() : null; }).then(function (me) {
+      if (!me) return;
+      document.getElementById('acEmail').textContent = me.email;
+      document.getElementById('acRole').textContent = me.role === 'fulfilment' ? 'Fulfilment only · 2-step code on' : 'Owner · full access';
+      if (me.role === 'fulfilment') {
+        form.hidden = false;
+        document.getElementById('acNote').textContent = 'Lost your phone or authenticator app? Ask Maison Henius to send you a new set-up link.';
+      } else {
+        document.getElementById('acNote').textContent = 'Owners sign in with an email link, so there is no password to change here.';
+      }
+    });
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var err = document.getElementById('acErr'), ok = document.getElementById('acOk'), pw = document.getElementById('acPw').value;
+      err.hidden = true; ok.hidden = true;
+      if (pw.length < 10) { err.hidden = false; err.textContent = 'Please use at least 10 characters.'; return; }
+      if (pw !== document.getElementById('acPw2').value) { err.hidden = false; err.textContent = 'The two passwords do not match.'; return; }
+      var rt = ''; try { rt = JSON.parse(localStorage.getItem('maison_admin_auth')).refresh_token || ''; } catch (x) {}
+      document.getElementById('acSave').disabled = true;
+      MH.fetch('/api/staff/password', { method: 'POST', body: JSON.stringify({ password: pw, refresh_token: rt }) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          document.getElementById('acSave').disabled = false;
+          if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Could not change the password.'; return; }
+          form.reset(); ok.hidden = false; ok.textContent = 'Password changed.';
+        }).catch(function () { document.getElementById('acSave').disabled = false; });
+    });
+  });
+})();
+</script>
+{% endblock %}

@@ -133,8 +133,10 @@
 
       // Store admin session and redirect to dashboard
       localStorage.setItem('maison_admin_auth', JSON.stringify({
-        access_token: accessToken
+        access_token: accessToken,
+        refresh_token: params.get('refresh_token') || ''
       }));
+      localStorage.setItem('maison_staff_role', 'owner');
 
       window.location.href = '/admin';
     })();

@@ -1,0 +1,229 @@
+{% extends "admin/layout.html" %}
+{% block title %}Stock - Maison Henius{% endblock %}
+{% block nav_stock %}admin__nav-item--active{% endblock %}
+{% block heading %}Stock{% endblock %}
+
+{% block styles %}
+{% include "admin/_fulfilment_styles.html" %}
+<style>
+  .sk-grid { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 1rem; align-items: start; }
+  @media (max-width: 1050px) { .sk-grid { grid-template-columns: 1fr; } }
+  .sk-level { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .sk-plus { color: #3f7d4e; font-weight: 500; } .sk-minus { color: #b23b2a; font-weight: 500; }
+  .sk-adjust { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+  .sk-adjust input { width: auto; }
+  .sk-adjust .sk-qty { width: 6rem; }
+  .sk-adjust .sk-reason { flex: 1 1 12rem; }
+  .sk-pending { border: 1px solid #e8d99a; background: #fdf9ea; }
+  .sk-pending-row { display: grid; gap: 0.45rem; padding: 0.8rem 0; border-top: 1px solid #efe6c4; font-size: 0.8rem; }
+  .sk-pending-row:first-of-type { border-top: 0; padding-top: 0; }
+  .sk-history-filter { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.8rem; }
+  .sk-history-filter .ff-input { width: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="ff-intro" id="skIntro">Current stock of every product, and every change with its reason.</p>
+<div id="skPending"></div>
+<div class="sk-grid">
+  <div class="ff-card ff-scroll">
+    <h3 class="ff-h3">Stock levels <small id="skLowNote"></small></h3>
+    <table class="ff-table"><thead><tr><th>Product</th><th>SKU</th><th class="ff-num">In stock</th><th></th></tr></thead>
+      <tbody id="skLevels"><tr><td class="ff-muted" colspan="4">Loading…</td></tr></tbody></table>
+  </div>
+  <div class="ff-card" id="skRequestCard" hidden>
+    <h3 class="ff-h3">Record a stock change <small>needs Maison Henius approval</small></h3>
+    <form id="skRequest" class="ff-form" novalidate>
+      <div class="ff-field ff-wide"><label for="skProduct">Product</label><select id="skProduct"></select></div>
+      <div class="ff-field"><label for="skKind">What happened</label>
+        <select id="skKind"><option value="received">Stock received (add)</option><option value="damaged">Damaged / written off (remove)</option></select></div>
+      <div class="ff-field"><label for="skQty">Quantity</label><input id="skQty" type="number" min="1" step="1" inputmode="numeric"></div>
+      <div class="ff-field ff-wide"><label for="skNote">Note</label><input id="skNote" maxlength="500" placeholder="e.g. delivery reference, or what was damaged"></div>
+      <div class="ff-wide"><button class="ff-btn" type="submit" id="skSend">Send for approval</button>
+        <div class="ff-error" id="skErr" hidden></div><div class="ff-ok" id="skOk" hidden></div></div>
+    </form>
+    <p class="ff-muted" style="margin:0.8rem 0 0">The website stock changes only after Maison Henius approves. They are notified by email.</p>
+  </div>
+</div>
+
+<div class="ff-card ff-scroll" style="margin-top:1rem">
+  <h3 class="ff-h3">Stock history <small>every change, permanent record</small></h3>
+  <div class="sk-history-filter">
+    <label class="ff-visually-hidden" for="skFilter">Product</label>
+    <select class="ff-input" id="skFilter"><option value="">All products</option></select>
+  </div>
+  <table class="ff-table"><thead><tr><th>Date</th><th>Product</th><th>Change</th><th class="ff-num">Level after</th><th>Details</th><th>By</th></tr></thead>
+    <tbody id="skHistory"><tr><td class="ff-muted" colspan="6">Loading…</td></tr></tbody></table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (window._stockBound) return;
+  window._stockBound = true;
+  document.addEventListener('turbo:load', function () {
+    var levels = document.getElementById('skLevels');
+    if (!levels) return;
+    var data = null;
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function when(iso) { if (!iso) return ''; var d = new Date(iso); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toTimeString().slice(0, 5); }
+    function signed(n) { return (n > 0 ? '+' : n < 0 ? '−' : '') + Math.abs(n); }
+    function post(url, body) {
+      return MH.fetch(url, { method: 'POST', body: JSON.stringify(body) }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+    }
+    function load() {
+      MH.fetch('/api/stock').then(function (r) { if (!r.ok) throw new Error(); return r.json(); }).then(function (d) { data = d; render(); })
+        .catch(function () { levels.innerHTML = '<tr><td class="ff-muted" colspan="4">Could not load the stock. Please refresh.</td></tr>'; });
+    }
+    function levelChip(n) {
+      var tone = n === 0 ? 'bad' : n <= data.low ? 'warn' : 'muted';
+      return el('span', 'ff-chip ff-chip--' + tone + ' sk-level', String(n));
+    }
+
+    function render() {
+      var own = data.role !== 'fulfilment';
+      document.getElementById('skIntro').textContent = own
+        ? 'Current stock of every product and every change with its reason. Stock goes down automatically when an order is paid and back up when you cancel a paid order.'
+        : 'Current stock (view only). To report stock received or damaged, use the form: Maison Henius approves it before the stock changes.';
+      document.getElementById('skLowNote').textContent = 'amber: ' + data.low + ' or fewer · red: none left';
+
+      // pending requests
+      var pend = document.getElementById('skPending');
+      pend.innerHTML = '';
+      if (data.pending.length) {
+        var card = el('div', 'ff-card sk-pending'); card.style.marginBottom = '1rem';
+        card.appendChild(el('h3', 'ff-h3', (own ? 'Waiting for your approval' : 'Waiting for Maison Henius approval') + ' (' + data.pending.length + ')'));
+        data.pending.forEach(function (m) {
+          var row = el('div', 'sk-pending-row');
+          var line = el('div');
+          var q = el('span', m.quantity > 0 ? 'sk-plus' : 'sk-minus', signed(m.quantity));
+          line.appendChild(el('b', null, m.product + ' · ')); line.appendChild(q); line.appendChild(document.createTextNode(' · ' + m.kind_label));
+          row.appendChild(line);
+          row.appendChild(el('div', 'ff-muted', '“' + m.reason + '” · ' + m.by + ' · ' + when(m.at)));
+          if (own) {
+            var box = el('div', 'sk-adjust');
+            var note = el('input', 'ff-input sk-reason'); note.placeholder = 'Note (optional)'; note.maxLength = 500;
+            note.setAttribute('aria-label', 'Decision note for ' + m.product);
+            var ok = el('button', 'ff-btn ff-btn--sm', 'Approve'), no = el('button', 'ff-btn ff-btn--sm ff-btn--danger', 'Reject');
+            ok.type = no.type = 'button';
+            var err = el('div', 'ff-error'); err.hidden = true;
+            function decide(which) {
+              ok.disabled = no.disabled = true;
+              post('/api/admin/stock/requests/' + m.id + '/decision', { decision: which, note: note.value.trim() }).then(function (res) {
+                if (!res.ok) { ok.disabled = no.disabled = false; err.hidden = false; err.textContent = res.d.error || 'That did not work.'; return; }
+                load();
+              }).catch(function () { ok.disabled = no.disabled = false; });
+            }
+            ok.addEventListener('click', function () { decide('approve'); });
+            no.addEventListener('click', function () { decide('reject'); });
+            box.appendChild(note); box.appendChild(ok); box.appendChild(no);
+            row.appendChild(box); row.appendChild(err);
+          }
+          card.appendChild(row);
+        });
+        pend.appendChild(card);
+      }
+
+      // levels
+      levels.innerHTML = '';
+      data.products.forEach(function (p) {
+        var tr = el('tr');
+        var td = el('td'); td.appendChild(document.createTextNode(p.name)); if (p.hidden) td.appendChild(el('span', 'ff-sub', 'Hidden on the website')); tr.appendChild(td);
+        tr.appendChild(el('td', 'ff-nowrap', p.sku));
+        td = el('td', 'ff-num'); td.appendChild(levelChip(p.stock)); tr.appendChild(td);
+        td = el('td', 'ff-num');
+        if (own) {
+          var b = el('button', 'ff-btn ff-btn--ghost ff-btn--sm', 'Adjust'); b.type = 'button';
+          b.addEventListener('click', function () { openAdjust(tr, p); });
+          td.appendChild(b);
+        }
+        tr.appendChild(td);
+        levels.appendChild(tr);
+      });
+
+      // request form (warehouse)
+      var reqCard = document.getElementById('skRequestCard');
+      reqCard.hidden = own;
+      document.querySelector('.sk-grid').style.gridTemplateColumns = own ? '1fr' : '';
+      var sel = document.getElementById('skProduct');
+      if (!own && !sel.options.length) data.products.forEach(function (p) { var o = el('option', null, p.name + ' (' + p.sku + ')'); o.value = p.id; sel.appendChild(o); });
+
+      // history
+      var f = document.getElementById('skFilter');
+      if (f.options.length === 1) data.products.forEach(function (p) { var o = el('option', null, p.name); o.value = p.id; f.appendChild(o); });
+      renderHistory();
+    }
+
+    function renderHistory() {
+      var body = document.getElementById('skHistory'), pid = document.getElementById('skFilter').value;
+      var list = data.history.filter(function (m) { return !pid || m.product_id === pid; });
+      body.innerHTML = '';
+      if (!list.length) body.innerHTML = '<tr><td class="ff-muted" colspan="6">No stock changes yet.</td></tr>';
+      list.forEach(function (m) {
+        var tr = el('tr');
+        tr.appendChild(el('td', 'ff-nowrap ff-muted', when(m.at)));
+        tr.appendChild(el('td', null, m.product));
+        var td = el('td', 'ff-nowrap');
+        if (m.status === 'rejected') td.appendChild(el('span', 'ff-chip ff-chip--muted', 'Rejected'));
+        else td.appendChild(el('span', m.quantity > 0 ? 'sk-plus' : 'sk-minus', signed(m.quantity)));
+        td.appendChild(el('span', 'ff-sub', m.kind_label)); tr.appendChild(td);
+        tr.appendChild(el('td', 'ff-num', m.stock_after == null ? '–' : String(m.stock_after)));
+        td = el('td');
+        var bits = [];
+        if (m.order_id) bits.push('Order ' + m.order_id);
+        if (m.reason) bits.push(m.reason);
+        td.appendChild(document.createTextNode(bits.join(' · ') || '–'));
+        if (m.decided_by) td.appendChild(el('span', 'ff-sub', (m.status === 'rejected' ? 'Rejected by ' : 'Approved by ') + m.decided_by + ' · ' + when(m.decided_at) + (m.decision_note ? ' · ' + m.decision_note : '')));
+        tr.appendChild(td);
+        tr.appendChild(el('td', null, m.by));
+        body.appendChild(tr);
+      });
+    }
+
+    function openAdjust(tr, p) {
+      var old = document.getElementById('skAdjRow'); if (old) old.remove();
+      var row = el('tr'); row.id = 'skAdjRow';
+      var td = el('td'); td.colSpan = 4;
+      var box = el('div', 'sk-adjust');
+      var qty = el('input', 'ff-input sk-qty'); qty.type = 'number'; qty.step = '1'; qty.placeholder = '+10 or -2'; qty.setAttribute('aria-label', 'Change for ' + p.name);
+      var reason = el('input', 'ff-input sk-reason'); reason.placeholder = 'Reason (required), e.g. stock count 26 Nov'; reason.maxLength = 500; reason.setAttribute('aria-label', 'Reason');
+      var save = el('button', 'ff-btn ff-btn--sm', 'Save change'), cancel = el('button', 'ff-btn ff-btn--ghost ff-btn--sm', 'Cancel');
+      save.type = cancel.type = 'button';
+      var err = el('div', 'ff-error'); err.hidden = true;
+      cancel.addEventListener('click', function () { row.remove(); });
+      save.addEventListener('click', function () {
+        err.hidden = true; save.disabled = true;
+        post('/api/admin/stock/adjust', { product_id: p.id, change: parseInt(qty.value, 10), reason: reason.value.trim() }).then(function (res) {
+          save.disabled = false;
+          if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'That did not work.'; return; }
+          load();
+        }).catch(function () { save.disabled = false; });
+      });
+      [qty, reason, save, cancel].forEach(function (x) { box.appendChild(x); });
+      td.appendChild(box); td.appendChild(err); row.appendChild(td);
+      tr.parentNode.insertBefore(row, tr.nextSibling);
+      qty.focus();
+    }
+
+    document.getElementById('skFilter').addEventListener('change', renderHistory);
+    document.getElementById('skRequest').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var err = document.getElementById('skErr'), ok = document.getElementById('skOk'), send = document.getElementById('skSend');
+      err.hidden = true; ok.hidden = true; send.disabled = true;
+      post('/api/stock/requests', {
+        product_id: document.getElementById('skProduct').value, kind: document.getElementById('skKind').value,
+        quantity: parseInt(document.getElementById('skQty').value, 10), note: document.getElementById('skNote').value.trim()
+      }).then(function (res) {
+        send.disabled = false;
+        if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Could not send.'; return; }
+        ok.hidden = false; ok.textContent = 'Sent. Maison Henius has been notified.';
+        document.getElementById('skQty').value = ''; document.getElementById('skNote').value = '';
+        load();
+      }).catch(function () { send.disabled = false; });
+    });
+    load();
+  });
+})();
+</script>
+{% endblock %}

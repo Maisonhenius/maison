@@ -1,0 +1,159 @@
+{% extends "admin/layout.html" %}
+{% block title %}Fulfilment - Maison Henius{% endblock %}
+{% block nav_fulfilment %}admin__nav-item--active{% endblock %}
+{% block heading %}<span class="admin__logo-owner">Fulfilment</span><span class="admin__logo-warehouse">Orders to fulfil</span>{% endblock %}
+
+{% block styles %}
+{% include "admin/_fulfilment_styles.html" %}
+{% endblock %}
+
+{% block content %}
+<p class="ff-intro admin__logo-owner">What the warehouse works from: paid orders only. The cost columns and totals are visible to owners only.</p>
+
+<div class="ff-counters" id="ffCounters" role="group" aria-label="Filter by step"></div>
+
+<div class="ff-filters">
+  <label class="ff-visually-hidden" for="ffSearch">Search</label>
+  <input class="ff-input ff-filters__search" type="search" id="ffSearch" placeholder="Search order number, customer, product, SKU, city, tracking…">
+  <label class="ff-visually-hidden" for="ffRange">Period</label>
+  <select class="ff-input" id="ffRange">
+    <option value="30">Last 30 days</option>
+    <option value="7">Last 7 days</option>
+    <option value="90">Last 90 days</option>
+    <option value="0" selected>All time</option>
+  </select>
+</div>
+
+<div class="ff-card ff-scroll">
+  <table class="ff-table" id="ffTable">
+    <thead><tr id="ffHead"></tr></thead>
+    <tbody id="ffBody"><tr><td class="ff-muted">Loading orders…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="ff-card ff-totals" id="ffTotals" hidden></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (window._ffListBound) return;
+  window._ffListBound = true;
+  var LABELS = { new: 'New', received: 'Received', preparing: 'Preparing', packed: 'Ready for dispatch', dispatched: 'Dispatched', delivered: 'Delivered' };
+  var COUNTRY = { JO: 'Jordan', AE: 'United Arab Emirates', SA: 'Saudi Arabia', KW: 'Kuwait', BH: 'Bahrain', OM: 'Oman', QA: 'Qatar', LB: 'Lebanon', EG: 'Egypt', US: 'United States', GB: 'United Kingdom', FR: 'France', DE: 'Germany' };
+  var TONE = { new: 'info', received: 'info', preparing: 'warn', packed: 'warn', dispatched: 'ok', delivered: 'ok' };
+  var COUNTERS = [['open', 'To do'], ['new', 'New'], ['received', 'Received'], ['preparing', 'Preparing'], ['packed', 'Ready for dispatch'], ['dispatched', 'Dispatched'], ['delivered', 'Delivered'], ['issue', 'Issues']];
+
+  document.addEventListener('turbo:load', function () {
+    var body = document.getElementById('ffBody');
+    if (!body) return;
+    var head = document.getElementById('ffHead'), counters = document.getElementById('ffCounters');
+    var search = document.getElementById('ffSearch'), range = document.getElementById('ffRange'), totals = document.getElementById('ffTotals');
+    var all = [], role = 'fulfilment', filter = 'open';
+
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function usd(n) { return n == null ? '–' : 'USD ' + Number(n).toFixed(2); }
+    function chip(fs) { return el('span', 'ff-chip ff-chip--' + TONE[fs], LABELS[fs] || fs); }
+    function fmtDate(iso) { var d = new Date(iso); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toTimeString().slice(0, 5); }
+
+    function matches(o) {
+      if (filter === 'open' && (o.fulfilment_status === 'dispatched' || o.fulfilment_status === 'delivered') && !o.issue) return false;
+      if (filter === 'issue' && !o.issue) return false;
+      if (filter !== 'open' && filter !== 'issue' && o.fulfilment_status !== filter) return false;
+      var days = +range.value;
+      if (days && Date.now() - new Date(o.created_at).getTime() > days * 864e5) return false;
+      var q = search.value.trim().toLowerCase();
+      if (!q) return true;
+      var hay = [o.id, o.customer && o.customer.name, o.destination.city, o.destination.country, COUNTRY[o.destination.country], o.shipment.tracking_number, o.shipment.courier]
+        .concat(o.items.map(function (i) { return i.name + ' ' + i.sku; })).join(' ').toLowerCase();
+      return hay.indexOf(q) !== -1;
+    }
+
+    function renderCounters() {
+      var c = { open: 0, issue: 0 };
+      Object.keys(LABELS).forEach(function (k) { c[k] = 0; });
+      all.forEach(function (o) {
+        c[o.fulfilment_status]++;
+        if (o.issue) c.issue++;
+        if (o.issue || (o.fulfilment_status !== 'dispatched' && o.fulfilment_status !== 'delivered')) c.open++;
+      });
+      counters.innerHTML = '';
+      COUNTERS.forEach(function (x) {
+        var b = el('button', 'ff-counter' + (x[0] === 'issue' ? ' ff-counter--issue' : ''));
+        b.type = 'button';
+        b.setAttribute('aria-pressed', filter === x[0] ? 'true' : 'false');
+        b.appendChild(el('b', null, String(c[x[0]])));
+        b.appendChild(el('span', null, x[1]));
+        b.addEventListener('click', function () { filter = x[0]; renderCounters(); renderRows(); });
+        counters.appendChild(b);
+      });
+    }
+
+    function renderRows() {
+      var own = role !== 'fulfilment';
+      head.innerHTML = '';
+      ['Order', 'Items', 'Destination', 'Step'].concat(own ? ['Order total', 'Delivery charged', 'Actual cost', 'Difference'] : ['Courier / tracking'])
+        .forEach(function (h, i) { var th = el('th', i > 3 && own ? 'ff-num' : null, h); head.appendChild(th); });
+      var list = all.filter(matches);
+      body.innerHTML = '';
+      if (!list.length) {
+        var tr = el('tr'), td = el('td', 'ff-muted', all.length ? 'No orders match.' : 'No paid orders yet.');
+        td.colSpan = 8; tr.appendChild(td); body.appendChild(tr);
+      }
+      list.forEach(function (o) {
+        var tr = el('tr', 'ff-row');
+        tr.tabIndex = 0;
+        var href = '/admin/fulfilment/orders/' + encodeURIComponent(o.id);
+        tr.addEventListener('click', function () { if (window.Turbo) Turbo.visit(href); else location.href = href; });
+        tr.addEventListener('keydown', function (e) { if (e.key === 'Enter') tr.click(); });
+        var td = el('td'); var a = el('a', 'ff-oid', o.id); a.href = href; td.appendChild(a); td.appendChild(el('span', 'ff-sub', fmtDate(o.created_at))); tr.appendChild(td);
+        td = el('td', 'ff-nowrap'); o.items.forEach(function (i, n) { if (n) td.appendChild(el('br')); td.appendChild(document.createTextNode(i.name + ' × ' + i.quantity)); }); tr.appendChild(td);
+        td = el('td', 'ff-nowrap'); td.appendChild(document.createTextNode(o.destination.city || '–')); td.appendChild(el('span', 'ff-sub', COUNTRY[o.destination.country] || o.destination.country || '')); tr.appendChild(td);
+        td = el('td'); td.appendChild(chip(o.fulfilment_status)); if (o.issue) { td.appendChild(el('br')); td.appendChild(el('span', 'ff-chip ff-chip--bad ff-mt', 'Issue')); } tr.appendChild(td);
+        if (own) {
+          tr.appendChild(el('td', 'ff-num', usd(o.charges.total)));
+          tr.appendChild(el('td', 'ff-num', usd(o.costs.charged)));
+          td = el('td', 'ff-num'); if (o.costs.actual == null) td.appendChild(el('span', 'ff-muted', 'not reported')); else td.textContent = usd(o.costs.actual); tr.appendChild(td);
+          td = el('td', 'ff-num');
+          if (o.costs.difference != null) { var d = o.costs.difference; td.appendChild(el('span', 'ff-chip ' + (d >= 0 ? 'ff-chip--ok' : 'ff-chip--bad'), (d >= 0 ? '+' : '−') + usd(Math.abs(d)))); } else td.textContent = '–';
+          tr.appendChild(td);
+        } else {
+          td = el('td');
+          if (o.shipment.courier) { td.appendChild(document.createTextNode(o.shipment.courier)); td.appendChild(el('span', 'ff-sub', o.shipment.tracking_number)); } else td.appendChild(el('span', 'ff-muted', '–'));
+          tr.appendChild(td);
+        }
+        body.appendChild(tr);
+      });
+      if (own) {
+        var rep = all.filter(function (o) { return o.costs.actual != null; });
+        var ch = rep.reduce(function (s, o) { return s + o.costs.charged; }, 0), ac = rep.reduce(function (s, o) { return s + o.costs.actual; }, 0);
+        totals.hidden = false;
+        totals.innerHTML = '';
+        totals.appendChild(el('h3', 'ff-h3', 'Delivery costs · orders with actual cost reported (' + rep.length + ')'));
+        var g = el('div', 'ff-cmp');
+        [[usd(ch), 'Charged to customers', ''], [usd(ac), 'Actual cost', ''], [(ch - ac >= 0 ? '+' : '−') + usd(Math.abs(ch - ac)), 'Difference', ch - ac >= 0 ? 'ff-pos' : 'ff-neg']]
+          .forEach(function (x) { var d = el('div', x[2]); d.appendChild(el('b', null, x[0])); d.appendChild(el('span', null, x[1])); g.appendChild(d); });
+        totals.appendChild(g);
+      }
+    }
+
+    search.addEventListener('input', renderRows);
+    range.addEventListener('change', renderRows);
+
+    MH.fetch('/api/fulfilment/orders').then(function (r) {
+      if (!r.ok) throw new Error('status ' + r.status);
+      return r.json();
+    }).then(function (d) {
+      all = d.orders || []; role = d.role;
+      if (role === 'fulfilment' && MH.role() !== 'fulfilment') {  /* stored role out of date: correct the menu, no reload */
+        try { localStorage.setItem('maison_staff_role', 'fulfilment'); } catch (x) {}
+        document.documentElement.setAttribute('data-staff-role', 'fulfilment');
+      }
+      renderCounters(); renderRows();
+    }).catch(function () {
+      body.innerHTML = '<tr><td class="ff-muted">Could not load the orders. Please refresh the page.</td></tr>';
+    });
+  });
+})();
+</script>
+{% endblock %}

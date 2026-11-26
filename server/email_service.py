@@ -263,3 +263,25 @@ def send_stock_request_notice(to_emails: list, requester: str, product: str, kin
             footer_note="Sent to the Maison Henius owners because the warehouse recorded a stock change.",
         ),
     })
+
+
+def send_staff_ready(to_email: str, name: str, login_url: str):
+    """Sent once, when a fulfilment account finishes set-up: the sign-in link to keep."""
+    who = f"Dear {html.escape(name)},<br><br>" if name else ""
+    body = (who + "Your access to the Maison Henius fulfilment portal is ready.<br><br>"
+            "To sign in at any time, use the button below (we suggest you bookmark the page):<br>"
+            "1. Enter your work email and the password you chose.<br>"
+            "2. Enter the 6-digit code from your authenticator app.<br><br>"
+            f"Sign-in address: <a href=\"{html.escape(login_url)}\" style=\"color:#e9db90;\">{html.escape(login_url)}</a>")
+    return resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [to_email],
+        "subject": "Your Access Is Ready \u2014 Maison Henius Fulfilment",
+        "html": _base_html(
+            headline="Your Access Is Ready",
+            body_content=body,
+            cta_text="Sign In",
+            cta_url=login_url,
+            footer_note="Forgotten your password or changed phone? Ask Maison Henius to send you a new set-up link. Never share your password or codes.",
+        ),
+    })

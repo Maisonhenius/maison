@@ -51,16 +51,12 @@ CREATE TABLE IF NOT EXISTS blog_posts (
 
 CREATE INDEX IF NOT EXISTS blog_posts_live_idx ON blog_posts (status, published_at DESC);
 
-DROP TRIGGER IF EXISTS blog_posts_bump_updated_at ON blog_posts;
-CREATE TRIGGER blog_posts_bump_updated_at
-  BEFORE UPDATE ON blog_posts
-  FOR EACH ROW EXECUTE FUNCTION bump_updated_at();
-
--- The server reads/writes with the service role. Public (anon) may read live posts only.
+-- Kept to plain statements on purpose: the Supabase SQL Editor's parser rejects
+-- DROP TRIGGER (owner hit "Expected: an object type after DROP"). updated_at is set
+-- by the app on every PATCH instead of a trigger.
+-- RLS on with no policies: the server uses the service role (bypasses RLS);
+-- the anon key cannot read or write this table.
 ALTER TABLE blog_posts ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS blog_posts_public_read ON blog_posts;
-CREATE POLICY blog_posts_public_read ON blog_posts
-  FOR SELECT USING (status = 'published' AND (published_at IS NULL OR published_at <= now()));
 
 -- Launch articles (skipped if an article with the same web address already exists).
 """

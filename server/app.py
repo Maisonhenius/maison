@@ -2602,6 +2602,7 @@ async def admin_journal_update(request: Request, post_id: str):
         data["published_at"] = datetime.now().astimezone().isoformat()
     if not data:
         return JSONResponse({"success": True})
+    data["updated_at"] = datetime.now().astimezone().isoformat()  # no DB trigger (see migration 013)
     try:
         result = await _db(supabase.table("blog_posts").update(data).eq("id", post_id))
     except Exception as e:

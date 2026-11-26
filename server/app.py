@@ -2164,6 +2164,12 @@ async def staff_mfa_verify(request: Request):
         await _db(supabase.table("staff_accounts").update(
             {"status": "active", "activated_at": _now_iso(), "updated_at": _now_iso()}).eq("id", row["id"]))
         await _log_staff(email, "account_activated", "password and 2-step code set", request)
+        # "Your access is ready" email with the sign-in link (first set-up only).
+        try:
+            await _to_thread(email_service.send_staff_ready, email, row.get("full_name", ""),
+                             f"{_base_url(request)}/admin/fulfilment/login")
+        except Exception as e:
+            print(f"[staff] access-ready email failed for {email}: {e}")
     await _log_staff(email, "sign_in", "", request)
     return JSONResponse({"success": True, "role": "fulfilment", "name": row.get("full_name", ""),
                          "access_token": res.access_token, "refresh_token": res.refresh_token,

@@ -33,6 +33,8 @@ DNS setup, and the broken-CLI workaround.
 3. Deploy: `cd /tmp/claude/maison-docker-deploy && railway up --project f45a16f9-e777-4cce-abd1-dcd08c2ccb56 --environment b99a4d18-a9fc-4742-b874-c0b4d38e5ade --service web --ci -m "<message>"`
 4. Verify: `railway logs -n 15` — should show `Uvicorn running on http://0.0.0.0:8080`
 
+**Dashboard-only redeploy (no CLI):** Railway passes a service variable into the build when the Dockerfile has an `ARG` of the same name. So in Railway → service `web` → **Variables**, setting `CACHEBUST` to a new value (e.g. `2026-11-27-journal`) and clicking **Deploy** rebuilds with a fresh clone of `main`. **If a `CACHEBUST` service variable exists, it OVERRIDES the Dockerfile's `ARG CACHEBUST=` default** — so with the CLI recipe above, ALSO set the variable to a new value (`railway variables --set CACHEBUST=<new>`) or the build reuses the old clone. Never delete the variable and redeploy without a new value: the build would fall back to an old default and could serve old code.
+
 **CRITICAL: bump `ARG CACHEBUST=` to a NEW value every deploy.** Docker layer-caches the `RUN git clone` step keyed on the ARG value. If `CACHEBUST` doesn't change between deploys, Docker reuses the previous git clone — your latest commit won't ship and `railway up` will silently deploy stale code. Use a date+suffix string (e.g. `2026-04-26-v3`) so it's always unique and self-documenting. Symptoms when missed: `curl prod | grep <new-thing>` returns nothing, or production file size doesn't match local.
 
 ## `railway domain` CLI is broken (v4.36.1)

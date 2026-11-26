@@ -322,6 +322,15 @@ Three layers near the top of `server/app.py`:
 - **Per-fragrance editable copy on `products` row** (migration 012, "Page Labels & Copy" section in the edit form): `essence_label`, `essence_tagline` (longtext, paragraphs split on `\n\n`), `wearer_label`, `composition_label`, `composition_subtitle`, `bottle_label`, `bottle_size`, `bottle_description`. All NOT NULL with DB-level DEFAULTs matching the original hardcoded strings; `_row_to_product` also has Python fallbacks so a missing column never breaks render.
 - **Adding a new CMS field needs NO migration** — `page_content` is generic `(page, section, field, value)`; appending to `PAGE_CONTENT_SCHEMA` + a `{{ content(...) }}` in the template is enough. `admin_get_content` merges schema+saved and uses `default` as the pre-fill, so the row gets created on first save.
 
+## Journal (blog) — full notes in `docs/JOURNAL.md`
+
+- Table `blog_posts` (migration 013, must be run once in Supabase). Until then the public Journal falls back to the 6 launch articles in `server/journal_seed.py` and admin saves return a 503 "not set up" message.
+- Public: `/journal`, `/journal/{slug}`, `/journal/feed.xml`; live articles are added to `/sitemap.xml`. Admin: `/admin/journal` (+ `/new`, `/{id}/edit`), API `/api/admin/journal*`. Unlimited articles.
+- Live = `status == "published"` AND `published_at <= now` (future date = scheduled). Logic in `journal.is_live()` — use it, don't re-implement.
+- Article bodies are simple marks (`## `, `**`, `[text](url)`, `![alt](url "caption")`…) rendered by `journal.render_body()`, which escapes everything first. Never render `post.body` with `| safe`.
+- Journal nav link lives in all three nav places (layout nav, index hero nav, `#mobileNav`) + footer links.
+- Tests: `server/tests/test_journal.py` (pure helpers, no DB).
+
 ## Warehouse / Fulfilment portal + Team access (step 1, 2026-11-26, migration 014)
 
 - **Roles** (`_resolve_staff()` in `app.py`): `owner` = `ALLOWED_EMAILS` (hard-coded safety net, magic link), `fulfilment` = warehouse (rows in `staff_accounts`), `admin` reserved. **Deny by default:** `get_admin_user()` returns a user only for owner/admin, so EVERY `/api/admin/*` endpoint refuses warehouse accounts (and logs `denied` in `staff_activity`). Staff must be `status='active'` AND have a 2-step JWT (`aal` = `aal2`) on every request, so suspend/revoke is immediate. Test `test_warehouse_refused_on_every_admin_endpoint` enumerates all `/api/admin` routes — keep it passing when adding routes.
@@ -362,7 +371,7 @@ Three layers near the top of `server/app.py`:
 
 ## Deployment (Railway) — full recipe in `docs/DEPLOY.md`
 
-- **LIVE = branch `release/live` (since 2026-11-27), NOT `main`.** `main` also holds the Journal, which the owner has not approved for release yet. Step 1 was deployed with a Dockerfile that clones `-b release/live`, and a dashboard redeploy rebuilds that same upload. To release something: put it on `release/live` (cherry-pick), test, deploy. When the owner approves the Journal, fast-forward `release/live` to `main` and deploy.
+- **LIVE = branch `release/live` (since 2026-11-27), NOT `main`.** The Dockerfile clones `-b release/live`, and a dashboard redeploy rebuilds that same upload. The owner approved the Journal on 2026-11-27 and it was released by merging `main` into `release/live` (migration 013 applied the same day). To release something: put it on `release/live` (merge or cherry-pick), test, then set the Railway service variable `CACHEBUST` to a new value (this triggers the rebuild; see `docs/DEPLOY.md`).
 - **Live**: canonical `https://www.maisonhenius.com` (also `web-production-cc74a0.up.railway.app`).
 - **Repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB). **Builder**: Dockerfile (clones from GitHub on Railway servers).
 - **Railway**: project `maison-henius` (`f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web` (`d363d941-07c4-4383-b0a2-c12ebd5a8cbd`), env `production` (`b99a4d18-a9fc-4742-b874-c0b4d38e5ade`). Owner account: **husein.aldarawish@gmail.com** (for `railway login`).

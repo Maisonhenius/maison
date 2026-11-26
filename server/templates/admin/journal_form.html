@@ -1,0 +1,683 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - {{ 'New article' if mode == 'create' else 'Edit article' }} - Maison Henius{% endblock %}
+{% block nav_journal %}admin__nav-item--active{% endblock %}
+{% block heading %}{{ 'New article' if mode == 'create' else 'Edit article' }}{% endblock %}
+
+{% block styles %}
+<style>
+  .jf { max-width: 960px; padding-bottom: 6rem; }
+  .jf-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.2rem; gap: 1rem; flex-wrap: wrap; }
+  .jf-top a { font-size: .78rem; color: #888; text-decoration: none; letter-spacing: .08em; }
+  .jf-top a:hover { color: #b8a44e; }
+  .jf-jump { display: flex; gap: .4rem; flex-wrap: wrap; }
+  .jf-jump a { border: 1px solid #e3ded3; border-radius: 999px; padding: .35rem .8rem; font-size: .7rem; color: #555; background: #fff; }
+
+  .sec { background: #fff; border-radius: 8px; padding: 1.8rem 1.8rem 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 3px rgba(0,0,0,.05); scroll-margin-top: 1rem; }
+  .sec__title { font-family: 'Cormorant Garamond', Georgia, serif; font-style: italic; font-weight: 300; font-size: 1.5rem; color: #0a0a08; margin: 0 0 .3rem; }
+  .sec__sub { font-size: .8rem; color: #888; margin: 0 0 1.4rem; font-weight: 300; line-height: 1.6; }
+  .row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem 1.25rem; margin-bottom: 1rem; }
+  .row--1 { grid-template-columns: 1fr; }
+  .row--3 { grid-template-columns: repeat(3, 1fr); }
+  .fld { display: flex; flex-direction: column; gap: .35rem; min-width: 0; }
+  .fld label, .lbl { font-size: .7rem; font-weight: 500; text-transform: uppercase; letter-spacing: .08em; color: #888; display: flex; justify-content: space-between; gap: .5rem; }
+  .fld label .count { font-weight: 400; letter-spacing: 0; text-transform: none; color: #aaa; }
+  .fld label .count.warn { color: #c98a14; } .fld label .count.ok { color: #587b3f; }
+  .req { color: #c33; margin-left: .2em; }
+  .fld input[type=text], .fld input[type=url], .fld input[type=datetime-local], .fld select, .fld textarea {
+    width: 100%; border: 1px solid #ddd; border-radius: 6px; padding: .7rem .85rem; box-sizing: border-box;
+    font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: .9rem; color: #0a0a08; background: #fff; transition: border-color .2s;
+  }
+  .fld textarea { resize: vertical; min-height: 84px; line-height: 1.6; }
+  .fld input:focus, .fld select:focus, .fld textarea:focus { outline: 0; border-color: #b8a44e; }
+  .hint { font-size: .72rem; color: #9a968b; line-height: 1.5; }
+  .title-input { font-family: 'Cormorant Garamond', Georgia, serif !important; font-size: 1.5rem !important; font-weight: 400 !important; }
+  .slug-wrap { display: flex; align-items: stretch; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  .slug-wrap span { background: #f5f3ee; color: #888; font-size: .8rem; padding: .7rem .6rem; white-space: nowrap; }
+  .slug-wrap input { border: 0 !important; border-radius: 0 !important; }
+
+  /* editor */
+  .ed { border: 1px solid #ddd; border-radius: 8px; overflow: hidden; }
+  .ed__bar { display: flex; flex-wrap: wrap; gap: .25rem; padding: .5rem; background: #f8f6f1; border-bottom: 1px solid #e7e2d7; align-items: center; }
+  .ed__bar button, .ed__bar label { border: 1px solid transparent; background: transparent; border-radius: 5px; padding: .4rem .6rem; font-family: 'Montserrat', sans-serif; font-size: .75rem; color: #333; cursor: pointer; min-height: 34px; display: inline-flex; align-items: center; }
+  .ed__bar button:hover, .ed__bar label:hover { background: #fff; border-color: #e0dbd0; }
+  .ed__bar .sep { width: 1px; height: 22px; background: #e0dbd0; margin: 0 .2rem; }
+  .ed__bar label input { display: none; }
+  .ed__tabs { margin-left: auto; display: flex; gap: .2rem; }
+  .ed__tabs button.is-active { background: #0a0a08; color: #e9db90; }
+  .ed textarea { border: 0 !important; border-radius: 0 !important; min-height: 460px !important; font-family: ui-monospace, 'SF Mono', Menlo, monospace !important; font-size: .86rem !important; line-height: 1.75 !important; padding: 1rem 1.1rem !important; }
+  .ed__preview { display: none; padding: 1.6rem 2rem; background: #faf9f6; min-height: 460px; max-height: 720px; overflow: auto; }
+  .ed.is-preview textarea { display: none; }
+  .ed.is-preview .ed__preview { display: block; }
+  .ed__foot { display: flex; justify-content: space-between; gap: 1rem; padding: .5rem .9rem; background: #f8f6f1; border-top: 1px solid #e7e2d7; font-size: .72rem; color: #888; flex-wrap: wrap; }
+  .ed__status { color: #587b3f; }
+  .ed__status.err { color: #c33; }
+  .guide { margin-top: .7rem; font-size: .74rem; color: #7d796e; background: #faf8f3; border: 1px dashed #e3ddcf; border-radius: 6px; padding: .8rem 1rem; line-height: 1.8; }
+  .guide code { background: #fff; border: 1px solid #eee; border-radius: 4px; padding: 0 .3rem; font-size: .72rem; color: #333; }
+
+  /* preview prose (mirrors the public article) */
+  .pv p, .pv li { font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: .95rem; line-height: 1.9; color: #3a362c; }
+  .pv p { margin: 0 0 1.2rem; }
+  .pv h2 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: 1.9rem; margin: 2.2rem 0 .9rem; color: #0a0a08; }
+  .pv h3 { font-size: .74rem; letter-spacing: .22em; text-transform: uppercase; color: #8c7a2e; margin: 1.8rem 0 .8rem; }
+  .pv a { color: #8c7a2e; }
+  .pv blockquote { margin: 2rem 0; padding: 1.4rem 0; text-align: center; border-top: 1px solid #d9cfa6; border-bottom: 1px solid #d9cfa6; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.6rem; color: #0a0a08; }
+  .pv figure { margin: 1.8rem 0; } .pv figure img { width: 100%; border-radius: 10px; display: block; max-height: 420px; object-fit: cover; }
+  .pv figcaption { text-align: center; font-size: .72rem; color: #8a877d; font-style: italic; margin-top: .6rem; }
+  .pv hr { border: 0; width: 40px; height: 1px; background: #b8a44e; margin: 2rem auto; }
+
+  /* image widget */
+  .img-w { display: grid; grid-template-columns: 240px 1fr; gap: 1.2rem; align-items: start; }
+  .img-w__pv { width: 240px; height: 150px; border-radius: 8px; background: #f1efe9 center/cover no-repeat; border: 1px solid #e8e3d8; display: flex; align-items: center; justify-content: center; color: #aaa; font-size: .75rem; }
+  .img-w__ctl { display: flex; flex-direction: column; gap: .5rem; }
+  .file-btn { display: inline-flex; align-items: center; gap: .4rem; align-self: flex-start; padding: .55rem 1rem; border: 1px solid #ddd; border-radius: 6px; background: #faf9f6; font-size: .75rem; cursor: pointer; min-height: 38px; }
+  .file-btn:hover { background: #efeee9; } .file-btn input { display: none; }
+  .up-status { font-size: .72rem; color: #888; } .up-status.ok { color: #587b3f; } .up-status.err { color: #c33; }
+
+  /* toggles + checks */
+  .switch { display: inline-flex; align-items: center; gap: .6rem; cursor: pointer; font-size: .85rem; color: #333; }
+  .switch input { width: 18px; height: 18px; accent-color: #b8a44e; }
+  .seg { display: inline-flex; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; }
+  .seg label { padding: .6rem 1.1rem; font-size: .8rem; cursor: pointer; text-transform: none; letter-spacing: 0; color: #555; font-weight: 400; }
+  .seg input { display: none; }
+  .seg input:checked + span { color: #e9db90; }
+  .seg label:has(input:checked) { background: #0a0a08; color: #e9db90; }
+  .prod-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; }
+  .prod-list label { display: flex; align-items: center; gap: .55rem; border: 1px solid #eee; border-radius: 6px; padding: .5rem .6rem; font-size: .8rem; cursor: pointer; text-transform: none; letter-spacing: 0; color: #333; font-weight: 400; }
+  .prod-list label:has(input:checked) { border-color: #b8a44e; background: #fbf8ec; }
+  .prod-list img { width: 34px; height: 34px; border-radius: 5px; object-fit: cover; }
+  .prod-list input { accent-color: #b8a44e; }
+
+  /* google + social previews */
+  .serp { border: 1px solid #e8e3d8; border-radius: 8px; padding: 1rem 1.2rem; background: #fff; margin-bottom: 1.4rem; font-family: arial, sans-serif; }
+  .serp__site { display: flex; align-items: center; gap: .6rem; font-size: 13px; color: #202124; }
+  .serp__site img { width: 26px; height: 26px; border-radius: 50%; background: #0a0a08; padding: 3px; }
+  .serp__url { font-size: 12px; color: #4d5156; }
+  .serp__title { font-size: 20px; color: #1a0dab; margin: .45rem 0 .25rem; line-height: 1.3; }
+  .serp__desc { font-size: 14px; color: #4d5156; line-height: 1.58; }
+  .score { display: flex; align-items: center; gap: 1rem; margin: 0 0 1rem; }
+  .score__ring { width: 58px; height: 58px; border-radius: 50%; display: grid; place-items: center; font-weight: 600; font-size: .95rem; color: #0a0a08; background: conic-gradient(var(--c, #b8a44e) calc(var(--p, 0) * 1%), #eee 0); position: relative; }
+  .score__ring::before { content: ''; position: absolute; inset: 6px; background: #fff; border-radius: 50%; }
+  .score__ring b { position: relative; }
+  .score__txt { font-size: .82rem; color: #555; line-height: 1.5; }
+  .checks { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .35rem 1.2rem; }
+  .checks li { font-size: .78rem; color: #555; display: flex; gap: .5rem; line-height: 1.45; }
+  .checks li::before { content: '○'; color: #c9c3b4; flex: none; }
+  .checks li.ok::before { content: '●'; color: #587b3f; }
+  .checks li.bad::before { content: '●'; color: #d6a12a; }
+  .social-card { border: 1px solid #e3ded3; border-radius: 10px; overflow: hidden; max-width: 460px; background: #fff; }
+  .social-card__img { height: 230px; background: #eee center/cover no-repeat; }
+  .social-card__body { padding: .8rem 1rem; background: #f4f2ec; }
+  .social-card__host { font-size: .68rem; text-transform: uppercase; color: #888; letter-spacing: .05em; }
+  .social-card__title { font-size: .95rem; font-weight: 600; color: #111; margin: .2rem 0; }
+  .social-card__desc { font-size: .8rem; color: #666; }
+  .tips { margin: 0; padding-left: 1.1rem; }
+  .tips li { font-size: .8rem; color: #555; line-height: 1.7; margin-bottom: .35rem; }
+  .tips b { font-weight: 500; color: #222; }
+
+  /* bottom action bar */
+  .bar { position: fixed; left: 240px; right: 0; bottom: 0; z-index: 30; background: rgba(255,255,255,.96); backdrop-filter: blur(6px); border-top: 1px solid #e7e2d7; padding: .8rem 2rem; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+  .bar__status { margin-right: auto; font-size: .82rem; color: #888; }
+  .bar__status.ok { color: #587b3f; } .bar__status.err { color: #c33; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; padding: .72rem 1.4rem; background: #0a0a08; color: #faf9f6; border: 1px solid #0a0a08; border-radius: 6px; font-family: 'Montserrat', sans-serif; font-size: .76rem; letter-spacing: .12em; text-transform: uppercase; text-decoration: none; cursor: pointer; min-height: 44px; }
+  .btn:hover { background: #b8a44e; border-color: #b8a44e; }
+  .btn--ghost { background: transparent; color: #0a0a08; }
+  .btn--ghost:hover { background: #0a0a08; color: #faf9f6; }
+  .btn--gold { background: #e9db90; color: #0a0a08; border-color: #e9db90; }
+  .btn--small { padding: .45rem .8rem; font-size: .68rem; min-height: 34px; }
+  .btn[disabled] { opacity: .5; cursor: wait; }
+
+  @media (max-width: 900px) {
+    .bar { left: 0; padding: .7rem 1rem; }
+    .row, .row--3 { grid-template-columns: 1fr; }
+    .img-w { grid-template-columns: 1fr; }
+    .img-w__pv { width: 100%; }
+    .prod-list, .checks { grid-template-columns: 1fr; }
+    .sec { padding: 1.2rem; }
+    .ed__tabs { margin-left: 0; }
+  }
+  @media (max-width: 600px) {
+    /* Phone: status on one short line, the buttons share one row. */
+    .bar { gap: .4rem; padding: .5rem .7rem; }
+    .bar__status { width: 100%; margin: 0; font-size: .72rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar .btn { flex: 1 1 0; padding: .5rem .4rem; font-size: .62rem; letter-spacing: .06em; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="jf">
+  <div class="jf-top">
+    <a href="/admin/journal">&larr; All articles</a>
+    <nav class="jf-jump" aria-label="Sections">
+      <a href="#s-article">Article</a><a href="#s-picture">Picture</a><a href="#s-details">Details</a><a href="#s-seo">SEO</a><a href="#s-social">Social media</a>
+    </nav>
+  </div>
+
+  <form id="jf" autocomplete="off" novalidate>
+    <!-- ARTICLE -->
+    <section class="sec" id="s-article">
+      <h2 class="sec__title">Article</h2>
+      <p class="sec__sub">The story itself. Write it the way it should read on the website.</p>
+      <div class="row row--1">
+        <div class="fld">
+          <label for="title">Title<span class="req">*</span></label>
+          <input type="text" id="title" class="title-input" required placeholder="The Minute the Desert Exhales">
+        </div>
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label for="slug">Web address</label>
+          <div class="slug-wrap"><span>/journal/</span><input type="text" id="slug" placeholder="made-from-the-title"></div>
+          <span class="hint">Made from the title automatically. Include your focus keyword. Avoid changing it after publishing, as old links would stop working.</span>
+        </div>
+        <div class="fld">
+          <label for="category">Theme (category)</label>
+          <input type="text" id="category" list="catList" placeholder="Origins">
+          <datalist id="catList">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+          <span class="hint">Pick one or type a new one. Readers can filter the Journal by theme.</span>
+        </div>
+      </div>
+      <div class="row row--1">
+        <div class="fld">
+          <label for="excerpt">Short summary <span class="count" data-count="excerpt" data-min="110" data-max="200"></span></label>
+          <textarea id="excerpt" rows="2" placeholder="One or two sentences. Shown on the Journal cards and at the top of the article."></textarea>
+        </div>
+      </div>
+      <div class="fld">
+        <span class="lbl">Story text</span>
+        <div class="ed" id="ed">
+          <div class="ed__bar" role="toolbar" aria-label="Formatting">
+            <button type="button" data-md="h2" title="Big heading">H2</button>
+            <button type="button" data-md="h3" title="Small heading">H3</button>
+            <span class="sep"></span>
+            <button type="button" data-md="bold" title="Bold"><b>B</b></button>
+            <button type="button" data-md="italic" title="Italic"><i>I</i></button>
+            <button type="button" data-md="link" title="Link">Link</button>
+            <span class="sep"></span>
+            <button type="button" data-md="ul" title="Bullet list">• List</button>
+            <button type="button" data-md="ol" title="Numbered list">1. List</button>
+            <button type="button" data-md="quote" title="Quote">“ Quote</button>
+            <button type="button" data-md="hr" title="Divider line">— Line</button>
+            <span class="sep"></span>
+            <label title="Upload a picture into the story">＋ Picture<input type="file" id="bodyImg" accept="image/webp,image/jpeg,image/png"></label>
+            <button type="button" data-md="product" title="Link to a fragrance">＋ Fragrance link</button>
+            <div class="ed__tabs">
+              <button type="button" class="is-active" data-tab="write">Write</button>
+              <button type="button" data-tab="preview">Preview</button>
+            </div>
+          </div>
+          <textarea id="body" spellcheck="true" placeholder="Start your story here…"></textarea>
+          <div class="ed__preview pv" id="preview"></div>
+          <div class="ed__foot"><span id="wordInfo">0 words · 1 min read</span><span class="ed__status" id="edStatus"></span></div>
+        </div>
+        <details class="guide">
+          <summary>How to format the story (click to open)</summary>
+          <code>## Heading</code> big heading · <code>### Heading</code> small heading · <code>**bold**</code> · <code>*italic*</code><br>
+          <code>[link text](/products/parisian)</code> link · <code>- item</code> bullet · <code>1. item</code> numbered · <code>&gt; quote</code> quote · <code>---</code> divider<br>
+          <code>![description](picture-link "caption")</code> picture on its own line. The <b>＋ Picture</b> button uploads and writes this for you.<br>
+          Leave an empty line between paragraphs. Use <b>Preview</b> to see exactly how it will look.
+        </details>
+      </div>
+    </section>
+
+    <!-- PICTURE -->
+    <section class="sec" id="s-picture">
+      <h2 class="sec__title">Picture</h2>
+      <p class="sec__sub">The main picture, shown full-screen at the top of the story and on the Journal cards. Best size: 1920 × 1080 px, WebP or JPEG, under 400 KB.</p>
+      <div class="img-w" data-img="hero_image">
+        <div class="img-w__pv">No picture yet</div>
+        <div class="img-w__ctl">
+          <div class="fld"><label for="hero_image">Picture link</label><input type="text" id="hero_image" placeholder="https://… or /static/…"></div>
+          <label class="file-btn">Upload picture<input type="file" accept="image/webp,image/jpeg,image/png"></label>
+          <span class="up-status"></span>
+        </div>
+      </div>
+      <div class="row" style="margin-top:1.2rem">
+        <div class="fld">
+          <label for="hero_alt">Picture description (alt text) <span class="count" data-count="hero_alt" data-min="20" data-max="125"></span></label>
+          <input type="text" id="hero_alt" placeholder="Wadi Rum desert at dusk, the inspiration for a Jordanian niche perfume">
+          <span class="hint">Describe what is in the picture, with your keyword if it fits. Google Images and screen readers use this.</span>
+        </div>
+        <div class="fld">
+          <label for="hero_caption">Caption (optional)</label>
+          <input type="text" id="hero_caption" placeholder="Wadi Rum, southern Jordan.">
+          <span class="hint">A small line shown in the corner of the picture.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- DETAILS -->
+    <section class="sec" id="s-details">
+      <h2 class="sec__title">Details</h2>
+      <p class="sec__sub">When and how the story appears, and where it sends readers next.</p>
+      <div class="row">
+        <div class="fld">
+          <span class="lbl">Status</span>
+          <div class="seg">
+            <label><input type="radio" name="status" value="draft" checked>Draft (hidden)</label>
+            <label><input type="radio" name="status" value="published">Published</label>
+          </div>
+          <span class="hint">Drafts are only visible here.</span>
+        </div>
+        <div class="fld">
+          <label for="published_at">Publish date</label>
+          <input type="datetime-local" id="published_at">
+          <span class="hint" id="schedHint">Empty = now. A future date schedules the story: it goes live by itself on that day.</span>
+        </div>
+      </div>
+      <div class="row">
+        <div class="fld">
+          <span class="lbl">Featured</span>
+          <label class="switch"><input type="checkbox" id="is_featured"> Show as the large featured story at the top of the Journal</label>
+        </div>
+        <div class="fld">
+          <label for="author">Author</label>
+          <input type="text" id="author" placeholder="Maison Henius">
+        </div>
+      </div>
+      <div class="row row--1">
+        <div class="fld">
+          <label for="tags">Tags</label>
+          <input type="text" id="tags" placeholder="Wadi Rum, Jordan, origin story">
+          <span class="hint">Separate with commas. Shown under the story and used by search engines.</span>
+        </div>
+      </div>
+      <div class="fld" style="margin-bottom:1rem">
+        <span class="lbl">Fragrances in this story</span>
+        <div class="prod-list" id="prodList"><span class="hint">Loading fragrances…</span></div>
+        <span class="hint">Ticked fragrances appear as shop cards under the story. This turns readers into customers.</span>
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label for="cta_label">Button text</label>
+          <input type="text" id="cta_label" placeholder="Discover Velvet Waterfall">
+        </div>
+        <div class="fld">
+          <label for="cta_url">Button link</label>
+          <input type="text" id="cta_url" placeholder="/products/velvet-waterfall">
+          <span class="hint">A large gold button after the story. Leave both empty to hide it.</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SEO -->
+    <section class="sec" id="s-seo">
+      <h2 class="sec__title">SEO</h2>
+      <p class="sec__sub">How the story appears on Google. Choose one focus keyword (the phrase people type), then follow the checklist.</p>
+      <span class="lbl" style="margin-bottom:.5rem">Google preview</span>
+      <div class="serp">
+        <div class="serp__site"><img src="/static/assets/images/logo-crest-gold.webp" alt=""><div>Maison Henius<div class="serp__url" id="serpUrl">www.maisonhenius.com › journal</div></div></div>
+        <div class="serp__title" id="serpTitle">Title</div>
+        <div class="serp__desc" id="serpDesc">Description</div>
+      </div>
+      <div class="row">
+        <div class="fld">
+          <label for="focus_keyword">Focus keyword</label>
+          <input type="text" id="focus_keyword" placeholder="niche perfume Jordan">
+        </div>
+        <div class="fld">
+          <label for="secondary_keywords">Other keywords</label>
+          <input type="text" id="secondary_keywords" placeholder="artisan perfume, oud perfume">
+        </div>
+      </div>
+      <div class="row row--1">
+        <div class="fld">
+          <label for="seo_title">SEO title <span class="count" data-count="seo_title" data-min="30" data-max="60"></span></label>
+          <input type="text" id="seo_title" placeholder="Leave empty to use: Title | Maison Henius">
+        </div>
+        <div class="fld">
+          <label for="meta_description">Meta description <span class="count" data-count="meta_description" data-min="120" data-max="155"></span></label>
+          <textarea id="meta_description" rows="2" placeholder="Leave empty to use the short summary."></textarea>
+        </div>
+      </div>
+      <div class="score"><div class="score__ring" id="scoreRing"><b id="scoreNum">0</b></div><div class="score__txt" id="scoreTxt">SEO score</div></div>
+      <ul class="checks" id="checks"></ul>
+    </section>
+
+    <!-- SOCIAL -->
+    <section class="sec" id="s-social">
+      <h2 class="sec__title">Social media</h2>
+      <p class="sec__sub">How the story looks when shared on WhatsApp, Facebook, LinkedIn, X and Pinterest, plus a ready caption for Instagram and TikTok.</p>
+      <div class="row">
+        <div>
+          <span class="lbl" style="margin-bottom:.5rem">Share preview</span>
+          <div class="social-card">
+            <div class="social-card__img" id="socImg"></div>
+            <div class="social-card__body">
+              <div class="social-card__host">maisonhenius.com</div>
+              <div class="social-card__title" id="socTitle">Title</div>
+              <div class="social-card__desc" id="socDesc">Description</div>
+            </div>
+          </div>
+        </div>
+        <div class="img-w" data-img="og_image" style="grid-template-columns:1fr">
+          <div class="img-w__ctl">
+            <div class="fld"><label for="og_image">Share picture (optional)</label><input type="text" id="og_image" placeholder="Leave empty to use the main picture"></div>
+            <label class="file-btn">Upload share picture<input type="file" accept="image/webp,image/jpeg,image/png"></label>
+            <span class="up-status"></span>
+            <span class="hint">Best size 1200 × 630 px. Use a different picture here if the main one is tall.</span>
+          </div>
+        </div>
+      </div>
+      <div class="row row--1">
+        <div class="fld">
+          <label for="social_caption">Instagram / TikTok caption <span class="count" data-count="social_caption" data-max="2200"></span></label>
+          <textarea id="social_caption" rows="5" placeholder="A short teaser, then 'Read the story, link in bio', then 5–10 hashtags."></textarea>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            <button type="button" class="btn btn--ghost btn--small" id="copyCaption">Copy caption</button>
+            <button type="button" class="btn btn--ghost btn--small" id="copyLink">Copy story link</button>
+            <button type="button" class="btn btn--ghost btn--small" id="makeCaption">Suggest a caption</button>
+          </div>
+          <span class="hint" id="copyNote"></span>
+        </div>
+      </div>
+      <details class="guide" open>
+        <summary>Getting traffic from this story</summary>
+        <ul class="tips">
+          <li><b>Instagram:</b> post the main picture or a 3-slide carousel (picture, one key line, the fragrance), paste the caption, and put the Journal link in your bio or a story link sticker.</li>
+          <li><b>TikTok:</b> a 15–30 second clip of the place or the bottle, with the first line of the story as on-screen text. Pin a comment with “Full story on maisonhenius.com/journal”.</li>
+          <li><b>Pinterest:</b> use the Pinterest button on the story. Pins keep bringing visitors for months.</li>
+          <li><b>WhatsApp:</b> send new stories to your best clients and boutique partners. The preview above is what they will see.</li>
+          <li><b>Google:</b> new stories are added to the sitemap and the Journal feed automatically. Link each new story from one older story to help both rank.</li>
+          <li><b>Rhythm:</b> one story every two weeks is better than many at once. Use the publish date to schedule them in advance.</li>
+        </ul>
+      </details>
+    </section>
+  </form>
+</div>
+
+<div class="bar">
+  <span class="bar__status" id="barStatus">{{ 'Not saved yet' if mode == 'create' else 'Loading…' }}</span>
+  <a class="btn btn--ghost" id="viewLive" href="#" target="_blank" rel="noopener" hidden>View live</a>
+  <button type="button" class="btn btn--ghost" id="saveDraft">Save as draft</button>
+  <button type="button" class="btn btn--gold" id="savePublish">Publish</button>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const MODE = {{ mode | tojson }};
+  let POST_ID = {{ post_id | tojson }};
+  const authRaw = localStorage.getItem('maison_admin_auth');
+  if (!authRaw) return;
+  let token = '';
+  try { token = JSON.parse(authRaw).access_token || ''; } catch (e) { return; }
+  const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  const $ = id => document.getElementById(id);
+  const FIELDS = ['title','slug','category','excerpt','body','hero_image','hero_alt','hero_caption','author','tags',
+                  'cta_label','cta_url','focus_keyword','secondary_keywords','seo_title','meta_description','og_image','social_caption'];
+  let slugTouched = MODE === 'edit', dirty = false, products = [], related = new Set(), savedStatus = 'draft';
+
+  function expired(s) { if (s !== 401) return false; localStorage.removeItem('maison_admin_auth'); location.href = '/admin/login'; return true; }
+  function slugify(t) { return (t || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90); }
+  function status(msg, cls) { const s = $('barStatus'); s.textContent = msg; s.className = 'bar__status' + (cls ? ' ' + cls : ''); }
+  function getStatus() { return document.querySelector('input[name=status]:checked').value; }
+  function setStatus(v) { document.querySelector('input[name=status][value="' + v + '"]').checked = true; }
+  function toLocalInput(iso) { if (!iso) return ''; const d = new Date(iso); if (isNaN(d)) return ''; const p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth()+1) + '-' + p(d.getDate()) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()); }
+  function esc(s) { return String(s || '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  // ── counters ──
+  function counters() {
+    document.querySelectorAll('[data-count]').forEach(c => {
+      const v = ($(c.dataset.count).value || '').length, min = +c.dataset.min || 0, max = +c.dataset.max || 0;
+      c.textContent = v + (max ? ' / ' + max : '') + ' characters';
+      c.className = 'count' + (v === 0 ? '' : (v > max || v < min) ? ' warn' : ' ok');
+    });
+  }
+
+  // ── image widgets ──
+  function showImg(box, url) {
+    const pv = box.querySelector('.img-w__pv');
+    if (pv) { pv.style.backgroundImage = url ? 'url("' + url.replace(/"/g, '%22') + '")' : ''; pv.textContent = url ? '' : 'No picture yet'; }
+  }
+  async function upload(file) {
+    const fd = new FormData(); fd.append('file', file); fd.append('bucket', 'page-media');
+    const r = await fetch('/api/admin/upload', { method: 'POST', headers: { 'Authorization': 'Bearer ' + token }, body: fd });
+    if (expired(r.status)) throw new Error('Signed out');
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || ('status ' + r.status));
+    return d.url;
+  }
+  document.querySelectorAll('.img-w').forEach(box => {
+    const input = $(box.dataset.img), file = box.querySelector('input[type=file]'), st = box.querySelector('.up-status');
+    input.addEventListener('input', () => { showImg(box, input.value.trim()); refresh(); });
+    file.addEventListener('change', async () => {
+      if (!file.files[0]) return;
+      st.textContent = 'Uploading…'; st.className = 'up-status';
+      try { input.value = await upload(file.files[0]); showImg(box, input.value); st.textContent = 'Uploaded ✓'; st.className = 'up-status ok'; markDirty(); refresh(); }
+      catch (e) { st.textContent = 'Failed: ' + e.message; st.className = 'up-status err'; }
+      file.value = '';
+    });
+  });
+
+  // ── editor toolbar ──
+  const ta = $('body');
+  function wrap(before, after, placeholder) {
+    const s = ta.selectionStart, e = ta.selectionEnd, sel = ta.value.slice(s, e) || placeholder;
+    ta.setRangeText(before + sel + after, s, e, 'end');
+    if (!ta.value.slice(s, e).length) { ta.selectionStart = s + before.length; ta.selectionEnd = s + before.length + sel.length; }
+    ta.focus(); markDirty(); refresh();
+  }
+  function linePrefix(prefix) {
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    const start = ta.value.lastIndexOf('\n', s - 1) + 1;
+    const block = ta.value.slice(start, e) || 'Text';
+    const out = block.split('\n').map((l, i) => (typeof prefix === 'function' ? prefix(i) : prefix) + l.replace(/^(#{2,3} |> |- |\d+\. )/, '')).join('\n');
+    ta.setRangeText(out, start, e, 'end'); ta.focus(); markDirty(); refresh();
+  }
+  function insertBlock(text) {
+    const s = ta.selectionStart, before = ta.value.slice(0, s);
+    const pre = before && !before.endsWith('\n\n') ? (before.endsWith('\n') ? '\n' : '\n\n') : '';
+    ta.setRangeText(pre + text + '\n\n', s, ta.selectionEnd, 'end'); ta.focus(); markDirty(); refresh();
+  }
+  document.querySelectorAll('[data-md]').forEach(b => b.addEventListener('click', () => {
+    const k = b.dataset.md;
+    if (k === 'h2') linePrefix('## ');
+    else if (k === 'h3') linePrefix('### ');
+    else if (k === 'bold') wrap('**', '**', 'bold text');
+    else if (k === 'italic') wrap('*', '*', 'italic text');
+    else if (k === 'quote') linePrefix('> ');
+    else if (k === 'ul') linePrefix('- ');
+    else if (k === 'ol') linePrefix(i => (i + 1) + '. ');
+    else if (k === 'hr') insertBlock('---');
+    else if (k === 'link') { const url = prompt('Link address (e.g. /products/parisian or https://…)'); if (url) wrap('[', '](' + url.trim() + ')', 'link text'); }
+    else if (k === 'product') {
+      if (!products.length) { alert('Fragrances are still loading.'); return; }
+      const names = products.map((p, i) => (i + 1) + '. ' + p.name).join('\n');
+      const n = parseInt(prompt('Which fragrance? Type its number:\n' + names), 10);
+      const p = products[n - 1]; if (p) wrap('[', '](/products/' + p.slug + ')', p.name);
+    }
+  }));
+  $('bodyImg').addEventListener('change', async e => {
+    const f = e.target.files[0]; if (!f) return;
+    const st = $('edStatus'); st.textContent = 'Uploading picture…'; st.className = 'ed__status';
+    try {
+      const url = await upload(f);
+      const alt = prompt('Describe the picture (for Google and screen readers):', '') || 'Maison Henius';
+      const cap = prompt('Caption under the picture (optional):', '') || '';
+      insertBlock('![' + alt.replace(/[\[\]]/g, '') + '](' + url + (cap ? ' "' + cap.replace(/"/g, "'") + '"' : '') + ')');
+      st.textContent = 'Picture added ✓';
+    } catch (err) { st.textContent = 'Upload failed: ' + err.message; st.className = 'ed__status err'; }
+    e.target.value = '';
+  });
+  // Tab key indents instead of leaving the box? Keep native behaviour; Cmd/Ctrl+B / I shortcuts:
+  ta.addEventListener('keydown', e => {
+    if (!(e.metaKey || e.ctrlKey)) return;
+    if (e.key === 'b') { e.preventDefault(); wrap('**', '**', 'bold text'); }
+    if (e.key === 'i') { e.preventDefault(); wrap('*', '*', 'italic text'); }
+    if (e.key === 's') { e.preventDefault(); save(getStatus()); }
+  });
+
+  // ── preview tab ──
+  document.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', async () => {
+    document.querySelectorAll('[data-tab]').forEach(x => x.classList.toggle('is-active', x === b));
+    const ed = $('ed');
+    if (b.dataset.tab === 'preview') {
+      ed.classList.add('is-preview'); $('preview').innerHTML = '<p style="color:#aaa">Rendering…</p>';
+      try {
+        const r = await fetch('/api/admin/journal/preview', { method: 'POST', headers, body: JSON.stringify({ body: ta.value }) });
+        if (expired(r.status)) return;
+        const d = await r.json();
+        $('preview').innerHTML = d.html || '<p style="color:#aaa">Nothing written yet.</p>';
+      } catch (e) { $('preview').textContent = 'Preview failed: ' + e.message; }
+    } else ed.classList.remove('is-preview');
+  }));
+
+  // ── related fragrances ──
+  async function loadProducts() {
+    try {
+      const r = await fetch('/api/admin/products', { headers });
+      if (expired(r.status)) return;
+      const d = await r.json();
+      products = (d.products || []).filter(p => !p.is_hidden);
+    } catch (e) { products = []; }
+    const box = $('prodList'); box.innerHTML = '';
+    if (!products.length) { box.innerHTML = '<span class="hint">No fragrances found.</span>'; return; }
+    products.forEach(p => {
+      const l = document.createElement('label');
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.value = p.slug || p.id; cb.checked = related.has(cb.value);
+      cb.addEventListener('change', () => { cb.checked ? related.add(cb.value) : related.delete(cb.value); markDirty(); });
+      const img = document.createElement('img'); img.alt = ''; const ci = p.card_image || '';
+      img.src = ci.startsWith('http') || ci.startsWith('/') ? ci : '/static/assets/pictures/Collection & Fragrances/' + ci;
+      l.append(cb, img, document.createTextNode(p.name));
+      box.appendChild(l);
+    });
+  }
+
+  // ── SEO score + previews ──
+  function plain(md) { return md.replace(/!\[[^\]]*\]\([^)]*\)/g, ' ').replace(/\[([^\]]+)\]\([^)]*\)/g, '$1').replace(/^(#{2,3}|>|[-*]|\d+[.)])\s+/gm, '').replace(/\*+/g, '').replace(/\s+/g, ' ').trim(); }
+  function refresh() {
+    counters();
+    const title = $('title').value.trim(), slug = $('slug').value.trim(), body = ta.value;
+    const seoTitle = $('seo_title').value.trim() || (title ? title + ' | Maison Henius' : 'Title | Maison Henius');
+    const desc = $('meta_description').value.trim() || $('excerpt').value.trim() || plain(body).slice(0, 155);
+    const words = plain(body).split(' ').filter(Boolean).length;
+    $('wordInfo').textContent = words + ' words · ' + Math.max(1, Math.ceil(words / 220)) + ' min read';
+    $('serpUrl').textContent = 'www.maisonhenius.com › journal › ' + (slug || '…');
+    $('serpTitle').textContent = seoTitle.length > 62 ? seoTitle.slice(0, 60) + '…' : seoTitle;
+    $('serpDesc').textContent = desc.length > 158 ? desc.slice(0, 155) + '…' : (desc || 'Add a meta description.');
+    $('socTitle').textContent = seoTitle; $('socDesc').textContent = desc.slice(0, 110);
+    const shareImg = $('og_image').value.trim() || $('hero_image').value.trim();
+    $('socImg').style.backgroundImage = shareImg ? 'url("' + shareImg.replace(/"/g, '%22') + '")' : '';
+
+    const kw = $('focus_keyword').value.trim().toLowerCase();
+    const has = (txt) => kw && txt.toLowerCase().includes(kw);
+    const kwSlug = slugify(kw);
+    const firstPara = (body.split(/\n\s*\n/).find(b => b.trim() && !/^(#|!\[)/.test(b.trim())) || '');
+    const internal = (body.match(/\]\((\/[^)\s]*)/g) || []).length;
+    const imgs = body.match(/!\[([^\]]*)\]/g) || [];
+    const imgAlts = imgs.map(m => m.slice(2, -1)).concat([$('hero_alt').value]);
+    const tl = seoTitle.length, dl = desc.length;
+    const checks = [
+      [!!kw, 'A focus keyword is set'],
+      [has(seoTitle), 'Keyword in the SEO title'],
+      [has(desc), 'Keyword in the meta description'],
+      [kw && slug.includes(kwSlug), 'Keyword in the web address'],
+      [has(firstPara), 'Keyword in the first paragraph'],
+      [imgAlts.some(a => has(a)), 'Keyword in a picture description'],
+      [tl >= 30 && tl <= 60, 'SEO title is 30–60 characters (' + tl + ')'],
+      [dl >= 120 && dl <= 155, 'Meta description is 120–155 characters (' + dl + ')'],
+      [words >= 300, 'At least 300 words (' + words + ')'],
+      [/^##\s/m.test(body), 'Uses headings to organise the story'],
+      [internal >= 2, 'Links to 2+ pages of the site (' + internal + ')'],
+      [!!$('hero_image').value.trim() && $('hero_alt').value.trim().length >= 10, 'Main picture with a description'],
+      [related.size > 0 || !!$('cta_url').value.trim(), 'Points readers to a fragrance or the shop'],
+      [$('social_caption').value.trim().length > 40, 'Social media caption written'],
+    ];
+    const ok = checks.filter(c => c[0]).length, pct = Math.round(ok / checks.length * 100);
+    $('checks').innerHTML = checks.map(c => '<li class="' + (c[0] ? 'ok' : 'bad') + '">' + esc(c[1]) + '</li>').join('');
+    $('scoreNum').textContent = pct;
+    const ring = $('scoreRing'); ring.style.setProperty('--p', pct); ring.style.setProperty('--c', pct >= 80 ? '#587b3f' : pct >= 55 ? '#c9a227' : '#d4614b');
+    $('scoreTxt').innerHTML = '<b>' + (pct >= 80 ? 'Great' : pct >= 55 ? 'Good, can be better' : 'Needs work') + '</b><br>' + ok + ' of ' + checks.length + ' checks passed.';
+
+    const pub = $('published_at').value;
+    $('schedHint').textContent = pub && new Date(pub) > new Date()
+      ? 'Scheduled: goes live by itself on ' + new Date(pub).toLocaleString() + '.'
+      : 'Empty = now. A future date schedules the story: it goes live by itself on that day.';
+  }
+
+  function markDirty() { if (!dirty) { dirty = true; status('Unsaved changes'); } }
+  FIELDS.forEach(f => $(f).addEventListener('input', () => {
+    if (f === 'title' && !slugTouched) $('slug').value = slugify($('title').value);
+    if (f === 'slug') slugTouched = true;
+    markDirty(); refresh();
+  }));
+  ['published_at', 'is_featured'].forEach(f => $(f).addEventListener('change', () => { markDirty(); refresh(); }));
+  document.querySelectorAll('input[name=status]').forEach(r => r.addEventListener('change', () => { markDirty(); buttons(); }));
+  window.addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  // ── social helpers ──
+  function copy(text, note) {
+    const done = () => { $('copyNote').textContent = note; setTimeout(() => $('copyNote').textContent = '', 3000); };
+    navigator.clipboard ? navigator.clipboard.writeText(text).then(done, () => prompt('Copy:', text)) : prompt('Copy:', text);
+  }
+  $('copyCaption').addEventListener('click', () => copy($('social_caption').value, 'Caption copied.'));
+  $('copyLink').addEventListener('click', () => copy('https://www.maisonhenius.com/journal/' + ($('slug').value || ''), 'Link copied.'));
+  $('makeCaption').addEventListener('click', () => {
+    if ($('social_caption').value.trim() && !confirm('Replace the current caption with a suggestion?')) return;
+    const first = plain(ta.value).split(/(?<=[.!?])\s+/).slice(0, 2).join(' ');
+    const tags = ['MaisonHenius', 'NichePerfume', 'ArtisanPerfume', 'Jordan']
+      .concat($('tags').value.split(',').map(t => t.trim().replace(/[^A-Za-z0-9]/g, '')).filter(Boolean))
+      .concat($('focus_keyword').value ? [$('focus_keyword').value.replace(/(^|\s)(\w)/g, (m, s, c) => c.toUpperCase()).replace(/[^A-Za-z0-9]/g, '')] : []);
+    $('social_caption').value = (first || $('excerpt').value) + '\n\n' + ($('title').value ? '“' + $('title').value + '”, ' : '') + 'new on the Journal. Link in bio.\n\n' + [...new Set(tags)].slice(0, 10).map(t => '#' + t).join(' ');
+    markDirty(); refresh();
+  });
+
+  // ── load / save ──
+  function buttons() {
+    const live = savedStatus === 'published';
+    $('saveDraft').textContent = live ? 'Unpublish (make draft)' : 'Save as draft';
+    $('savePublish').textContent = live ? 'Update' : 'Publish';
+  }
+  function fill(p) {
+    FIELDS.forEach(f => { $(f).value = p[f] || ''; });
+    $('is_featured').checked = !!p.is_featured;
+    $('published_at').value = toLocalInput(p.published_at);
+    savedStatus = p.status || 'draft'; setStatus(savedStatus);
+    related = new Set((p.related_products || '').split(',').map(s => s.trim()).filter(Boolean));
+    document.querySelectorAll('.img-w').forEach(b => showImg(b, $(b.dataset.img).value));
+    const v = $('viewLive'); v.href = '/journal/' + p.slug; v.hidden = savedStatus !== 'published';
+    buttons();
+  }
+  async function load() {
+    if (MODE !== 'edit') { $('author').value = 'Maison Henius'; refresh(); buttons(); return; }
+    const r = await fetch('/api/admin/journal/' + encodeURIComponent(POST_ID), { headers });
+    if (expired(r.status)) return;
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) { status(d.error || 'Could not load this article', 'err'); return; }
+    fill(d.post); dirty = false; status('All changes saved', 'ok'); refresh();
+  }
+  async function save(targetStatus) {
+    const payload = {};
+    FIELDS.forEach(f => payload[f] = $(f).value);
+    payload.status = targetStatus;
+    payload.is_featured = $('is_featured').checked;
+    payload.related_products = [...related].join(', ');
+    const pub = $('published_at').value;
+    payload.published_at = pub ? new Date(pub).toISOString() : (targetStatus === 'published' ? new Date().toISOString() : null);
+    if (!payload.title.trim()) { status('Please add a title first', 'err'); $('title').focus(); return; }
+    if (targetStatus === 'published' && !payload.hero_image.trim() && !confirm('This story has no main picture. Publish anyway?')) return;
+    ['saveDraft', 'savePublish'].forEach(id => $(id).disabled = true);
+    status('Saving…');
+    try {
+      const url = POST_ID ? '/api/admin/journal/' + encodeURIComponent(POST_ID) : '/api/admin/journal';
+      const r = await fetch(url, { method: POST_ID ? 'PATCH' : 'POST', headers, body: JSON.stringify(payload) });
+      if (expired(r.status)) return;
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.error || ('status ' + r.status));
+      dirty = false;
+      if (!POST_ID && d.post) { location.replace('/admin/journal/' + encodeURIComponent(d.post.id) + '/edit'); return; }
+      fill(d.post || payload);
+      const sched = targetStatus === 'published' && pub && new Date(pub) > new Date();
+      status(targetStatus === 'published' ? (sched ? 'Saved and scheduled ✓' : 'Published ✓ Live on the Journal') : 'Saved as draft ✓', 'ok');
+    } catch (e) { status('Not saved: ' + e.message, 'err'); }
+    finally { ['saveDraft', 'savePublish'].forEach(id => $(id).disabled = false); }
+  }
+  $('saveDraft').addEventListener('click', () => save('draft'));
+  $('savePublish').addEventListener('click', () => save('published'));
+
+  load().then(loadProducts);
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,330 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ post.seo_title_final }}{% endblock %}
+
+{% block meta %}
+{% set _url = site_url ~ '/journal/' ~ post.slug %}
+<meta name="description" content="{{ post.meta_description_final }}">
+{% if post.focus_keyword or post.secondary_keywords %}<meta name="keywords" content="{{ [post.focus_keyword, post.secondary_keywords] | select | join(', ') }}">{% endif %}
+<meta name="author" content="{{ post.author or 'Maison Henius' }}">
+<meta name="robots" content="index, follow, max-image-preview:large">
+<link rel="canonical" href="{{ _url }}">
+<link rel="alternate" type="application/rss+xml" title="Maison Henius Journal" href="{{ site_url }}/journal/feed.xml">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ post.seo_title_final }}">
+<meta property="og:description" content="{{ post.meta_description_final }}">
+<meta property="og:url" content="{{ _url }}">
+<meta property="article:published_time" content="{{ post.published_iso }}">
+<meta property="article:modified_time" content="{{ post.updated_iso }}">
+{% if post.category %}<meta property="article:section" content="{{ post.category }}">{% endif %}
+{% for t in post.tags_list %}<meta property="article:tag" content="{{ t }}">
+{% endfor %}
+{% endblock %}
+
+{% block og %}
+{% set _og = abs_url(post.og_image or post.hero_image) or site_url ~ '/static/assets/images/og-image.png' %}
+<meta property="og:image" content="{{ _og }}">
+<meta property="og:image:alt" content="{{ post.hero_alt or post.title }}">
+<meta property="og:site_name" content="Maison Henius">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ post.seo_title_final }}">
+<meta name="twitter:description" content="{{ post.meta_description_final }}">
+<meta name="twitter:image" content="{{ _og }}">
+{% endblock %}
+
+{% block styles %}
+<style>
+  .article { background: #0a0a08; }
+  .read-progress { position: fixed; top: 0; left: 0; height: 2px; width: 100%; background: #e9db90; transform-origin: 0 50%; transform: scaleX(0); z-index: 50; pointer-events: none; }
+
+  /* ── Hero ── */
+  .article-hero {
+    position: relative; min-height: 86vh; min-height: 86dvh;
+    display: flex; align-items: flex-end; justify-content: center; overflow: hidden;
+    padding: 9rem clamp(1.5rem, 5vw, 4rem) clamp(3rem, 6vw, 4.5rem); text-align: center;
+  }
+  .article-hero__img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0;
+    transform: scale(1.06); animation: articleSettle 2.4s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes articleSettle { to { transform: scale(1); } }
+  .article-hero__veil { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(10,10,8,.5) 0%, rgba(10,10,8,.15) 38%, rgba(10,10,8,.9) 100%); }
+  .article-hero__content { position: relative; z-index: 2; max-width: 860px; }
+  .crumbs { font-family: 'Montserrat', sans-serif; font-size: .66rem; letter-spacing: .3em; text-transform: uppercase; color: #e9db90; }
+  .crumbs a { color: #e9db90; text-decoration: none; }
+  .crumbs a:hover { color: #f5f0e8; }
+  .crumbs span { margin: 0 .8em; opacity: .6; }
+  .article-hero__title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic;
+    font-size: clamp(2.5rem, 5.6vw, 4.8rem); line-height: 1.06; color: #f5f0e8; margin: 1.3rem 0 1.4rem;
+  }
+  .meta-line { font-family: 'Montserrat', sans-serif; font-weight: 400; font-size: .66rem; letter-spacing: .25em; text-transform: uppercase; color: rgba(245,240,232,.62); }
+  .meta-line .dot { margin: 0 .45em; color: #b8a44e; }
+  .meta-line .nw { white-space: nowrap; }
+  .article-hero__caption { position: absolute; right: clamp(1rem,3vw,2.5rem); bottom: 1rem; z-index: 2; font-family: 'Montserrat', sans-serif; font-size: .62rem; letter-spacing: .1em; color: rgba(245,240,232,.45); }
+
+  /* ── Body (ivory reading surface) ── */
+  .article-body { background: #faf9f6; color: #2a2822; padding: clamp(3.5rem, 7vw, 6rem) clamp(1.5rem, 5vw, 4rem) clamp(3rem, 6vw, 5rem); }
+  .article-body__inner { max-width: 690px; margin: 0 auto; }
+  .article-lead { font-family: 'Cormorant Garamond', serif; font-weight: 400; font-style: italic; font-size: clamp(1.35rem, 2vw, 1.6rem); line-height: 1.55; color: #3a362c; text-align: center; margin-bottom: 2.6rem; }
+  .article-lead::after { content: ''; display: block; width: 40px; height: 1px; background: #b8a44e; margin: 2.2rem auto 0; }
+  .prose p, .prose li { font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: clamp(.95rem, 1.1vw, 1.02rem); line-height: 1.95; color: #3a362c; }
+  .prose p { margin: 0 0 1.5rem; }
+  .prose > p:first-of-type::first-letter { font-family: 'Cormorant Garamond', serif; float: left; font-size: 4.2rem; line-height: .82; padding: .45rem .6rem 0 0; color: #b8a44e; font-style: italic; }
+  .prose h2 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(1.75rem, 2.8vw, 2.3rem); line-height: 1.2; color: #0a0a08; margin: 3.4rem 0 1.2rem; }
+  .prose h2::before { content: ''; display: block; width: 28px; height: 1px; background: #b8a44e; margin-bottom: 1.3rem; }
+  .prose h3 { font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: .74rem; letter-spacing: .25em; text-transform: uppercase; color: #8c7a2e; margin: 2.4rem 0 1rem; }
+  .prose a { color: #8c7a2e; text-decoration: underline; text-decoration-color: rgba(184,164,78,.5); text-underline-offset: 3px; transition: color .3s; }
+  .prose a:hover { color: #0a0a08; }
+  .prose strong { font-weight: 500; color: #1d1b16; }
+  .prose ul, .prose ol { margin: 0 0 1.6rem 1.2rem; padding: 0; }
+  .prose li { margin-bottom: .6rem; padding-left: .3rem; }
+  .prose ul li::marker { color: #b8a44e; }
+  .prose ol li::marker { color: #b8a44e; font-family: 'Cormorant Garamond', serif; font-size: 1.1em; }
+  .prose blockquote { margin: 3rem auto; padding: 2rem 0; text-align: center; border-top: 1px solid rgba(184,164,78,.45); border-bottom: 1px solid rgba(184,164,78,.45); font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 300; font-size: clamp(1.6rem, 2.6vw, 2.1rem); line-height: 1.35; color: #0a0a08; }
+  .prose .article-divider { border: 0; width: 40px; height: 1px; background: #b8a44e; margin: 3rem auto; }
+  .article-figure { margin: 2.8rem calc(-1 * clamp(0rem, 6vw, 6rem)); }
+  .article-figure img { display: block; width: 100%; max-height: 620px; object-fit: cover; border-radius: 12px; box-shadow: 0 24px 60px -30px rgba(74,52,18,.45); }
+  .article-figure figcaption { font-family: 'Montserrat', sans-serif; font-size: .72rem; letter-spacing: .06em; color: #8a877d; text-align: center; margin-top: .9rem; font-style: italic; }
+
+  .article-tags { display: flex; flex-wrap: wrap; gap: .6rem; margin: 3rem 0 0; }
+  .article-tags span { font-family: 'Montserrat', sans-serif; font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; color: #6d6a60; border: 1px solid #ddd6c6; padding: .45rem .8rem; border-radius: 999px; }
+  .article-sign { margin-top: 3rem; text-align: center; font-family: 'Cormorant Garamond', serif; font-style: italic; font-size: 1.3rem; color: #6d6a60; }
+
+  /* ── Share ── */
+  .share { margin-top: 2.6rem; padding-top: 2rem; border-top: 1px solid #e6e0d2; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .5rem; }
+  .share__label { width: 100%; text-align: center; font-family: 'Montserrat', sans-serif; font-size: .64rem; letter-spacing: .3em; text-transform: uppercase; color: #8a877d; margin-bottom: .6rem; }
+  .share a, .share button { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 50%; border: 1px solid #ddd6c6; background: transparent; color: #3a362c; cursor: pointer; transition: background .3s, color .3s, border-color .3s; }
+  .share a:hover, .share button:hover { background: #0a0a08; color: #e9db90; border-color: #0a0a08; }
+  .share svg { width: 17px; height: 17px; }
+  .share__copied { width: 100%; text-align: center; font-family: 'Montserrat', sans-serif; font-size: .72rem; color: #8c7a2e; min-height: 1.1em; margin-top: .4rem; }
+
+  /* ── CTA band ── */
+  .article-cta { text-align: center; padding: clamp(4rem, 8vw, 6rem) clamp(1.5rem, 5vw, 4rem); background: radial-gradient(ellipse at 50% 0%, rgba(184,164,78,.12), transparent 65%), #0a0a08; }
+  .eyebrow { display: block; font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: .7rem; letter-spacing: .35em; text-transform: uppercase; color: #e9db90; }
+  .article-cta h2 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(2rem, 3.6vw, 3rem); color: #f5f0e8; margin: 1rem 0 2rem; }
+  .btn-cta { display: inline-block; font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: #0a0a08; background: #e9db90; padding: 1rem 2.2rem; text-decoration: none; min-height: 44px; transition: background .3s; }
+  .btn-cta:hover { background: #d4c87a; }
+
+  /* ── Fragrances in this story ── */
+  .article-products { padding: clamp(3rem, 6vw, 5rem) clamp(1.5rem, 5vw, 4rem) clamp(4rem, 7vw, 6rem); background: #0a0a08; border-top: 1px solid rgba(233,219,144,.1); }
+  .section-head { text-align: center; margin-bottom: clamp(2rem, 4vw, 3rem); }
+  .section-head h2 { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(1.8rem, 3vw, 2.5rem); color: #f5f0e8; margin-top: .8rem; }
+  .product-row { max-width: 1100px; margin: 0 auto; display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(1.5rem, 3vw, 2.5rem); }
+  .product-tile { width: clamp(150px, 18vw, 200px); text-decoration: none; text-align: center; }
+  .product-tile__img { position: relative; padding-bottom: 100%; overflow: hidden; border-radius: 12px; margin-bottom: 1rem; }
+  .product-tile__img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 1s cubic-bezier(.2,.7,.2,1); }
+  .product-tile:hover .product-tile__img img { transform: scale(1.06); }
+  .product-tile__name { display: block; font-family: 'Cormorant Garamond', serif; font-size: 1.2rem; color: #f5f0e8; }
+  .product-tile__family { display: block; margin-top: .3rem; font-family: 'Montserrat', sans-serif; font-size: .6rem; letter-spacing: .22em; text-transform: uppercase; color: #b8a44e; }
+
+  /* ── Continue reading ── */
+  .more { padding: clamp(3rem, 6vw, 5rem) clamp(1.5rem, 5vw, 4rem) clamp(4rem, 8vw, 6.5rem); background: #0a0a08; border-top: 1px solid rgba(233,219,144,.1); }
+  .more-grid { max-width: 1240px; margin: 0 auto; display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1.5rem, 3vw, 2.5rem); }
+  .story-card { display: flex; flex-direction: column; text-decoration: none; }
+  .story-card__img-wrap { position: relative; padding-bottom: 70%; overflow: hidden; border-radius: 12px; margin-bottom: 1.2rem; }
+  .story-card__img-wrap img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 1.1s cubic-bezier(.2,.7,.2,1); }
+  .story-card:hover img { transform: scale(1.05); }
+  .story-card__title { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.25rem, 1.7vw, 1.5rem); line-height: 1.25; color: #f5f0e8; margin-top: .7rem; transition: color .3s; }
+  .story-card:hover .story-card__title { color: #e9db90; }
+  .more-all { text-align: center; margin-top: 3rem; }
+  .btn-ghost { display: inline-block; font-family: 'Montserrat', sans-serif; font-size: .65rem; letter-spacing: .2em; text-transform: uppercase; color: #e9db90; border: 1px solid #e9db90; padding: 1rem 1.8rem; text-decoration: none; transition: background .3s, color .3s; }
+  .btn-ghost:hover { background: #e9db90; color: #0a0a08; }
+
+  @media (max-width: 860px) { .more-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 600px) {
+    .article-hero { min-height: 78vh; min-height: 78dvh; }
+    .more-grid { grid-template-columns: 1fr; }
+    .article-figure { margin-left: 0; margin-right: 0; }
+    .article-hero__caption { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { .article-hero__img { animation: none; transform: none; } }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set _url = site_url ~ '/journal/' ~ post.slug %}
+<div class="read-progress" id="readProgress"></div>
+<main class="article" id="journalArticle">
+  <header class="article-hero">
+    <img class="article-hero__img" src="{{ post.hero_image }}" alt="{{ post.hero_alt or post.title }}" fetchpriority="high">
+    <div class="article-hero__veil"></div>
+    <div class="article-hero__content">
+      <nav class="crumbs" aria-label="Breadcrumb"><a href="/journal">The Journal</a>{% if post.category %}<span>/</span>{{ post.category }}{% endif %}</nav>
+      <h1 class="article-hero__title">{{ post.title }}</h1>
+      <p class="meta-line"><span class="nw">{{ post.published_human }}</span> <span class="dot">·</span> <span class="nw">{{ post.reading_minutes }} min read</span> <span class="dot">·</span> <span class="nw">{{ post.author or 'Maison Henius' }}</span></p>
+    </div>
+    {% if post.hero_caption %}<p class="article-hero__caption">{{ post.hero_caption }}</p>{% endif %}
+  </header>
+
+  <article class="article-body">
+    <div class="article-body__inner">
+      {% if post.excerpt %}<p class="article-lead">{{ post.excerpt }}</p>{% endif %}
+      <div class="prose">{{ body_html }}</div>
+
+      {% if post.tags_list %}
+      <div class="article-tags" aria-label="Themes">{% for t in post.tags_list %}<span>{{ t }}</span>{% endfor %}</div>
+      {% endif %}
+
+      <p class="article-sign">Fragrance is not worn. It is lived.</p>
+
+      <div class="share" aria-label="Share this story">
+        <p class="share__label">Share this story</p>
+        <button type="button" class="share__native" data-share-native aria-label="Share" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><path d="M16 6l-4-4-4 4"/><path d="M12 2v14"/></svg>
+        </button>
+        <a href="https://wa.me/?text={{ (post.title ~ ' ' ~ _url) | urlencode }}" target="_blank" rel="noopener" aria-label="Share on WhatsApp">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-8.6 15.1L2 22l5-1.3A10 10 0 1012 2zm0 18.2a8.2 8.2 0 01-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1112 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 01-3.3-2.9c-.3-.4.3-.4.7-1.3a.5.5 0 000-.5l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 00-.7.3 3 3 0 00-.9 2.2 5.2 5.2 0 001.1 2.7 11.8 11.8 0 004.5 4c1.7.7 2.3.8 3.2.6a2.7 2.7 0 001.8-1.2 2.2 2.2 0 00.1-1.3c0-.1-.2-.2-.5-.3z"/></svg>
+        </a>
+        <a href="https://pinterest.com/pin/create/button/?url={{ _url | urlencode }}&media={{ abs_url(post.hero_image) | urlencode }}&description={{ post.title | urlencode }}" target="_blank" rel="noopener" aria-label="Save on Pinterest">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a10 10 0 00-3.6 19.3c-.1-.8-.2-2 0-2.9l1.2-5s-.3-.6-.3-1.5c0-1.4.8-2.4 1.8-2.4.9 0 1.3.6 1.3 1.4 0 .9-.5 2.1-.8 3.3-.2 1 .5 1.8 1.5 1.8 1.8 0 3.2-1.9 3.2-4.7 0-2.5-1.8-4.2-4.3-4.2a4.5 4.5 0 00-4.7 4.5c0 .9.3 1.8.8 2.3a.3.3 0 01.1.3l-.3 1.2c0 .2-.2.2-.4.1-1.3-.6-2.1-2.5-2.1-4 0-3.3 2.4-6.3 6.9-6.3 3.6 0 6.4 2.6 6.4 6 0 3.6-2.3 6.5-5.4 6.5-1.1 0-2.1-.6-2.4-1.2l-.7 2.5c-.2.9-.9 2.1-1.3 2.8A10 10 0 1012 2z"/></svg>
+        </a>
+        <a href="https://www.facebook.com/sharer/sharer.php?u={{ _url | urlencode }}" target="_blank" rel="noopener" aria-label="Share on Facebook">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 8.5V6.8c0-.8.2-1.3 1.4-1.3H17V2.6A21 21 0 0014.7 2.5c-2.3 0-3.9 1.4-3.9 4v2H8.2v3.2h2.6V21.5H14v-9.8h2.6l.4-3.2z"/></svg>
+        </a>
+        <a href="https://twitter.com/intent/tweet?text={{ post.title | urlencode }}&url={{ _url | urlencode }}" target="_blank" rel="noopener" aria-label="Share on X">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.8 3h3.1l-6.8 7.7 8 10.3h-6.2l-4.9-6.3L5.4 21H2.3l7.2-8.3L1.8 3h6.4l4.4 5.8zm-1.1 16.2h1.7L7.3 4.7H5.5z"/></svg>
+        </a>
+        <a href="https://www.linkedin.com/sharing/share-offsite/?url={{ _url | urlencode }}" target="_blank" rel="noopener" aria-label="Share on LinkedIn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M4.98 3.5a2.5 2.5 0 11-.01 5 2.5 2.5 0 01.01-5zM3 9.5h4v11H3zm7 0h3.8v1.6h.1a4.2 4.2 0 013.8-2c4 0 4.8 2.6 4.8 6.1v5.3h-4v-4.7c0-1.1 0-2.6-1.6-2.6s-1.9 1.2-1.9 2.5v4.8h-4z"/></svg>
+        </a>
+        <a href="mailto:?subject={{ post.title | urlencode }}&body={{ (post.excerpt ~ '\n\n' ~ _url) | urlencode }}" aria-label="Share by email">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="5" width="18" height="14" rx="1"/><path d="M3 7l9 6 9-6"/></svg>
+        </a>
+        <button type="button" data-copy-link="{{ _url }}" aria-label="Copy link (for Instagram and TikTok)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"/></svg>
+        </button>
+        <p class="share__copied" data-copy-note role="status"></p>
+      </div>
+    </div>
+  </article>
+
+  {% if post.cta_label and post.cta_url %}
+  <section class="article-cta">
+    <span class="eyebrow">Continue the journey</span>
+    <h2>{{ post.title }}</h2>
+    <a class="btn-cta" href="{{ post.cta_url }}">{{ post.cta_label }}</a>
+  </section>
+  {% endif %}
+
+  {% if related_products %}
+  <section class="article-products">
+    <div class="section-head"><span class="eyebrow">In this story</span><h2>The fragrances</h2></div>
+    <div class="product-row">
+      {% for p in related_products %}
+      <a class="product-tile" href="/products/{{ p.slug }}">
+        <div class="product-tile__img"><img src="{{ p.card_image | product_image }}" alt="{{ p.name }} eau de parfum by Maison Henius" loading="lazy"></div>
+        <span class="product-tile__name">{{ p.name }}</span>
+        <span class="product-tile__family">{{ p.family }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if more_posts %}
+  <section class="more">
+    <div class="section-head"><span class="eyebrow">The Journal</span><h2>Continue reading</h2></div>
+    <div class="more-grid">
+      {% for p in more_posts %}
+      <a class="story-card" href="/journal/{{ p.slug }}">
+        <div class="story-card__img-wrap"><img src="{{ p.hero_image }}" alt="{{ p.hero_alt or p.title }}" loading="lazy"></div>
+        <p class="meta-line">{{ p.category }}{% if p.category %}<span class="dot">·</span>{% endif %}{{ p.reading_minutes }} min read</p>
+        <h3 class="story-card__title">{{ p.title }}</h3>
+      </a>
+      {% endfor %}
+    </div>
+    <div class="more-all"><a class="btn-ghost" href="/journal">All stories</a></div>
+  </section>
+  {% endif %}
+</main>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "BlogPosting",
+      "@id": "{{ _url }}#article",
+      "headline": {{ post.title | tojson }},
+      "description": {{ post.meta_description_final | tojson }},
+      "image": [{{ abs_url(post.og_image or post.hero_image) | tojson }}],
+      "datePublished": "{{ post.published_iso }}",
+      "dateModified": "{{ post.updated_iso }}",
+      "wordCount": {{ (post.body or '') | wordcount }},
+      "articleSection": {{ (post.category or 'Journal') | tojson }},
+      "keywords": {{ ([post.focus_keyword] + post.tags_list) | select | join(', ') | tojson }},
+      "inLanguage": "en",
+      "mainEntityOfPage": {"@type": "WebPage", "@id": "{{ _url }}"},
+      "author": {"@type": "Organization", "name": {{ (post.author or 'Maison Henius') | tojson }}, "url": "{{ site_url }}"},
+      "publisher": {"@type": "Organization", "name": "Maison Henius", "logo": {"@type": "ImageObject", "url": "{{ site_url }}/static/assets/images/logo-crest-gold.png"}}
+      {%- if related_products %},
+      "mentions": [{% for p in related_products %}{"@type": "Product", "name": {{ p.name | tojson }}, "url": "{{ site_url }}/products/{{ p.slug }}"}{% if not loop.last %},{% endif %}{% endfor %}]
+      {%- endif %}
+    },
+    {
+      "@type": "BreadcrumbList",
+      "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Home", "item": "{{ site_url }}/"},
+        {"@type": "ListItem", "position": 2, "name": "The Journal", "item": "{{ site_url }}/journal"},
+        {"@type": "ListItem", "position": 3, "name": {{ post.title | tojson }}, "item": "{{ _url }}"}
+      ]
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._journalArticleBound) return;
+  window._journalArticleBound = true;
+  var onScroll = null;
+  function init() {
+    var root = document.getElementById('journalArticle');
+    if (root && root.dataset.init) return;
+    if (onScroll) { window.removeEventListener('scroll', onScroll); onScroll = null; }
+    if (!root) return;
+    root.dataset.init = '1';
+
+    // Reading progress line.
+    var bar = document.getElementById('readProgress');
+    var body = root.querySelector('.article-body');
+    var ticking = false;
+    onScroll = function() {
+      if (ticking) return; ticking = true;
+      requestAnimationFrame(function() {
+        var start = body.offsetTop, end = start + body.offsetHeight - window.innerHeight;
+        var p = Math.min(1, Math.max(0, (window.scrollY - start) / Math.max(1, end - start)));
+        bar.style.transform = 'scaleX(' + p + ')';
+        ticking = false;
+      });
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
+    // Native share sheet on phones (Instagram, TikTok, Messages, etc.).
+    var nativeBtn = root.querySelector('[data-share-native]');
+    if (navigator.share && nativeBtn) {
+      nativeBtn.hidden = false;
+      nativeBtn.addEventListener('click', function() {
+        navigator.share({ title: document.title, url: location.href.split('#')[0] }).catch(function() {});
+      });
+    }
+
+    // Copy link.
+    var copyBtn = root.querySelector('[data-copy-link]');
+    var note = root.querySelector('[data-copy-note]');
+    if (copyBtn) copyBtn.addEventListener('click', function() {
+      var url = copyBtn.dataset.copyLink;
+      var done = function() { note.textContent = 'Link copied. Paste it in your story or bio.'; setTimeout(function() { note.textContent = ''; }, 3500); };
+      if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function() { window.prompt('Copy this link:', url); });
+      else window.prompt('Copy this link:', url);
+    });
+  }
+  document.addEventListener('turbo:load', init);
+  if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

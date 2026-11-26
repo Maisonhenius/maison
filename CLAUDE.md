@@ -371,6 +371,7 @@ Three layers near the top of `server/app.py`:
 
 ## Deployment (Railway) — full recipe in `docs/DEPLOY.md`
 
+- **LIVE = branch `release/live` (since 2026-11-27), NOT `main`.** `main` also holds the Journal, which the owner has not approved for release yet. Step 1 was deployed with a Dockerfile that clones `-b release/live`, and a dashboard redeploy rebuilds that same upload. To release something: put it on `release/live` (cherry-pick), test, deploy. When the owner approves the Journal, fast-forward `release/live` to `main` and deploy.
 - **Live**: canonical `https://www.maisonhenius.com` (also `web-production-cc74a0.up.railway.app`).
 - **Repo**: https://github.com/Maisonhenius/maison (public, lean ~46MB). **Builder**: Dockerfile (clones from GitHub on Railway servers).
 - **Railway**: project `maison-henius` (`f45a16f9-e777-4cce-abd1-dcd08c2ccb56`), service `web` (`d363d941-07c4-4383-b0a2-c12ebd5a8cbd`), env `production` (`b99a4d18-a9fc-4742-b874-c0b4d38e5ade`). Owner account: **husein.aldarawish@gmail.com** (for `railway login`).

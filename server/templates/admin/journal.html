@@ -1,0 +1,189 @@
+{% extends "admin/layout.html" %}
+{% block title %}Admin - Journal - Maison Henius{% endblock %}
+{% block nav_journal %}admin__nav-item--active{% endblock %}
+{% block heading %}Journal{% endblock %}
+
+{% block styles %}
+<style>
+  .jr-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+  .jr-toolbar__left { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+  .jr-search { border: 1px solid #ddd; border-radius: 6px; padding: .6rem .8rem; font-family: 'Montserrat', sans-serif; font-size: .85rem; min-width: 220px; min-height: 40px; }
+  .jr-search:focus { outline: 0; border-color: #b8a44e; }
+  .jr-tabs { display: flex; gap: .3rem; }
+  .jr-tabs button { border: 1px solid #ddd; background: #fff; border-radius: 999px; padding: .45rem .9rem; font-family: 'Montserrat', sans-serif; font-size: .72rem; cursor: pointer; color: #555; min-height: 36px; }
+  .jr-tabs button.is-active { background: #0a0a08; color: #e9db90; border-color: #0a0a08; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: .4rem; padding: .7rem 1.4rem; background: #0a0a08; color: #faf9f6; border: 1px solid #0a0a08; border-radius: 6px; font-family: 'Montserrat', sans-serif; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; text-decoration: none; cursor: pointer; min-height: 40px; transition: background .2s, color .2s; }
+  .btn:hover { background: #b8a44e; border-color: #b8a44e; }
+  .btn--ghost { background: transparent; color: #0a0a08; }
+  .btn--ghost:hover { background: #0a0a08; color: #faf9f6; }
+  .btn--small { padding: .4rem .8rem; font-size: .68rem; letter-spacing: .08em; min-height: 32px; }
+  .btn--danger { background: transparent; color: #c33; border-color: #e5b7b7; }
+  .btn--danger:hover { background: #c33; color: #fff; border-color: #c33; }
+
+  .jr-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.4rem; }
+  .jr-stat { background: #fff; border-radius: 8px; padding: 1rem 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+  .jr-stat b { display: block; font-size: 1.5rem; font-weight: 500; color: #0a0a08; }
+  .jr-stat span { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: #888; }
+
+  .jr-banner { background: #fff8e1; border: 1px solid #f0dc92; border-radius: 8px; padding: 1rem 1.2rem; font-size: .85rem; color: #6b5a14; margin-bottom: 1.2rem; line-height: 1.6; }
+
+  .jr-list { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,.06); overflow: hidden; }
+  .jr-row { display: grid; grid-template-columns: 96px 1fr 130px 120px auto; gap: 1rem; align-items: center; padding: .9rem 1rem; border-bottom: 1px solid #f0ede6; }
+  .jr-row:last-child { border-bottom: 0; }
+  .jr-thumb { width: 96px; height: 64px; border-radius: 6px; object-fit: cover; background: #eee; display: block; }
+  .jr-title { font-size: .92rem; font-weight: 500; color: #0a0a08; margin-bottom: .25rem; }
+  .jr-sub { font-size: .72rem; color: #999; }
+  .jr-sub .star { color: #b8a44e; font-weight: 600; }
+  .badge { display: inline-block; font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; padding: .3rem .6rem; border-radius: 999px; }
+  .badge--published { background: #e8f1e1; color: #3f6a28; }
+  .badge--scheduled { background: #e8eef8; color: #3b5c94; }
+  .badge--draft { background: #f1efe9; color: #7a766b; }
+  .jr-date { font-size: .78rem; color: #666; }
+  .jr-actions { display: flex; gap: .4rem; justify-content: flex-end; flex-wrap: wrap; }
+  .jr-empty { padding: 3rem 1rem; text-align: center; color: #999; font-size: .85rem; }
+
+  @media (max-width: 900px) {
+    .jr-stats { grid-template-columns: repeat(2, 1fr); }
+    .jr-row { grid-template-columns: 72px 1fr; }
+    .jr-thumb { width: 72px; height: 52px; }
+    .jr-row > .jr-state, .jr-row > .jr-date { grid-column: 2; }
+    .jr-actions { grid-column: 1 / -1; justify-content: flex-start; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="jrBanner" class="jr-banner" hidden></div>
+
+<div class="jr-stats">
+  <div class="jr-stat"><b id="stTotal">–</b><span>Articles</span></div>
+  <div class="jr-stat"><b id="stLive">–</b><span>Published</span></div>
+  <div class="jr-stat"><b id="stScheduled">–</b><span>Scheduled</span></div>
+  <div class="jr-stat"><b id="stDraft">–</b><span>Drafts</span></div>
+</div>
+
+<div class="jr-toolbar">
+  <div class="jr-toolbar__left">
+    <input class="jr-search" id="jrSearch" type="search" placeholder="Search articles…" aria-label="Search articles">
+    <div class="jr-tabs" id="jrTabs">
+      <button type="button" class="is-active" data-state="">All</button>
+      <button type="button" data-state="published">Published</button>
+      <button type="button" data-state="scheduled">Scheduled</button>
+      <button type="button" data-state="draft">Drafts</button>
+    </div>
+  </div>
+  <div class="jr-toolbar__left">
+    <a class="btn btn--ghost" href="/journal" target="_blank" rel="noopener">View Journal</a>
+    <a class="btn" href="/admin/journal/new">+ New article</a>
+  </div>
+</div>
+
+<div class="jr-list" id="jrList"><div class="jr-empty">Loading…</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const authRaw = localStorage.getItem('maison_admin_auth');
+  if (!authRaw) return;
+  let token = '';
+  try { token = JSON.parse(authRaw).access_token || ''; } catch (e) { return; }
+  const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+  const list = document.getElementById('jrList');
+  let posts = [], dbReady = true, stateFilter = '', query = '';
+
+  function expired(status) {
+    if (status !== 401) return false;
+    localStorage.removeItem('maison_admin_auth');
+    window.location.href = '/admin/login';
+    return true;
+  }
+
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  async function load() {
+    try {
+      const r = await fetch('/api/admin/journal', { headers });
+      if (expired(r.status)) return;
+      if (!r.ok) { list.innerHTML = ''; list.appendChild(el('div', 'jr-empty', 'Failed to load (status ' + r.status + ')')); return; }
+      const data = await r.json();
+      posts = data.posts || []; dbReady = data.db_ready !== false;
+      const banner = document.getElementById('jrBanner');
+      banner.hidden = dbReady;
+      if (!dbReady) banner.textContent = 'The Journal database is not connected yet, so you are seeing the six launch articles (read-only). Once migration 013 has been run, every article here becomes editable and you can add as many as you like.';
+      render();
+    } catch (e) { list.innerHTML = ''; list.appendChild(el('div', 'jr-empty', 'Error: ' + e.message)); }
+  }
+
+  function render() {
+    const count = s => posts.filter(p => p.state === s).length;
+    document.getElementById('stTotal').textContent = posts.length;
+    document.getElementById('stLive').textContent = count('published');
+    document.getElementById('stScheduled').textContent = count('scheduled');
+    document.getElementById('stDraft').textContent = count('draft');
+
+    const q = query.toLowerCase();
+    const shown = posts.filter(p => (!stateFilter || p.state === stateFilter) &&
+      (!q || [p.title, p.category, p.tags, p.focus_keyword].join(' ').toLowerCase().includes(q)));
+    list.innerHTML = '';
+    if (!shown.length) {
+      list.appendChild(el('div', 'jr-empty', posts.length ? 'No articles match.' : 'No articles yet. Click "+ New article" to write the first one.'));
+      return;
+    }
+    shown.forEach(p => list.appendChild(row(p)));
+  }
+
+  function row(p) {
+    const r = el('div', 'jr-row');
+    const img = el('img', 'jr-thumb'); img.alt = ''; img.loading = 'lazy'; if (p.hero_image) img.src = p.hero_image;
+    r.appendChild(img);
+
+    const info = el('div');
+    info.appendChild(el('div', 'jr-title', p.title));
+    const sub = el('div', 'jr-sub');
+    if (p.is_featured) { sub.appendChild(el('span', 'star', '★ Featured')); sub.appendChild(document.createTextNode(' · ')); }
+    sub.appendChild(document.createTextNode((p.category || 'No category') + ' · ' + (p.reading_minutes || 1) + ' min read · /journal/' + p.slug));
+    info.appendChild(sub);
+    r.appendChild(info);
+
+    const state = el('div', 'jr-state');
+    const labels = { published: 'Published', scheduled: 'Scheduled', draft: 'Draft' };
+    state.appendChild(el('span', 'badge badge--' + p.state, labels[p.state] || p.state));
+    r.appendChild(state);
+    r.appendChild(el('div', 'jr-date', p.published_human || '—'));
+
+    const actions = el('div', 'jr-actions');
+    if (p.state === 'published') {
+      const v = el('a', 'btn btn--ghost btn--small', 'View'); v.href = '/journal/' + p.slug; v.target = '_blank'; v.rel = 'noopener';
+      actions.appendChild(v);
+    }
+    if (dbReady) {
+      const e = el('a', 'btn btn--small', 'Edit'); e.href = '/admin/journal/' + encodeURIComponent(p.id) + '/edit';
+      actions.appendChild(e);
+      const d = el('button', 'btn btn--danger btn--small', 'Delete'); d.type = 'button';
+      d.addEventListener('click', () => remove(p, d));
+      actions.appendChild(d);
+    }
+    r.appendChild(actions);
+    return r;
+  }
+
+  async function remove(p, btn) {
+    if (!confirm('Delete "' + p.title + '"? This cannot be undone.\n\nTip: set it to Draft instead if you only want to hide it.')) return;
+    btn.disabled = true;
+    const r = await fetch('/api/admin/journal/' + encodeURIComponent(p.id), { method: 'DELETE', headers });
+    if (expired(r.status)) return;
+    if (!r.ok) { const e = await r.json().catch(() => ({})); alert('Delete failed: ' + (e.error || r.status)); btn.disabled = false; return; }
+    posts = posts.filter(x => x.id !== p.id); render();
+  }
+
+  document.getElementById('jrSearch').addEventListener('input', e => { query = e.target.value; render(); });
+  document.querySelectorAll('#jrTabs button').forEach(b => b.addEventListener('click', () => {
+    stateFilter = b.dataset.state;
+    document.querySelectorAll('#jrTabs button').forEach(x => x.classList.toggle('is-active', x === b));
+    render();
+  }));
+  load();
+})();
+</script>
+{% endblock %}

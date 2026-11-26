@@ -205,9 +205,14 @@ async def robots_txt():
 
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml():
-    paths = ["/", "/shop", "/story", "/terms", "/privacy"]
+    paths = ["/", "/shop", "/story", "/journal", "/terms", "/privacy"]
     paths += [f"/products/{quote(slug)}" for slug in get_products_dict()]
     urls = "".join(f"<url><loc>{SITE_URL}{p}</loc></url>" for p in paths)
+    # Journal articles, with their last-changed date so Google re-crawls edits.
+    for post in await journal_live_posts():
+        lastmod = (post.get("updated_iso") or "")[:10]
+        lm = f"<lastmod>{lastmod}</lastmod>" if lastmod else ""
+        urls += f"<url><loc>{SITE_URL}/journal/{quote(post['slug'])}</loc>{lm}</url>"
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>')
     return Response(content=xml, media_type="application/xml")
@@ -2374,3 +2379,257 @@ async def admin_put_content(request: Request, page: str):
     if page == "main":
         await reload_footer_social()
     return JSONResponse({"success": True, "saved": len(rows)})
+
+
+# ─── Journal (blog) ───────────────────────────────────────────────────────
+#
+# Articles live in the blog_posts table (migration 013). Public pages:
+#   /journal               list (featured story + grid + category filter)
+#   /journal/{slug}        one article (SEO meta, JSON-LD, share buttons)
+#   /journal/feed.xml      RSS feed (Google, Feedly, Pinterest, email tools)
+# Admin: /admin/journal (list) + /admin/journal/new|{id}/edit, API under
+# /api/admin/journal. Unlimited articles. A post is public only when status is
+# "published" AND its publish date has arrived (a future date = scheduled).
+# If the table can't be reached (e.g. migration 013 not yet run) the public
+# Journal falls back to the six launch articles in journal_seed.py, so the
+# page is never empty or broken.
+
+import journal as journal_lib
+from journal_seed import SEED_POSTS as JOURNAL_SEED_POSTS
+
+JOURNAL_CATEGORIES = ["Origins", "Philosophy", "The Collection", "Fragrance Notes", "Craft", "Guides", "News"]
+
+
+def _journal_seed_rows() -> list:
+    return [{**p, "id": f"seed-{p['slug']}", "status": "published"} for p in JOURNAL_SEED_POSTS]
+
+
+async def _journal_rows() -> tuple[list, bool]:
+    """All articles (any status), newest first. Returns (rows, db_ready)."""
+    try:
+        result = await _db(
+            supabase.table("blog_posts").select("*").order("published_at", desc=True)
+        )
+        return result.data or [], True
+    except Exception as e:
+        print(f"[journal] blog_posts unavailable, using launch articles: {e}")
+        return _journal_seed_rows(), False
+
+
+async def journal_live_posts() -> list:
+    """Live (published + due) articles, enriched, newest first."""
+    rows, _ = await _journal_rows()
+    posts = [journal_lib.enrich(r) for r in rows if journal_lib.is_live(r)]
+    oldest = datetime(1970, 1, 1).astimezone()
+    posts.sort(key=lambda p: p["published_dt"] or oldest, reverse=True)
+    return posts
+
+
+def _journal_related_products(post: dict) -> list:
+    out = []
+    for slug in post.get("related_list", []):
+        p = get_product(slug)
+        if p:
+            out.append(p)
+    return out
+
+
+def _abs_url(url: str) -> str:
+    if not url:
+        return ""
+    return url if url.startswith("http") else SITE_URL + url
+
+
+templates.env.globals["abs_url"] = _abs_url
+
+
+@app.get("/journal", response_class=HTMLResponse)
+@app.get("/journal/", response_class=HTMLResponse, include_in_schema=False)
+async def journal_index(request: Request):
+    posts = await journal_live_posts()
+    featured = next((p for p in posts if p.get("is_featured")), posts[0] if posts else None)
+    others = [p for p in posts if p is not featured]
+    categories = [c for c in JOURNAL_CATEGORIES if any(p.get("category") == c for p in posts)]
+    categories += sorted({p.get("category") for p in posts if p.get("category") and p.get("category") not in categories})
+    return templates.TemplateResponse(
+        request=request,
+        name="journal/index.html",
+        context={**get_context(), "featured": featured, "posts": others, "categories": categories},
+    )
+
+
+@app.get("/journal/feed.xml", include_in_schema=False)
+async def journal_feed():
+    posts = await journal_live_posts()
+    items = []
+    for p in posts[:30]:
+        link = f"{SITE_URL}/journal/{quote(p['slug'])}"
+        pub = p["published_dt"].strftime("%a, %d %b %Y %H:%M:%S +0000") if p["published_dt"] else ""
+        img = _abs_url(p.get("hero_image", ""))
+        enclosure = f'<enclosure url="{escape(img)}" type="image/webp" length="0"/>' if img.endswith(".webp") else ""
+        items.append(
+            "<item>"
+            f"<title>{escape(p['title'])}</title><link>{link}</link><guid>{link}</guid>"
+            f"<pubDate>{pub}</pubDate><category>{escape(p.get('category', ''))}</category>"
+            f"<description>{escape(p['meta_description_final'])}</description>{enclosure}"
+            "</item>"
+        )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>'
+        "<title>Maison Henius Journal</title>"
+        f"<link>{SITE_URL}/journal</link>"
+        f'<atom:link href="{SITE_URL}/journal/feed.xml" rel="self" type="application/rss+xml"/>'
+        "<description>Stories of place, memory and craft from Maison Henius, a niche perfume house rooted in Jordan.</description>"
+        "<language>en</language>" + "".join(items) + "</channel></rss>"
+    )
+    return Response(content=xml, media_type="application/rss+xml")
+
+
+@app.get("/journal/{slug}", response_class=HTMLResponse)
+async def journal_post(request: Request, slug: str):
+    posts = await journal_live_posts()
+    post = next((p for p in posts if p["slug"] == slug), None)
+    if not post:
+        return RedirectResponse("/journal", status_code=302)
+    same = [p for p in posts if p is not post and p.get("category") == post.get("category")]
+    rest = [p for p in posts if p is not post and p not in same]
+    return templates.TemplateResponse(
+        request=request,
+        name="journal/post.html",
+        context={
+            **get_context(),
+            "post": post,
+            "body_html": journal_lib.render_body(post.get("body", "")),
+            "related_products": _journal_related_products(post),
+            "more_posts": (same + rest)[:3],
+        },
+    )
+
+
+# ── Admin pages ──
+
+@app.get("/admin/journal", response_class=HTMLResponse)
+async def admin_journal_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/journal.html", context=get_context())
+
+
+@app.get("/admin/journal/new", response_class=HTMLResponse)
+async def admin_journal_new(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/journal_form.html",
+        context={**get_context(), "mode": "create", "post_id": "", "categories": JOURNAL_CATEGORIES},
+    )
+
+
+@app.get("/admin/journal/{post_id}/edit", response_class=HTMLResponse)
+async def admin_journal_edit(request: Request, post_id: str):
+    return templates.TemplateResponse(
+        request=request,
+        name="admin/journal_form.html",
+        context={**get_context(), "mode": "edit", "post_id": post_id, "categories": JOURNAL_CATEGORIES},
+    )
+
+
+# ── Admin API ──
+
+_JOURNAL_NOT_READY = ("The Journal database is not set up yet. Run migration "
+                      "013_blog_posts.sql once (see docs/JOURNAL.md), then try again.")
+
+
+@app.get("/api/admin/journal")
+async def admin_journal_list(request: Request):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    rows, ready = await _journal_rows()
+    now = datetime.now().astimezone()
+    out = []
+    for r in rows:
+        e = journal_lib.enrich(r)
+        state = r.get("status", "draft")
+        if state == "published" and not journal_lib.is_live(r, now):
+            state = "scheduled"
+        out.append({**r, "state": state, "reading_minutes": e["reading_minutes"],
+                    "published_human": e["published_human"]})
+    return JSONResponse({"posts": out, "db_ready": ready, "categories": JOURNAL_CATEGORIES})
+
+
+@app.get("/api/admin/journal/{post_id}")
+async def admin_journal_get(request: Request, post_id: str):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    try:
+        result = await _db(supabase.table("blog_posts").select("*").eq("id", post_id).limit(1))
+    except Exception:
+        return JSONResponse({"error": _JOURNAL_NOT_READY}, status_code=503)
+    if not result.data:
+        return JSONResponse({"error": "Article not found"}, status_code=404)
+    return JSONResponse({"post": result.data[0]})
+
+
+def _journal_db_error(e: Exception) -> JSONResponse:
+    msg = str(e)
+    if "duplicate" in msg.lower() or "unique" in msg.lower():
+        return JSONResponse({"error": "Another article already uses that web address"}, status_code=409)
+    if "blog_posts" in msg and ("does not exist" in msg or "schema cache" in msg):
+        return JSONResponse({"error": _JOURNAL_NOT_READY}, status_code=503)
+    return JSONResponse({"error": msg}, status_code=400)
+
+
+@app.post("/api/admin/journal")
+async def admin_journal_create(request: Request):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    data, error = journal_lib.validate_payload(await request.json(), creating=True)
+    if error:
+        return JSONResponse({"error": error}, status_code=400)
+    try:
+        result = await _db(supabase.table("blog_posts").insert(data))
+    except Exception as e:
+        return _journal_db_error(e)
+    return JSONResponse({"success": True, "post": (result.data or [None])[0]})
+
+
+@app.patch("/api/admin/journal/{post_id}")
+async def admin_journal_update(request: Request, post_id: str):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    data, error = journal_lib.validate_payload(await request.json(), creating=False)
+    if error:
+        return JSONResponse({"error": error}, status_code=400)
+    if data.get("status") == "published" and "published_at" in data and not data["published_at"]:
+        data["published_at"] = datetime.now().astimezone().isoformat()
+    if not data:
+        return JSONResponse({"success": True})
+    try:
+        result = await _db(supabase.table("blog_posts").update(data).eq("id", post_id))
+    except Exception as e:
+        return _journal_db_error(e)
+    if not result.data:
+        return JSONResponse({"error": "Article not found"}, status_code=404)
+    return JSONResponse({"success": True, "post": result.data[0]})
+
+
+@app.delete("/api/admin/journal/{post_id}")
+async def admin_journal_delete(request: Request, post_id: str):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    try:
+        await _db(supabase.table("blog_posts").delete().eq("id", post_id))
+    except Exception as e:
+        return _journal_db_error(e)
+    return JSONResponse({"success": True})
+
+
+@app.post("/api/admin/journal/preview")
+async def admin_journal_preview(request: Request):
+    """Render article text exactly as the public page will (for the editor's Preview tab)."""
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    body = (await request.json()).get("body") or ""
+    return JSONResponse({
+        "html": str(journal_lib.render_body(body)),
+        "words": len(journal_lib.plain_text(body).split()),
+        "reading_minutes": journal_lib.reading_minutes(body),
+    })

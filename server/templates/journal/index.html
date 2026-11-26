@@ -1,0 +1,375 @@
+{% extends "layout.html" %}
+
+{% block title %}The Journal: Niche Perfume Stories - Maison Henius{% endblock %}
+
+{% block meta %}
+<meta name="description" content="The Maison Henius Journal: stories of place, memory and craft from a niche perfume house rooted in Jordan and made in France. Fragrance notes, guides and origins.">
+<link rel="canonical" href="{{ site_url }}/journal">
+<link rel="alternate" type="application/rss+xml" title="Maison Henius Journal" href="{{ site_url }}/journal/feed.xml">
+<meta property="og:type" content="website">
+<meta property="og:title" content="The Journal - Maison Henius">
+<meta property="og:description" content="Stories of place, memory and craft from a niche perfume house rooted in Jordan.">
+<meta property="og:url" content="{{ site_url }}/journal">
+{% endblock %}
+
+{% block og %}
+{% set _og = featured.og_image or featured.hero_image if featured else '' %}
+<meta property="og:image" content="{{ abs_url(_og) if _og else site_url ~ '/static/assets/images/og-image.png' }}">
+<meta property="og:site_name" content="Maison Henius">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="The Journal - Maison Henius">
+<meta name="twitter:description" content="Stories of place, memory and craft from a niche perfume house rooted in Jordan.">
+{% endblock %}
+
+{% block styles %}
+<style>
+  .journal { background: #0a0a08; color: #f5f0e8; }
+
+  /* ── Hero ── */
+  .journal-hero {
+    position: relative;
+    min-height: 72vh;
+    min-height: 72dvh;
+    display: flex; align-items: flex-end; justify-content: center;
+    overflow: hidden;
+    padding: 9rem clamp(1.5rem, 5vw, 4rem) clamp(3rem, 7vw, 5.5rem);
+    text-align: center;
+  }
+  .journal-hero__img {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; object-position: center 55%;
+    border-radius: 0;
+    transform: scale(1.06);
+    animation: journalSettle 2.4s cubic-bezier(.2,.7,.2,1) forwards;
+  }
+  @keyframes journalSettle { to { transform: scale(1); } }
+  .journal-hero__veil {
+    position: absolute; inset: 0;
+    background: linear-gradient(to bottom, rgba(10,10,8,.55) 0%, rgba(10,10,8,.25) 40%, rgba(10,10,8,.92) 100%);
+  }
+  .journal-hero__content { position: relative; z-index: 2; max-width: 760px; }
+  .eyebrow {
+    display: block;
+    font-family: 'Montserrat', sans-serif; font-weight: 500;
+    font-size: 0.72rem; letter-spacing: 0.35em; text-transform: uppercase;
+    color: #e9db90;
+  }
+  .journal-hero__title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic;
+    font-size: clamp(2.8rem, 6.5vw, 5.4rem); line-height: 1.04;
+    margin: 1.2rem 0 1.4rem; color: #f5f0e8;
+  }
+  .journal-hero__sub {
+    font-family: 'Montserrat', sans-serif; font-weight: 300;
+    font-size: clamp(0.85rem, 1.1vw, 0.95rem); line-height: 1.9;
+    color: rgba(245,240,232,.78); max-width: 34rem; margin: 0 auto;
+  }
+  .gold-divider { width: 40px; height: 1px; background: #e9db90; margin: 2rem auto 0; border: 0; }
+
+  /* ── Featured story ── */
+  .journal-featured {
+    max-width: 1240px; margin: 0 auto;
+    padding: clamp(3.5rem, 8vw, 6.5rem) clamp(1.5rem, 5vw, 4rem) clamp(2rem, 5vw, 4rem);
+    display: grid; grid-template-columns: 1.25fr 1fr; gap: clamp(2rem, 5vw, 5rem); align-items: center;
+  }
+  .journal-featured__media { display: block; position: relative; overflow: hidden; border-radius: 12px; }
+  .journal-featured__media img {
+    display: block; width: 100%; height: clamp(320px, 42vw, 560px); object-fit: cover;
+    border-radius: 12px; transition: transform 1.2s cubic-bezier(.2,.7,.2,1);
+  }
+  .journal-featured__media:hover img { transform: scale(1.035); }
+  .journal-featured__title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic;
+    font-size: clamp(2rem, 3.6vw, 3.2rem); line-height: 1.12; margin: 1.1rem 0 1.2rem;
+  }
+  .journal-featured__title a { color: #f5f0e8; text-decoration: none; }
+  .journal-featured__excerpt {
+    font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: 0.93rem; line-height: 1.9;
+    color: rgba(245,240,232,.75); margin-bottom: 2rem;
+  }
+  .meta-line {
+    font-family: 'Montserrat', sans-serif; font-weight: 400; font-size: 0.66rem;
+    letter-spacing: 0.25em; text-transform: uppercase; color: rgba(245,240,232,.5);
+  }
+  .meta-line .dot { margin: 0 .7em; color: #b8a44e; }
+  .btn-ghost {
+    display: inline-block; font-family: 'Montserrat', sans-serif; font-weight: 400;
+    font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase;
+    color: #e9db90; background: transparent; border: 1px solid #e9db90; border-radius: 0;
+    padding: 1rem 1.8rem; text-decoration: none; cursor: pointer;
+    transition: background .3s ease, color .3s ease; min-height: 44px;
+  }
+  .btn-ghost:hover { background: #e9db90; color: #0a0a08; }
+  .btn-ghost:focus-visible { outline: 2px solid #e9db90; outline-offset: 3px; }
+
+  /* ── Filter tabs ── */
+  .journal-filter {
+    max-width: 1240px; margin: 0 auto; padding: 2rem clamp(1.5rem, 5vw, 4rem) 0;
+    display: flex; flex-wrap: wrap; justify-content: center; gap: .4rem 1.6rem;
+    border-top: 1px solid rgba(233,219,144,.12);
+  }
+  .journal-filter button {
+    background: none; border: 0; border-bottom: 1px solid transparent; cursor: pointer;
+    font-family: 'Montserrat', sans-serif; font-weight: 400; font-size: 0.68rem;
+    letter-spacing: 0.25em; text-transform: uppercase; color: rgba(245,240,232,.5);
+    padding: .9rem 0 .5rem; min-height: 44px; transition: color .3s;
+  }
+  .journal-filter button:hover { color: #f5f0e8; }
+  .journal-filter button.is-active { color: #f5f0e8; border-bottom-color: #b8a44e; }
+
+  /* ── Grid ── */
+  .journal-grid {
+    max-width: 1240px; margin: 0 auto;
+    padding: clamp(2.5rem, 5vw, 4rem) clamp(1.5rem, 5vw, 4rem) clamp(4rem, 8vw, 7rem);
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(2.5rem, 4vw, 3.5rem) clamp(1.5rem, 3vw, 2.5rem);
+  }
+  .story-card { display: flex; flex-direction: column; text-decoration: none; color: inherit; }
+  .story-card[hidden] { display: none; }
+  .meta-line .nw { white-space: nowrap; }
+  .story-card__img-wrap { position: relative; padding-bottom: 72%; overflow: hidden; border-radius: 12px; margin-bottom: 1.4rem; }
+  .story-card__img-wrap img {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+    transition: transform 1.1s cubic-bezier(.2,.7,.2,1), filter .6s;
+    filter: saturate(.92);
+  }
+  .story-card:hover .story-card__img-wrap img { transform: scale(1.05); filter: saturate(1.05); }
+  .story-card__title {
+    font-family: 'Cormorant Garamond', serif; font-weight: 400; font-size: clamp(1.35rem, 1.9vw, 1.65rem);
+    line-height: 1.22; margin: .8rem 0 .8rem; color: #f5f0e8; transition: color .3s;
+  }
+  .story-card:hover .story-card__title { color: #e9db90; }
+  .story-card__excerpt {
+    font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: 0.85rem; line-height: 1.85;
+    color: rgba(245,240,232,.66); margin-bottom: 1.1rem;
+    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
+  }
+  .story-card__more {
+    margin-top: auto; font-family: 'Montserrat', sans-serif; font-size: 0.64rem; font-weight: 400;
+    letter-spacing: 0.25em; text-transform: uppercase; color: #b8a44e;
+  }
+  .story-card__more span { display: inline-block; transition: transform .4s; }
+  .story-card:hover .story-card__more span { transform: translateX(6px); }
+  .journal-empty { grid-column: 1 / -1; text-align: center; color: rgba(245,240,232,.5); font-family: 'Montserrat', sans-serif; font-weight: 300; }
+
+  /* ── Subscribe ── */
+  .journal-subscribe {
+    border-top: 1px solid rgba(233,219,144,.12);
+    padding: clamp(4rem, 8vw, 6rem) clamp(1.5rem, 5vw, 4rem); text-align: center;
+    background: radial-gradient(ellipse at 50% 0%, rgba(184,164,78,.10), transparent 65%);
+  }
+  .journal-subscribe h2 {
+    font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic;
+    font-size: clamp(1.9rem, 3.4vw, 2.8rem); margin: 1rem 0 .9rem; color: #f5f0e8;
+  }
+  .journal-subscribe p { font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: .9rem; line-height: 1.85; color: rgba(245,240,232,.7); max-width: 30rem; margin: 0 auto 2rem; }
+  .subscribe-form { display: flex; gap: .8rem; justify-content: center; flex-wrap: wrap; max-width: 520px; margin: 0 auto; }
+  .subscribe-form input {
+    flex: 1 1 260px; background: transparent; color: #f5f0e8;
+    border: 1px solid rgba(233,219,144,.25); border-radius: 0; padding: .9rem 1.2rem;
+    font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: .85rem; min-height: 48px;
+  }
+  .subscribe-form input::placeholder { color: rgba(245,240,232,.3); }
+  .subscribe-form input:focus { outline: none; border-color: rgba(233,219,144,.55); }
+  .subscribe-form button { font-family: 'Montserrat', sans-serif; font-weight: 500; font-size: .7rem; letter-spacing: .2em; text-transform: uppercase; color: #0a0a08; background: #e9db90; border: 0; padding: .8rem 2rem; cursor: pointer; min-height: 48px; transition: background .3s; }
+  .subscribe-form button:hover { background: #d4c87a; }
+  .subscribe-note { margin-top: 1rem; font-family: 'Montserrat', sans-serif; font-size: .75rem; color: #e9db90; min-height: 1.2em; }
+  .journal-follow { margin-top: 2.4rem; display: flex; gap: 2rem; justify-content: center; }
+  .journal-follow a { font-family: 'Montserrat', sans-serif; font-size: .66rem; letter-spacing: .25em; text-transform: uppercase; color: rgba(245,240,232,.6); text-decoration: none; padding: .8rem 0; transition: color .3s; }
+  .journal-follow a:hover { color: #e9db90; }
+
+  /* reveal */
+  .reveal { opacity: 0; transform: translateY(28px); transition: opacity 1s ease, transform 1s cubic-bezier(.2,.7,.2,1); }
+  .reveal.is-in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .journal-hero__img { animation: none; transform: none; }
+  }
+
+  @media (max-width: 960px) {
+    .journal-featured { grid-template-columns: 1fr; }
+    .journal-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 600px) {
+    .journal-grid { grid-template-columns: 1fr; }
+    .journal-hero { min-height: 64vh; min-height: 64dvh; }
+    .journal-filter { justify-content: flex-start; flex-wrap: nowrap; overflow-x: auto; gap: 1.4rem; -webkit-overflow-scrolling: touch; }
+    .journal-filter button { white-space: nowrap; }
+    .journal-filter {
+      scrollbar-width: none;
+      -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent);
+      mask-image: linear-gradient(90deg, #000 82%, transparent);
+    }
+    .journal-filter::-webkit-scrollbar { display: none; }
+    .journal-filter.is-end { -webkit-mask-image: none; mask-image: none; }
+  }
+  /* ── Show more ── */
+  .journal-more { text-align: center; margin: calc(-1 * clamp(2rem, 5vw, 4rem)) auto clamp(4rem, 8vw, 6rem); }
+  .journal-more[hidden] { display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<main class="journal" id="journalIndex">
+  <section class="journal-hero">
+    <img class="journal-hero__img" src="/static/assets/pictures/Jordan%20Landscape/Wadi%20Rum.webp" alt="Wadi Rum at dusk, Jordan" fetchpriority="high">
+    <div class="journal-hero__veil"></div>
+    <div class="journal-hero__content">
+      <span class="eyebrow">The Journal</span>
+      <h1 class="journal-hero__title">Stories of place, memory &amp; craft</h1>
+      <p class="journal-hero__sub">Notes from a niche perfume house between garden and desert. Where our fragrances come from, how they are made, and how to wear them.</p>
+      <hr class="gold-divider">
+    </div>
+  </section>
+
+  {% if featured %}
+  <section class="journal-featured reveal" aria-label="Featured story">
+    <a class="journal-featured__media" href="/journal/{{ featured.slug }}">
+      <img src="{{ featured.hero_image }}" alt="{{ featured.hero_alt or featured.title }}">
+    </a>
+    <div>
+      <span class="eyebrow">Featured story</span>
+      <h2 class="journal-featured__title"><a href="/journal/{{ featured.slug }}">{{ featured.title }}</a></h2>
+      <p class="meta-line">{{ featured.category }}{% if featured.category %}<span class="dot">·</span>{% endif %}<span class="nw">{{ featured.reading_minutes }} min read</span> <span class="dot">·</span> <span class="nw">{{ featured.published_human }}</span></p>
+      <p class="journal-featured__excerpt" style="margin-top:1.2rem">{{ featured.excerpt }}</p>
+      <a class="btn-ghost" href="/journal/{{ featured.slug }}">Read the story</a>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if categories|length > 1 %}
+  <nav class="journal-filter" aria-label="Filter stories by theme">
+    <button type="button" class="is-active" data-filter="">All stories</button>
+    {% for c in categories %}<button type="button" data-filter="{{ c }}">{{ c }}</button>{% endfor %}
+  </nav>
+  {% endif %}
+
+  <section class="journal-grid" aria-label="All stories">
+    {% for p in posts %}
+    <a class="story-card reveal" href="/journal/{{ p.slug }}" data-category="{{ p.category }}">
+      <div class="story-card__img-wrap">
+        <img src="{{ p.hero_image }}" alt="{{ p.hero_alt or p.title }}" loading="lazy" decoding="async">
+      </div>
+      <p class="meta-line">{{ p.category }}{% if p.category %}<span class="dot">·</span>{% endif %}{{ p.reading_minutes }} min read</p>
+      <h3 class="story-card__title">{{ p.title }}</h3>
+      <p class="story-card__excerpt">{{ p.excerpt }}</p>
+      <span class="story-card__more">Read the story <span>→</span></span>
+    </a>
+    {% else %}
+    {% if not featured %}<p class="journal-empty">New stories are on their way.</p>{% endif %}
+    {% endfor %}
+  </section>
+  <div class="journal-more" data-more hidden>
+    <button type="button" class="btn-ghost">Show more stories</button>
+  </div>
+
+  <section class="journal-subscribe reveal">
+    <span class="eyebrow">Letters from the house</span>
+    <h2>Receive the next story</h2>
+    <p>One letter when a new story is told. No noise, only memory, craft and the first news of new fragrances.</p>
+    <form class="subscribe-form" id="journalSubscribe">
+      <label class="sr-only" for="subscribeEmail">Email address</label>
+      <input id="subscribeEmail" type="email" name="email" placeholder="Your email address" required autocomplete="email">
+      <button type="submit">Subscribe</button>
+    </form>
+    <p class="subscribe-note" id="subscribeNote" role="status"></p>
+    {% set _social = footer_social() | selectattr('visible') | selectattr('url') | list %}
+    {% if _social %}
+    <div class="journal-follow">
+      {% for link in _social %}<a href="{{ link.url }}" target="_blank" rel="noopener">Follow on {{ link.label }}</a>{% endfor %}
+    </div>
+    {% endif %}
+  </section>
+</main>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": "Maison Henius Journal",
+  "url": "{{ site_url }}/journal",
+  "description": "Stories of place, memory and craft from a niche perfume house rooted in Jordan.",
+  "publisher": {"@type": "Organization", "name": "Maison Henius", "logo": {"@type": "ImageObject", "url": "{{ site_url }}/static/assets/images/logo-crest-gold.png"}},
+  "blogPost": [
+    {% for p in ([featured] if featured else []) + posts %}
+    {"@type": "BlogPosting", "headline": {{ p.title | tojson }}, "url": "{{ site_url }}/journal/{{ p.slug }}", "datePublished": "{{ p.published_iso }}", "image": {{ abs_url(p.hero_image) | tojson }}}{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  if (window._journalIndexBound) return;
+  window._journalIndexBound = true;
+  function init() {
+    var root = document.getElementById('journalIndex');
+    if (!root || root.dataset.init) return;
+    root.dataset.init = '1';
+
+    // Gentle reveal as stories scroll into view.
+    var items = root.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+      var io = new IntersectionObserver(function(entries) {
+        entries.forEach(function(e) { if (e.isIntersecting) { e.target.classList.add('is-in'); io.unobserve(e.target); } });
+      }, { rootMargin: '0px 0px -8% 0px' });
+      items.forEach(function(el) { io.observe(el); });
+    } else { items.forEach(function(el) { el.classList.add('is-in'); }); }
+
+    // Theme filter + "Show more stories" (12 at a time; every story is still
+    // in the page HTML, so search engines see all of them).
+    var PAGE = 12, limit = PAGE, filter = '';
+    var cards = Array.prototype.slice.call(root.querySelectorAll('.story-card'));
+    var more = root.querySelector('[data-more]');
+    function apply() {
+      var matched = 0;
+      cards.forEach(function(card) {
+        var match = !filter || card.dataset.category === filter;
+        var show = match && matched < limit;
+        if (match) matched++;
+        card.hidden = !show;
+        if (show) card.classList.add('is-in');
+      });
+      if (more) more.hidden = matched <= limit;
+    }
+    if (more) more.querySelector('button').addEventListener('click', function() { limit += PAGE; apply(); });
+    root.querySelectorAll('.journal-filter button').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        filter = btn.dataset.filter;
+        limit = PAGE;
+        root.querySelectorAll('.journal-filter button').forEach(function(b) { b.classList.toggle('is-active', b === btn); });
+        apply();
+      });
+    });
+    apply();
+    var strip = root.querySelector('.journal-filter');
+    if (strip) {
+      var edge = function() { strip.classList.toggle('is-end', strip.scrollLeft + strip.clientWidth >= strip.scrollWidth - 4); };
+      strip.addEventListener('scroll', edge, { passive: true });
+      edge();
+    }
+
+    // Subscribe: saved as a message in Admin -> Messages.
+    var form = document.getElementById('journalSubscribe');
+    var note = document.getElementById('subscribeNote');
+    form.addEventListener('submit', function(ev) {
+      ev.preventDefault();
+      var email = form.email.value.trim();
+      if (!email) return;
+      var fd = new FormData();
+      fd.append('name', 'Journal subscriber');
+      fd.append('email', email);
+      fd.append('message', 'Please send me new stories from the Maison Henius Journal.');
+      note.textContent = 'One moment…';
+      fetch('/api/messages', { method: 'POST', body: fd }).then(function(r) {
+        note.textContent = r.ok ? 'Thank you. The next story will find you.' : 'Something went wrong. Please try again.';
+        if (r.ok) form.reset();
+      }).catch(function() { note.textContent = 'Something went wrong. Please try again.'; });
+    });
+  }
+  document.addEventListener('turbo:load', init);
+  if (document.readyState !== 'loading') init(); else document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+{% endblock %}

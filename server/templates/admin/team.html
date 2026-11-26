@@ -1,0 +1,174 @@
+{% extends "admin/layout.html" %}
+{% block title %}Team access - Maison Henius{% endblock %}
+{% block nav_team %}admin__nav-item--active{% endblock %}
+{% block heading %}Team access{% endblock %}
+
+{% block styles %}
+{% include "admin/_fulfilment_styles.html" %}
+<style>
+  .tm-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 1rem; margin-top: 1rem; align-items: start; }
+  .tm-act { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .tm-log { max-height: 420px; overflow-y: auto; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="ff-intro">Who can sign in to the admin. Warehouse accounts only ever see the Fulfilment page. Suspend or revoke takes effect on their very next click.</p>
+
+<div class="ff-card ff-scroll">
+  <h3 class="ff-h3">People with access</h3>
+  <table class="ff-table">
+    <thead><tr><th>Person</th><th>Access</th><th>Status</th><th>Last active</th><th></th></tr></thead>
+    <tbody id="tmBody"><tr><td class="ff-muted" colspan="5">Loading…</td></tr></tbody>
+  </table>
+  <div class="ff-error" id="tmErr" hidden></div>
+</div>
+
+<div class="tm-grid">
+  <div class="ff-card">
+    <h3 class="ff-h3">Invite the warehouse company</h3>
+    <form id="tmInvite" class="ff-form" novalidate>
+      <div class="ff-field"><label for="tmName">Name</label><input id="tmName" maxlength="120" placeholder="Person or desk name"></div>
+      <div class="ff-field"><label for="tmCompany">Company</label><input id="tmCompany" maxlength="120"></div>
+      <div class="ff-field ff-wide"><label for="tmEmail">Work email</label><input id="tmEmail" type="email" maxlength="200" placeholder="name@company.com" required></div>
+      <div class="ff-field"><label for="tmRole">Access</label><input id="tmRole" value="Fulfilment only" readonly></div>
+      <div class="ff-field"><label for="tmMfa">2-step code</label><input id="tmMfa" value="Required" readonly></div>
+      <div class="ff-wide">
+        <button class="ff-btn" type="submit" id="tmSend">Send invitation</button>
+        <div class="ff-error" id="tmInvErr" hidden></div>
+        <div class="ff-ok" id="tmInvOk" hidden></div>
+      </div>
+    </form>
+    <p class="ff-muted" style="margin:0.8rem 0 0">They receive a Maison Henius email, choose their own password and link an authenticator app (Google Authenticator, Microsoft Authenticator or similar) for the 6-digit sign-in code. One account per person: please do not share accounts.</p>
+  </div>
+  <div class="ff-card">
+    <h3 class="ff-h3">Recent activity <small>sign-ins, order views, refused pages, team changes</small></h3>
+    <div class="tm-log ff-scroll">
+      <table class="ff-table"><tbody id="tmLog"><tr><td class="ff-muted">Loading…</td></tr></tbody></table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (window._teamBound) return;
+  window._teamBound = true;
+  var STATUS = { active: ['ok', 'Active'], invited: ['info', 'Invited'], suspended: ['warn', 'Suspended'], revoked: ['bad', 'Revoked'] };
+  var ACTIONS = {
+    active: [['suspend', 'Suspend', ''], ['reset', 'Send new set-up link', ''], ['revoke', 'Revoke', 'danger']],
+    invited: [['resend', 'Resend invitation', ''], ['suspend', 'Suspend', ''], ['revoke', 'Revoke', 'danger']],
+    suspended: [['reactivate', 'Reactivate', ''], ['revoke', 'Revoke', 'danger']],
+    revoked: [['reactivate', 'Restore access', '']]
+  };
+  var LOG = {
+    sign_in: 'Signed in', sign_in_failed: 'Sign-in refused', view_order: 'Viewed order', denied: 'Refused (not allowed)',
+    password_set: 'Chose a password', password_changed: 'Changed password', account_activated: 'Finished set-up',
+    team_invite: 'Invited', team_suspend: 'Suspended', team_revoke: 'Revoked', team_reactivate: 'Reactivated',
+    team_resend: 'Re-sent invitation to', team_reset: 'Sent new set-up link to'
+  };
+  var CONFIRM = {
+    revoke: 'Revoke access? They are signed out at once and cannot sign in again unless you restore access.',
+    suspend: 'Suspend access? They are signed out at once until you reactivate them.',
+    reset: 'Send a new set-up link? Their current password and 2-step code stop working until they finish the new set-up.'
+  };
+
+  document.addEventListener('turbo:load', function () {
+    var body = document.getElementById('tmBody');
+    if (!body) return;
+    var log = document.getElementById('tmLog'), err = document.getElementById('tmErr');
+    var pending = null; // action awaiting a second click (in-page confirmation)
+
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function when(iso) { if (!iso) return '–'; var d = new Date(iso); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ', ' + d.toTimeString().slice(0, 5); }
+
+    function load() {
+      MH.fetch('/api/admin/team').then(function (r) { if (!r.ok) throw new Error(); return r.json(); }).then(render)
+        .catch(function () { body.innerHTML = '<tr><td class="ff-muted" colspan="5">Could not load the team. Please refresh.</td></tr>'; });
+    }
+
+    function render(d) {
+      body.innerHTML = '';
+      d.owners.forEach(function (email) {
+        var tr = el('tr');
+        var td = el('td'); td.appendChild(el('div', null, 'Maison Henius')); td.appendChild(el('span', 'ff-sub', email)); tr.appendChild(td);
+        td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--gold', 'Owner · full access')); tr.appendChild(td);
+        td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--ok', 'Active')); tr.appendChild(td);
+        tr.appendChild(el('td', 'ff-muted', 'Email-link sign-in'));
+        tr.appendChild(el('td', 'ff-muted', 'Set in the website code'));
+        body.appendChild(tr);
+      });
+      d.staff.forEach(function (p) {
+        var tr = el('tr'), st = STATUS[p.status] || ['muted', p.status];
+        var td = el('td'); td.appendChild(el('div', null, p.full_name || p.email)); td.appendChild(el('span', 'ff-sub', [p.company, p.email].filter(Boolean).join(' · '))); tr.appendChild(td);
+        td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--muted', 'Fulfilment only')); td.appendChild(el('span', 'ff-sub', '2-step code required')); tr.appendChild(td);
+        td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--' + st[0], st[1])); tr.appendChild(td);
+        tr.appendChild(el('td', 'ff-muted', p.last_seen_at ? when(p.last_seen_at) : (p.status === 'invited' ? 'Invited ' + when(p.invited_at) : '–')));
+        td = el('td'); var box = el('div', 'tm-act');
+        (ACTIONS[p.status] || []).forEach(function (a) {
+          var b = el('button', 'ff-btn ff-btn--sm ' + (a[2] === 'danger' ? 'ff-btn--danger' : 'ff-btn--ghost'), a[1]);
+          b.type = 'button';
+          b.addEventListener('click', function () { act(p, a[0], b, a[1]); });
+          box.appendChild(b);
+        });
+        td.appendChild(box); tr.appendChild(td);
+        body.appendChild(tr);
+      });
+      log.innerHTML = '';
+      if (!d.activity.length) log.innerHTML = '<tr><td class="ff-muted">No activity yet.</td></tr>';
+      d.activity.forEach(function (a) {
+        var tr = el('tr');
+        tr.appendChild(el('td', 'ff-nowrap ff-muted', when(a.created_at)));
+        var td = el('td'); td.appendChild(el('div', null, (LOG[a.action] || a.action) + (a.detail ? ' ' + a.detail : '')));
+        td.appendChild(el('span', 'ff-sub', a.staff_email + (a.role ? ' · ' + a.role : ''))); tr.appendChild(td);
+        log.appendChild(tr);
+      });
+    }
+
+    function act(p, action, btn, label) {
+      err.hidden = true;
+      if (CONFIRM[action] && pending !== p.id + action) {
+        pending = p.id + action;
+        btn.textContent = 'Click again to confirm';
+        err.hidden = false; err.className = 'ff-muted'; err.textContent = CONFIRM[action];
+        setTimeout(function () { if (pending === p.id + action) { pending = null; btn.textContent = label; err.hidden = true; } }, 6000);
+        return;
+      }
+      pending = null;
+      btn.disabled = true;
+      MH.fetch('/api/admin/team/' + encodeURIComponent(p.id) + '/action', { method: 'POST', body: JSON.stringify({ action: action }) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { btn.disabled = false; err.hidden = false; err.className = 'ff-error'; err.textContent = res.d.error || 'That did not work.'; return; }
+          if (res.d.email_sent === false) { err.hidden = false; err.className = 'ff-error'; err.textContent = 'Saved, but the email could not be sent. Please try again.'; }
+          load();
+        }).catch(function () { btn.disabled = false; });
+    }
+
+    document.getElementById('tmInvite').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var invErr = document.getElementById('tmInvErr'), ok = document.getElementById('tmInvOk'), send = document.getElementById('tmSend');
+      invErr.hidden = true; ok.hidden = true;
+      var email = document.getElementById('tmEmail').value.trim();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { invErr.hidden = false; invErr.textContent = 'Enter a valid work email address.'; return; }
+      send.disabled = true;
+      MH.fetch('/api/admin/team/invite', { method: 'POST', body: JSON.stringify({
+        email: email, full_name: document.getElementById('tmName').value.trim(), company: document.getElementById('tmCompany').value.trim()
+      }) }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          send.disabled = false;
+          if (!res.ok) { invErr.hidden = false; invErr.textContent = res.d.error || 'Could not send the invitation.'; return; }
+          ok.hidden = false;
+          ok.textContent = res.d.email_sent ? 'Invitation sent to ' + email + '.' : 'Added, but the email could not be sent. Use "Resend invitation".';
+          document.getElementById('tmInvite').reset();
+          document.getElementById('tmRole').value = 'Fulfilment only'; document.getElementById('tmMfa').value = 'Required';
+          load();
+        }).catch(function () { send.disabled = false; });
+    });
+
+    load();
+  });
+})();
+</script>
+{% endblock %}

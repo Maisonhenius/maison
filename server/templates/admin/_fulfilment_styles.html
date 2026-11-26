@@ -1,0 +1,71 @@
+<style>
+  /* Shared look for Fulfilment, Team access and My account (matches admin.css) */
+  .ff-intro { font-size: 0.8rem; color: #777; margin: -0.5rem 0 1.25rem; }
+  .ff-card { background: #fff; border-radius: 8px; padding: 1.25rem 1.4rem; box-shadow: 0 1px 3px rgba(0,0,0,0.06); min-width: 0; }
+  .ff-card + .ff-card, .ff-totals { margin-top: 1rem; }
+  .ff-scroll { overflow-x: auto; }
+  .ff-h3 { font-size: 0.68rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: #888; margin: 0 0 0.9rem; display: flex; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+  .ff-h3 small { font-size: 0.66rem; letter-spacing: 0.02em; text-transform: none; font-weight: 400; color: #999; }
+  .ff-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 0.8rem; }
+  .ff-table th { text-align: left; font-size: 0.64rem; letter-spacing: 0.1em; text-transform: uppercase; color: #888; font-weight: 500; padding: 0.55rem 0.6rem; border-bottom: 1px solid #eee; white-space: nowrap; }
+  .ff-table td { padding: 0.65rem 0.6rem; border-bottom: 1px solid #f0ede6; vertical-align: top; }
+  .ff-row { cursor: pointer; }
+  .ff-row:hover td, .ff-row:focus td { background: #faf8f2; }
+  .ff-row:focus { outline: 2px solid #b8a44e; outline-offset: -2px; }
+  .ff-num { text-align: right; white-space: nowrap; }
+  .ff-nowrap { white-space: nowrap; }
+  .ff-oid { font-weight: 500; color: #1a1a1a; text-decoration: none; white-space: nowrap; }
+  .ff-sub { display: block; font-size: 0.7rem; color: #888; margin-top: 0.1rem; }
+  .ff-muted { color: #999; font-size: 0.78rem; }
+  .ff-mt { margin-top: 0.3rem; }
+  .ff-chip { display: inline-block; font-size: 0.66rem; font-weight: 500; letter-spacing: 0.03em; padding: 0.18rem 0.55rem; border-radius: 999px; white-space: nowrap; }
+  .ff-chip--info { background: #e4ebf4; color: #3d5f8a; }
+  .ff-chip--warn { background: #fbf1d6; color: #8a5f00; }
+  .ff-chip--ok { background: #e7f1e8; color: #3f7d4e; }
+  .ff-chip--bad { background: #f8e3df; color: #b23b2a; }
+  .ff-chip--muted { background: #efece5; color: #6f6a5f; }
+  .ff-chip--gold { background: #f6f0cf; color: #7a6a20; }
+  .ff-counters { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 0.6rem; margin-bottom: 1rem; }
+  .ff-counter { background: #fff; border: 1px solid transparent; border-radius: 8px; padding: 0.7rem 0.85rem; text-align: left; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.05); font-family: inherit; }
+  .ff-counter b { display: block; font-size: 1.5rem; font-weight: 300; line-height: 1.1; font-variant-numeric: tabular-nums; color: #1a1a1a; }
+  .ff-counter span { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase; color: #888; }
+  .ff-counter[aria-pressed="true"] { border-color: #b8a44e; }
+  .ff-counter--issue b { color: #b23b2a; }
+  .ff-filters { display: flex; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.9rem; }
+  .ff-filters__search { flex: 1 1 240px; }
+  .ff-input, .ff-field input, .ff-field select, .ff-field textarea {
+    font-family: 'Montserrat', sans-serif; font-size: 0.8rem; padding: 0.6rem 0.8rem; border: 1px solid #ddd; border-radius: 6px; background: #fff; color: #1a1a1a; outline: none; width: 100%; min-width: 0;
+  }
+  .ff-filters .ff-input { width: auto; }
+  .ff-input:focus, .ff-field input:focus, .ff-field select:focus, .ff-field textarea:focus { border-color: #b8a44e; }
+  .ff-field input[readonly] { background: #f6f4ef; color: #777; }
+  .ff-field { display: flex; flex-direction: column; gap: 0.3rem; min-width: 0; }
+  .ff-field label, .ff-label { font-size: 0.64rem; letter-spacing: 0.08em; text-transform: uppercase; color: #888; font-weight: 500; }
+  .ff-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 0.8rem; }
+  .ff-form .ff-wide { grid-column: 1 / -1; }
+  .ff-btn { font-family: 'Montserrat', sans-serif; border: 1px solid #111; background: #111; color: #e9db90; padding: 0.65rem 1.1rem; border-radius: 6px; font-size: 0.76rem; font-weight: 500; cursor: pointer; letter-spacing: 0.02em; min-height: 40px; }
+  .ff-btn:hover { background: #2a2a2a; }
+  .ff-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .ff-btn--ghost { background: #fff; color: #1a1a1a; border-color: #d3cdbf; }
+  .ff-btn--ghost:hover { background: #f3f0e8; }
+  .ff-btn--danger { background: #fff; color: #b23b2a; border-color: #e3b8b0; }
+  .ff-btn--danger:hover { background: #f8e3df; }
+  .ff-btn--sm { padding: 0.4rem 0.75rem; font-size: 0.7rem; min-height: 32px; }
+  .ff-btn--block { width: 100%; }
+  .ff-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.7rem; }
+  .ff-error { color: #b23b2a; font-size: 0.76rem; margin-top: 0.5rem; }
+  .ff-ok { color: #3f7d4e; font-size: 0.76rem; margin-top: 0.5rem; }
+  .ff-cmp { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; text-align: center; }
+  .ff-cmp div { background: #faf8f2; border-radius: 6px; padding: 0.7rem 0.4rem; }
+  .ff-cmp b { display: block; font-size: 1.1rem; font-weight: 400; font-variant-numeric: tabular-nums; }
+  .ff-cmp span { font-size: 0.6rem; letter-spacing: 0.08em; text-transform: uppercase; color: #888; }
+  .ff-cmp .ff-pos b { color: #3f7d4e; } .ff-cmp .ff-neg b { color: #b23b2a; }
+  .ff-visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ff-toast { position: fixed; left: 50%; bottom: 1.5rem; transform: translateX(-50%); background: #111; color: #e9db90; padding: 0.7rem 1.1rem; border-radius: 6px; font-size: 0.8rem; z-index: 300; box-shadow: 0 6px 20px rgba(0,0,0,0.25); max-width: calc(100% - 32px); }
+  @media (max-width: 600px) {
+    .ff-card { padding: 1rem; }
+    .ff-cmp b { font-size: 0.95rem; }
+    .ff-btn { min-height: 44px; }
+    .ff-btn--sm { min-height: 40px; }
+  }
+</style>

@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" data-turbo="false">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>{{ 'Set up your access' if mode == 'welcome' else 'Fulfilment sign-in' }} - Maison Henius</title>
+  <link rel="icon" href="/static/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/static/favicon-32x32.png" type="image/png">
+  <link rel="apple-touch-icon" href="/static/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;1,300&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; min-height: 100vh; min-height: 100dvh; background: #0a0a08; font-family: 'Montserrat', sans-serif; color: #f5f0e8; }
+    body { display: flex; align-items: center; justify-content: center; padding: 2rem 1.5rem; }
+    .auth { width: 100%; max-width: 380px; text-align: center; }
+    .auth__logo img { height: 120px; width: auto; display: inline-block; }
+    .auth__label { font-size: 0.6rem; letter-spacing: 0.25em; text-transform: uppercase; color: rgba(233, 219, 144, 0.55); margin: 0.6rem 0 2.2rem; }
+    .auth__heading { font-family: 'Cormorant Garamond', serif; font-weight: 300; font-style: italic; font-size: clamp(1.6rem, 2.5vw, 2rem); letter-spacing: 0.02em; margin-bottom: 0.5rem; }
+    .auth__sub { font-weight: 300; font-size: 0.75rem; line-height: 1.6; color: rgba(245, 240, 232, 0.5); margin-bottom: 2rem; }
+    .auth__form { display: flex; flex-direction: column; gap: 0.9rem; text-align: left; }
+    .auth__field label { display: block; font-size: 0.6rem; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(233, 219, 144, 0.6); margin-bottom: 0.35rem; }
+    .auth__input { width: 100%; background: transparent; border: 1px solid rgba(233, 219, 144, 0.25); padding: 0.9rem 1.1rem; font-family: 'Montserrat', sans-serif; font-weight: 300; font-size: 0.8rem; letter-spacing: 0.04em; color: #f5f0e8; outline: none; border-radius: 0; }
+    .auth__input:focus { border-color: rgba(233, 219, 144, 0.6); }
+    .auth__input--code { font-size: 1.4rem; letter-spacing: 0.5em; text-align: center; }
+    .auth__btn { width: 100%; min-height: 48px; margin-top: 0.8rem; background: #e9db90; border: 1px solid #e9db90; padding: 1rem 1.8rem; font-family: 'Montserrat', sans-serif; font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: #0a0a08; cursor: pointer; }
+    .auth__btn:hover { background: transparent; color: #e9db90; }
+    .auth__btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .auth__error { font-size: 0.72rem; color: #e07a66; margin-top: 0.4rem; line-height: 1.5; }
+    .auth__note { font-weight: 300; font-size: 0.66rem; line-height: 1.6; color: rgba(245, 240, 232, 0.4); margin-top: 1.6rem; }
+    .auth__note a { color: rgba(233, 219, 144, 0.7); }
+    .auth__qr { background: #fff; padding: 12px; display: inline-block; margin: 0.2rem auto 0.8rem; }
+    .auth__qr img { width: 176px; height: 176px; display: block; }
+    .auth__secret { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.72rem; letter-spacing: 0.08em; word-break: break-all; color: #e9db90; background: rgba(233, 219, 144, 0.08); padding: 0.5rem 0.7rem; margin-bottom: 0.4rem; }
+    .auth__steps { text-align: left; font-size: 0.72rem; line-height: 1.6; color: rgba(245, 240, 232, 0.65); padding-left: 1.1rem; margin-bottom: 1rem; }
+    [hidden] { display: none !important; }
+    @media (max-width: 768px) { .auth__input { font-size: 16px !important; } .auth__input--code { font-size: 1.4rem !important; } }
+  </style>
+</head>
+<body>
+  <main class="auth">
+    <div class="auth__logo"><img src="/static/assets/images/logo-crest-gold.webp" alt="Maison Henius"></div>
+    <p class="auth__label">Fulfilment portal</p>
+
+    <!-- 1. Email + password (sign-in) -->
+    <section id="stLogin" {% if mode == 'welcome' %}hidden{% endif %}>
+      <h1 class="auth__heading">Sign in</h1>
+      <p class="auth__sub">For the Maison Henius warehouse team.</p>
+      <form class="auth__form" id="fLogin" novalidate>
+        <div class="auth__field"><label for="email">Work email</label><input class="auth__input" id="email" type="email" autocomplete="username" required></div>
+        <div class="auth__field"><label for="password">Password</label><input class="auth__input" id="password" type="password" autocomplete="current-password" required></div>
+        <button class="auth__btn" type="submit">Continue</button>
+        <p class="auth__error" id="eLogin" hidden></p>
+      </form>
+      <p class="auth__note">Forgotten your password or lost your phone? Ask Maison Henius to send you a new set-up link.<br>Maison Henius owners: <a href="/admin/login">sign in here</a>.</p>
+    </section>
+
+    <!-- 1b. Choose a password (invitation / set-up link) -->
+    <section id="stWelcome" {% if mode != 'welcome' %}hidden{% endif %}>
+      <h1 class="auth__heading">Set up your access</h1>
+      <p class="auth__sub">Choose a password of at least 10 characters. Next, you will link an authenticator app for the 6-digit sign-in code.</p>
+      <form class="auth__form" id="fWelcome" novalidate>
+        <div class="auth__field"><label for="pw1">New password</label><input class="auth__input" id="pw1" type="password" autocomplete="new-password" minlength="10" required></div>
+        <div class="auth__field"><label for="pw2">Repeat password</label><input class="auth__input" id="pw2" type="password" autocomplete="new-password" minlength="10" required></div>
+        <button class="auth__btn" type="submit">Continue</button>
+        <p class="auth__error" id="eWelcome" hidden></p>
+      </form>
+    </section>
+
+    <!-- 2. Link the authenticator app (first time) -->
+    <section id="stEnroll" hidden>
+      <h1 class="auth__heading">Link your authenticator</h1>
+      <ol class="auth__steps">
+        <li>Open an authenticator app on your phone (Google Authenticator, Microsoft Authenticator or similar).</li>
+        <li>Add an account and scan this code. Or type the key below.</li>
+        <li>Enter the 6-digit code the app shows.</li>
+      </ol>
+      <div class="auth__qr"><img id="qr" alt="QR code to scan with your authenticator app"></div>
+      <div class="auth__secret" id="secret"></div>
+      <form class="auth__form" id="fEnroll" novalidate>
+        <div class="auth__field"><label for="code1">6-digit code</label><input class="auth__input auth__input--code" id="code1" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*"></div>
+        <button class="auth__btn" type="submit">Confirm and sign in</button>
+        <p class="auth__error" id="eEnroll" hidden></p>
+      </form>
+    </section>
+
+    <!-- 3. Enter the code (every sign-in) -->
+    <section id="stVerify" hidden>
+      <h1 class="auth__heading">Your sign-in code</h1>
+      <p class="auth__sub">Enter the 6-digit code from your authenticator app.</p>
+      <form class="auth__form" id="fVerify" novalidate>
+        <div class="auth__field"><label for="code2">6-digit code</label><input class="auth__input auth__input--code" id="code2" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]*"></div>
+        <button class="auth__btn" type="submit">Sign in</button>
+        <p class="auth__error" id="eVerify" hidden></p>
+      </form>
+    </section>
+  </main>
+
+<script>
+(function () {
+  var pending = null; // { access_token, refresh_token, factor_id } between steps
+  function $(id) { return document.getElementById(id); }
+  function show(id) { ['stLogin', 'stWelcome', 'stEnroll', 'stVerify'].forEach(function (s) { $(s).hidden = s !== id; }); var f = $(id).querySelector('input'); if (f) f.focus(); }
+  function fail(id, msg) { var e = $(id); e.hidden = false; e.textContent = msg; }
+  function post(url, data) {
+    return fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, status: r.status, d: d }; }, function () { return { ok: false, status: r.status, d: {} }; }); });
+  }
+  function busy(form, on) { form.querySelector('button').disabled = on; }
+  function afterFirstStep(d) {
+    pending = { access_token: d.access_token, refresh_token: d.refresh_token, factor_id: d.factor_id };
+    if (d.step === 'enroll') { $('qr').src = d.qr_code; $('secret').textContent = d.secret; show('stEnroll'); }
+    else show('stVerify');
+  }
+  function finish(form, errId, code) {
+    busy(form, true);
+    post('/api/staff/mfa/verify', Object.assign({ code: code }, pending)).then(function (res) {
+      busy(form, false);
+      if (!res.ok) {
+        if (res.status === 401) { pending = null; show('stLogin'); return fail('eLogin', res.d.error || 'Your sign-in timed out. Please start again.'); }
+        return fail(errId, res.d.error || 'That code did not work.');
+      }
+      localStorage.setItem('maison_admin_auth', JSON.stringify({ access_token: res.d.access_token, refresh_token: res.d.refresh_token }));
+      localStorage.setItem('maison_staff_role', 'fulfilment');
+      location.replace('/admin/fulfilment');
+    }).catch(function () { busy(form, false); fail(errId, 'Connection problem. Please try again.'); });
+  }
+
+  $('fLogin').addEventListener('submit', function (e) {
+    e.preventDefault(); $('eLogin').hidden = true;
+    var email = $('email').value.trim(), pw = $('password').value;
+    if (!email || !pw) return fail('eLogin', 'Enter your work email and password.');
+    busy(this, true); var form = this;
+    post('/api/staff/login', { email: email, password: pw }).then(function (res) {
+      busy(form, false);
+      if (!res.ok) return fail('eLogin', res.d.error || 'Incorrect email or password.');
+      afterFirstStep(res.d);
+    }).catch(function () { busy(form, false); fail('eLogin', 'Connection problem. Please try again.'); });
+  });
+
+  $('fWelcome').addEventListener('submit', function (e) {
+    e.preventDefault(); $('eWelcome').hidden = true;
+    var p1 = $('pw1').value, p2 = $('pw2').value;
+    if (p1.length < 10) return fail('eWelcome', 'Please use at least 10 characters.');
+    if (p1 !== p2) return fail('eWelcome', 'The two passwords do not match.');
+    var h = new URLSearchParams(location.hash.slice(1));
+    if (!h.get('access_token')) return fail('eWelcome', 'This link is incomplete or has expired. Please ask Maison Henius for a new one.');
+    busy(this, true); var form = this;
+    post('/api/staff/accept', { access_token: h.get('access_token'), refresh_token: h.get('refresh_token') || '', password: p1 }).then(function (res) {
+      busy(form, false);
+      if (!res.ok) return fail('eWelcome', res.d.error || 'This link has expired. Please ask Maison Henius for a new one.');
+      try { history.replaceState(null, '', location.pathname); } catch (x) {}  // drop the one-time tokens from the address bar
+      afterFirstStep(res.d);
+    }).catch(function () { busy(form, false); fail('eWelcome', 'Connection problem. Please try again.'); });
+  });
+
+  $('fEnroll').addEventListener('submit', function (e) { e.preventDefault(); $('eEnroll').hidden = true; finish(this, 'eEnroll', $('code1').value); });
+  $('fVerify').addEventListener('submit', function (e) { e.preventDefault(); $('eVerify').hidden = true; finish(this, 'eVerify', $('code2').value); });
+
+  {% if mode == 'welcome' %}
+  (function () {
+    var h = new URLSearchParams(location.hash.slice(1));
+    if (h.get('error_description')) fail('eWelcome', 'This link has expired or was already used. Please ask Maison Henius for a new one.');
+  })();
+  {% endif %}
+})();
+</script>
+</body>
+</html>

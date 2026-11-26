@@ -1,4 +1,5 @@
 """Maison Henius — branded transactional emails via Resend."""
+import html
 import os
 import resend
 from dotenv import load_dotenv
@@ -169,7 +170,7 @@ _ORDER_STATUS_CONFIG = {
 }
 
 
-def send_order_status_email(to_email: str, order_id: str, customer_name: str, new_status: str, base_url: str = "https://maisonhenius.com"):
+def send_order_status_email(to_email: str, order_id: str, customer_name: str, new_status: str, base_url: str = "https://maisonhenius.com", courier: str = "", tracking: str = ""):
     """Send branded order status notification email via Resend.
     Only sends for shipped, delivered, and cancelled statuses.
     Returns the Resend response dict or None if status doesn't trigger email."""
@@ -179,6 +180,15 @@ def send_order_status_email(to_email: str, order_id: str, customer_name: str, ne
 
     greeting = f"Dear {customer_name}," if customer_name else ""
     body_html = config["body"].format(order_id=order_id)
+    # Shipped emails sent from the Fulfilment page carry the courier + tracking
+    # number the warehouse entered (escaped: it is free text).
+    if new_status == "shipped" and (courier or tracking):
+        bits = []
+        if courier:
+            bits.append(f"Courier: <strong>{html.escape(courier)}</strong>")
+        if tracking:
+            bits.append(f"Tracking number: <strong>{html.escape(tracking)}</strong>")
+        body_html += "<br><br>" + "<br>".join(bits)
     if greeting:
         body_html = f"{greeting}<br><br>{body_html}"
 
@@ -195,4 +205,61 @@ def send_order_status_email(to_email: str, order_id: str, customer_name: str, ne
         "to": [to_email],
         "subject": config["subject"],
         "html": html,
+    })
+
+
+# --- Team access (warehouse / fulfilment staff) ---
+
+def _build_staff_invite_html(link: str, name: str = "", reset: bool = False) -> str:
+    who = f"Dear {html.escape(name)},<br><br>" if name else ""
+    if reset:
+        body = (who + "A new sign-in set-up has been requested for your Maison Henius "
+                "fulfilment account. Click below to choose a password and link your "
+                "authenticator app.")
+    else:
+        body = (who + "You have been invited to the Maison Henius fulfilment portal, where "
+                "you will see the orders to prepare and dispatch. Click below to choose "
+                "your password and link an authenticator app for the 2-step sign-in code.")
+    return _base_html(
+        headline="Set Up Your Access" if reset else "You Are Invited",
+        body_content=body,
+        cta_text="Set Up My Access",
+        cta_url=link,
+        footer_note="This link works once and expires after a short time. If it has expired, ask Maison Henius to send a new one. If you were not expecting this email, you can ignore it.",
+    )
+
+
+def send_staff_invite(to_email: str, link: str, name: str = "", reset: bool = False):
+    """Branded invitation (or set-up again) for a fulfilment staff account."""
+    return resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [to_email],
+        "subject": ("Set Up Your Access" if reset else "Your Invitation") + " \u2014 Maison Henius Fulfilment",
+        "html": _build_staff_invite_html(link, name, reset),
+    })
+
+
+# --- Stock requests from the warehouse (owners approve on the Stock page) ---
+
+def send_stock_request_notice(to_emails: list, requester: str, product: str, kind_label: str,
+                              change: int, current_stock: int, note: str, link: str):
+    """Tell the owners a warehouse stock change is waiting for their approval."""
+    e = html.escape
+    body = (f"<strong>{e(requester)}</strong> recorded a stock change that needs your approval.<br><br>"
+            f"Product: <strong>{e(product)}</strong><br>"
+            f"Change: <strong>{e(kind_label)} ({change:+d})</strong><br>"
+            f"Stock now: {current_stock} &rarr; after approval: {max(0, current_stock + change)}<br>"
+            f"Note: {e(note)}<br><br>"
+            "The stock on the website does not change until you approve it.")
+    return resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": list(to_emails),
+        "subject": f"Stock approval needed: {product} ({change:+d}) — Maison Henius",
+        "html": _base_html(
+            headline="Stock Approval Needed",
+            body_content=body,
+            cta_text="Review on the Stock page",
+            cta_url=link,
+            footer_note="Sent to the Maison Henius owners because the warehouse recorded a stock change.",
+        ),
     })

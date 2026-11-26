@@ -22,13 +22,65 @@
   }
   </script>
   <script type="module" src="/static/js/application.js"></script>
+  <style>
+    /* Role-aware menu (cosmetic only; the server enforces access) */
+    html[data-staff-role="fulfilment"] .admin__nav--owner,
+    html:not([data-staff-role="fulfilment"]) .admin__nav--warehouse,
+    html[data-staff-role="fulfilment"] .admin__logo-owner,
+    html:not([data-staff-role="fulfilment"]) .admin__logo-warehouse { display: none !important; }
+  </style>
   {% block styles %}{% endblock %}
 </head>
 <body>
   <script>
+  /* Page guard + session helper. This only steers the browser: the real
+     protection is on the server, which refuses every admin data request from
+     a warehouse (fulfilment) account. */
   (function() {
+    var path = location.pathname;
+    var warehousePage = path.indexOf('/admin/fulfilment') === 0 || path === '/admin/account' || path === '/admin/stock';
+    var role = localStorage.getItem('maison_staff_role') || 'owner';
     var auth = localStorage.getItem('maison_admin_auth');
-    if (!auth) { window.location.href = '/admin/login'; return; }
+    if (!auth) { location.replace(role === 'fulfilment' || path.indexOf('/admin/fulfilment') === 0 ? '/admin/fulfilment/login' : '/admin/login'); return; }
+    if (role === 'fulfilment' && !warehousePage) { location.replace('/admin/fulfilment'); return; }
+    document.documentElement.setAttribute('data-staff-role', role);
+
+    function stored() { try { return JSON.parse(localStorage.getItem('maison_admin_auth')) || {}; } catch (e) { return {}; } }
+    function signOut() {
+      var r = localStorage.getItem('maison_staff_role');
+      localStorage.removeItem('maison_admin_auth');
+      localStorage.removeItem('maison_staff_role');
+      location.href = r === 'fulfilment' ? '/admin/fulfilment/login' : '/admin/login';
+    }
+    var refreshing = null;
+    function refresh() {
+      var rt = stored().refresh_token;
+      if (!rt) return Promise.resolve(false);
+      if (!refreshing) {
+        refreshing = fetch('/api/staff/refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt }) })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (d) {
+            refreshing = null;
+            if (!d || !d.access_token) return false;
+            var s = stored(); s.access_token = d.access_token; s.refresh_token = d.refresh_token;
+            localStorage.setItem('maison_admin_auth', JSON.stringify(s));
+            return true;
+          }).catch(function () { refreshing = null; return false; });
+      }
+      return refreshing;
+    }
+    /* fetch with the session token; renews an expired session once, else signs out */
+    function staffFetch(url, opts, retried) {
+      opts = opts || {};
+      var h = Object.assign({}, opts.headers || {}, { 'Authorization': 'Bearer ' + (stored().access_token || '') });
+      if (opts.body && !h['Content-Type']) h['Content-Type'] = 'application/json';
+      return fetch(url, Object.assign({}, opts, { headers: h })).then(function (r) {
+        if (r.status !== 401) return r;
+        if (retried) { signOut(); return r; }
+        return refresh().then(function (ok) { if (!ok) { signOut(); return r; } return staffFetch(url, opts, true); });
+      });
+    }
+    window.MH = { fetch: staffFetch, signOut: signOut, role: function () { return document.documentElement.getAttribute('data-staff-role'); } };
   })();
   </script>
   <button class="admin__hamburger" onclick="toggleSidebar()">&#9776;</button>
@@ -38,18 +90,23 @@
     <aside class="admin__sidebar">
       <div class="admin__logo">
         <img src="/static/assets/images/logo.svg" alt="Maison Henius" height="40">
-        <span>Admin</span>
+        <span class="admin__logo-owner">Admin</span>
+        <span class="admin__logo-warehouse">Fulfilment</span>
       </div>
       <nav class="admin__nav">
-        <a href="/admin" class="admin__nav-item {% block nav_dashboard %}{% endblock %}">Dashboard</a>
-        <a href="/admin/orders" class="admin__nav-item {% block nav_orders %}{% endblock %}">Orders</a>
-        <a href="/admin/products" class="admin__nav-item {% block nav_products %}{% endblock %}">Products</a>
-        <a href="/admin/content" class="admin__nav-item {% block nav_content %}{% endblock %}">Content</a>
-        <a href="/admin/journal" class="admin__nav-item {% block nav_journal %}{% endblock %}">Journal</a>
-        <a href="/admin/messages" class="admin__nav-item {% block nav_messages %}{% endblock %}">Messages</a>
+        <a href="/admin" class="admin__nav-item admin__nav--owner {% block nav_dashboard %}{% endblock %}">Dashboard</a>
+        <a href="/admin/orders" class="admin__nav-item admin__nav--owner {% block nav_orders %}{% endblock %}">Orders</a>
+        <a href="/admin/fulfilment" class="admin__nav-item {% block nav_fulfilment %}{% endblock %}"><span class="admin__logo-owner">Fulfilment</span><span class="admin__logo-warehouse">Orders to fulfil</span></a>
+        <a href="/admin/stock" class="admin__nav-item {% block nav_stock %}{% endblock %}">Stock</a>
+        <a href="/admin/products" class="admin__nav-item admin__nav--owner {% block nav_products %}{% endblock %}">Products</a>
+        <a href="/admin/content" class="admin__nav-item admin__nav--owner {% block nav_content %}{% endblock %}">Content</a>
+        <a href="/admin/journal" class="admin__nav-item admin__nav--owner {% block nav_journal %}{% endblock %}">Journal</a>
+        <a href="/admin/messages" class="admin__nav-item admin__nav--owner {% block nav_messages %}{% endblock %}">Messages</a>
+        <a href="/admin/team" class="admin__nav-item admin__nav--owner {% block nav_team %}{% endblock %}">Team access</a>
+        <a href="/admin/account" class="admin__nav-item admin__nav--warehouse {% block nav_account %}{% endblock %}">My account</a>
       </nav>
-      <a href="/" class="admin__nav-item admin__nav-back">&larr; Back to Site</a>
-      <a href="#" class="admin__nav-item admin__nav-signout" onclick="localStorage.removeItem('maison_admin_auth'); window.location.href='/admin/login'; return false;">Sign Out</a>
+      <a href="/" class="admin__nav-item admin__nav-back admin__nav--owner">&larr; Back to Site</a>
+      <a href="#" class="admin__nav-item admin__nav-signout" onclick="MH.signOut(); return false;">Sign Out</a>
     </aside>
 
     <main class="admin__main">

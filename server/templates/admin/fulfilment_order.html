@@ -1,0 +1,235 @@
+{% extends "admin/layout.html" %}
+{% block title %}Order {{ order_id }} - Fulfilment - Maison Henius{% endblock %}
+{% block nav_fulfilment %}admin__nav-item--active{% endblock %}
+{% block heading %}Order {{ order_id }}{% endblock %}
+
+{% block styles %}
+{% include "admin/_fulfilment_styles.html" %}
+<style>
+  .fo-top { display: flex; justify-content: space-between; align-items: center; gap: 0.8rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .fo-back { font-size: 0.78rem; color: #666; text-decoration: none; }
+  .fo-back:hover { color: #1a1a1a; }
+  .fo-head { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+  .fo-head b { font-size: 1rem; font-weight: 500; }
+  .fo-chips { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+  .fo-steps { display: flex; list-style: none; padding: 0; margin: 1rem 0 0.2rem; }
+  .fo-steps li { flex: 1; text-align: center; font-size: 0.58rem; letter-spacing: 0.04em; text-transform: uppercase; color: #999; position: relative; padding-top: 1.15rem; }
+  .fo-steps li::before { content: ""; position: absolute; top: 0.3rem; left: 50%; width: 0.62rem; height: 0.62rem; margin-left: -0.31rem; border-radius: 50%; background: #ddd6c8; z-index: 1; }
+  .fo-steps li::after { content: ""; position: absolute; top: 0.56rem; left: -50%; width: 100%; height: 2px; background: #ddd6c8; }
+  .fo-steps li:first-child::after { display: none; }
+  .fo-steps li.done::before, .fo-steps li.done::after { background: #b8a44e; }
+  .fo-steps li.cur { color: #1a1a1a; font-weight: 600; }
+  .fo-steps li.cur::before { box-shadow: 0 0 0 3px #f1e9bf; }
+  .fo-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 1rem; align-items: start; margin-top: 1rem; }
+  .fo-col { display: grid; gap: 1rem; min-width: 0; }
+  @media (max-width: 1050px) { .fo-grid { grid-template-columns: 1fr; } }
+  .fo-kv { display: grid; grid-template-columns: 9.5rem 1fr; gap: 0.4rem 0.9rem; font-size: 0.82rem; margin: 0; }
+  .fo-kv dt { color: #888; font-size: 0.74rem; }
+  .fo-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+  @media (max-width: 480px) { .fo-kv { grid-template-columns: 1fr; } .fo-kv dd { margin-bottom: 0.4rem; } .fo-steps li { font-size: 0; } .fo-steps li.cur { font-size: 0.6rem; } }
+  .fo-money { width: 100%; font-size: 0.82rem; font-variant-numeric: tabular-nums; border-collapse: collapse; }
+  .fo-money td { padding: 0.35rem 0; }
+  .fo-money td:last-child { text-align: right; }
+  .fo-money tr.tot td { border-top: 1px solid #eee; padding-top: 0.6rem; font-weight: 600; }
+  .fo-issue { border: 1px solid #ecc5bd; background: #f8e3df; border-radius: 6px; padding: 0.75rem 0.9rem; font-size: 0.8rem; margin-bottom: 0.9rem; }
+  .fo-hist { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.75rem; }
+  .fo-hist li { display: grid; grid-template-columns: 7.8rem 1fr; gap: 0.8rem; font-size: 0.78rem; }
+  .fo-hist time { color: #999; font-size: 0.7rem; font-variant-numeric: tabular-nums; }
+  .fo-hist b { font-weight: 500; }
+  @media (max-width: 480px) { .fo-hist li { grid-template-columns: 1fr; gap: 0.1rem; } }
+  .fo-instr { background: #faf6e4; border-left: 3px solid #b8a44e; padding: 0.5rem 0.7rem; border-radius: 0 4px 4px 0; }
+  .fo-col .ff-table td:first-child { min-width: 10rem; }
+  .fo-hidden-note { font-size: 0.78rem; color: #777; background: #faf8f2; border-radius: 6px; padding: 0.7rem 0.9rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="fo-top">
+  <a class="fo-back" href="/admin/fulfilment">&larr; All orders</a>
+  <a class="fo-back admin__logo-owner" id="foOrdersLink" href="/admin/orders">Cancel or refund from the Orders page &rarr;</a>
+</div>
+<div id="foRoot" data-order-id="{{ order_id }}"><div class="ff-card ff-muted">Loading order…</div></div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (window._ffOrderBound) return;
+  window._ffOrderBound = true;
+  var FLOW = ['new', 'received', 'preparing', 'packed', 'dispatched', 'delivered'];
+  var LABELS = { new: 'New', received: 'Received', preparing: 'Preparing', packed: 'Ready for dispatch', dispatched: 'Dispatched', delivered: 'Delivered' };
+  var TONE = { new: 'info', received: 'info', preparing: 'warn', packed: 'warn', dispatched: 'ok', delivered: 'ok' };
+  var NEXT = { new: 'Confirm receipt', received: 'Start preparing', preparing: 'Mark packed · ready for dispatch', packed: 'Mark dispatched', dispatched: 'Mark delivered' };
+  var COUNTRY = { JO: 'Jordan', AE: 'United Arab Emirates', SA: 'Saudi Arabia', KW: 'Kuwait', BH: 'Bahrain', OM: 'Oman', QA: 'Qatar', LB: 'Lebanon', EG: 'Egypt', US: 'United States', GB: 'United Kingdom', FR: 'France', DE: 'Germany' };
+
+  document.addEventListener('turbo:load', function () {
+    var root = document.getElementById('foRoot');
+    if (!root) return;
+    var id = root.getAttribute('data-order-id');
+    var state = null, busy = false;
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+    function usd(n) { return n == null ? '–' : 'USD ' + Number(n).toFixed(2); }
+    function country(c) { return COUNTRY[c] || c || ''; }
+    function when(iso) { if (!iso) return ''; var d = new Date(iso); return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toTimeString().slice(0, 5); }
+    function toast(m) { var t = document.createElement('div'); t.className = 'ff-toast'; t.textContent = m; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600); }
+    function val(sel) { var e = root.querySelector(sel); return e ? e.value : ''; }
+
+    function load() {
+      MH.fetch('/api/fulfilment/orders/' + encodeURIComponent(id)).then(function (r) {
+        if (r.status === 404) { root.innerHTML = '<div class="ff-card ff-muted">This order was not found, or is not ready for the warehouse.</div>'; return null; }
+        if (!r.ok) throw new Error();
+        return r.json();
+      }).then(function (d) { if (d) { state = d; render(); } })
+        .catch(function () { root.innerHTML = '<div class="ff-card ff-muted">Could not load the order. Please refresh the page.</div>'; });
+    }
+
+    function send(payload, okMsg, errEl) {
+      if (busy) return;
+      busy = true;
+      root.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+      MH.fetch('/api/fulfilment/orders/' + encodeURIComponent(id), { method: 'PATCH', body: JSON.stringify(payload) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          busy = false;
+          if (!res.ok) {
+            enable();  /* keep what was typed in the form */
+            var e = root.querySelector(errEl || '#foErr');
+            if (e) { e.hidden = false; e.textContent = res.d.error || 'That did not work. Please try again.'; e.scrollIntoView({ block: 'nearest' }); }
+            return;
+          }
+          state = res.d; render(); toast(okMsg);
+        }).catch(function () { busy = false; enable(); toast('Connection problem. Please try again.'); });
+    }
+    function enable() {
+      root.querySelectorAll('button').forEach(function (b) { b.disabled = false; });
+      root.querySelectorAll('.ff-error').forEach(function (e) { e.hidden = true; });
+    }
+
+    function shipmentFromForm() {
+      return {
+        courier: val('#fCourier'), shipping_method: val('#fMethod'), tracking_number: val('#fTracking'),
+        shipment_ref: val('#fRef'), dispatch_date: val('#fDispatch'), expected_delivery: val('#fEta'),
+        actual_shipping_cost: val('#fActShip'), actual_additional_cost: val('#fActAdd')
+      };
+    }
+
+    function render() {
+      var o = state.order, own = state.role !== 'fulfilment', idx = FLOW.indexOf(o.fulfilment_status), s = o.shipment, c = o.charges;
+      var h = '';
+      h += '<div class="ff-card"><div class="fo-head"><div><b>' + esc(o.id) + '</b> <span class="ff-muted">· ordered ' + esc(when(o.created_at)) + '</span></div>' +
+        '<div class="fo-chips"><span class="ff-chip ff-chip--' + TONE[o.fulfilment_status] + '">' + LABELS[o.fulfilment_status] + '</span>' +
+        '<span class="ff-chip ' + (o.payment_status === 'Paid' ? 'ff-chip--ok' : 'ff-chip--bad') + '">' + esc(o.payment_status) + (o.payment_status === 'Paid' ? ' · Stripe' : '') + '</span>' +
+        (o.issue ? '<span class="ff-chip ff-chip--bad">Issue open</span>' : '') + '</div></div>' +
+        '<ol class="fo-steps">' + FLOW.map(function (f, i) { return '<li class="' + (i < idx ? 'done' : i === idx ? 'cur done' : '') + '">' + LABELS[f] + '</li>'; }).join('') + '</ol></div>';
+
+      h += '<div class="fo-grid"><div class="fo-col">';
+      // Items
+      h += '<div class="ff-card ff-scroll"><h3 class="ff-h3">Order <small>Brand: Maison Henius</small></h3><table class="ff-table"><thead><tr><th>Product</th><th>SKU</th><th class="ff-num">Qty</th>' + (own ? '<th class="ff-num">Unit price</th><th class="ff-num">Value</th>' : '') + '</tr></thead><tbody>' +
+        o.items.map(function (i) { return '<tr><td>' + esc(i.name) + '<span class="ff-sub">' + esc([i.variant, i.family].filter(Boolean).join(' · ')) + '</span></td><td class="ff-nowrap">' + esc(i.sku) + '</td><td class="ff-num">' + i.quantity + '</td>' + (own ? '<td class="ff-num">' + usd(i.unit_price) + '</td><td class="ff-num">' + usd(i.line_total) + '</td>' : '') + '</tr>'; }).join('') +
+        '</tbody></table><p class="ff-muted" style="margin:0.7rem 0 0">' + (own ? 'Discounts: ' + (c.discount ? usd(c.discount) : 'none') + ' · ' : '') + 'Payment: ' + esc(o.payment_status) + ' by card through Stripe (card details are never stored on this website)</p></div>';
+      // Buyer
+      h += '<div class="ff-card"><h3 class="ff-h3">Buyer &amp; delivery address</h3>';
+      if (o.customer) {
+        var a = o.customer.address;
+        h += '<dl class="fo-kv"><dt>Full name</dt><dd>' + esc(o.customer.name) + '</dd><dt>Email</dt><dd>' + esc(o.customer.email) + '</dd><dt>Telephone</dt><dd>' + (esc(o.customer.phone) || '<span class="ff-muted">–</span>') + '</dd>' +
+          '<dt>Address</dt><dd>' + esc(a.line1) + '</dd><dt>Apartment / unit</dt><dd>' + (esc(a.line2) || '<span class="ff-muted">–</span>') + '</dd>' +
+          '<dt>City</dt><dd>' + esc(a.city) + '</dd><dt>State / province</dt><dd>' + (esc(a.state) || '<span class="ff-muted">–</span>') + '</dd>' +
+          '<dt>Postal code</dt><dd>' + (esc(a.postal_code) || '<span class="ff-muted">–</span>') + '</dd><dt>Country</dt><dd>' + esc(country(a.country)) + '</dd>' +
+          '<dt>Instructions</dt><dd>' + (o.customer.instructions ? '<div class="fo-instr">' + esc(o.customer.instructions) + '</div>' : '<span class="ff-muted">None</span>') + '</dd></dl>';
+      } else {
+        h += '<p class="fo-hidden-note">Delivered more than 60 days ago: the customer\'s contact details and street address are no longer shown. Destination: ' + esc(o.destination.city) + ', ' + esc(country(o.destination.country)) + '.</p>';
+      }
+      h += '</div>';
+      // Charges (owners) / declared value only (warehouse)
+      if (!own) {
+        h += '<div class="ff-card"><h3 class="ff-h3">Declared value <small>for customs and insurance</small></h3><table class="fo-money"><tbody>' +
+          '<tr class="tot"><td>Product value of this parcel</td><td>' + usd(c.declared_value) + '</td></tr></tbody></table></div>';
+      } else
+      h += '<div class="ff-card"><h3 class="ff-h3">Charged to the customer <small>&#128274; set at payment · read-only</small></h3><table class="fo-money"><tbody>' +
+        '<tr><td>Products</td><td>' + usd(c.subtotal) + '</td></tr><tr><td>Shipping fee</td><td>' + usd(c.shipping) + '</td></tr>' +
+        '<tr><td>Door-to-door delivery</td><td>' + usd(c.door_to_door) + '</td></tr><tr><td>Additional charges</td><td>' + usd(c.additional) + '</td></tr>' +
+        '<tr><td>Taxes</td><td>' + usd(c.tax) + '</td></tr><tr><td>Discounts</td><td>−' + usd(c.discount) + '</td></tr>' +
+        '<tr class="tot"><td>Total paid</td><td>' + usd(c.total) + '</td></tr></tbody></table></div>';
+      if (own && o.costs) {
+        var d = o.costs.difference;
+        h += '<div class="ff-card"><h3 class="ff-h3">Delivery cost comparison <small>owners only</small></h3><div class="ff-cmp">' +
+          '<div><b>' + usd(o.costs.charged) + '</b><span>Charged</span></div><div><b>' + usd(o.costs.actual) + '</b><span>Actual (warehouse)</span></div>' +
+          '<div class="' + (d == null ? '' : d >= 0 ? 'ff-pos' : 'ff-neg') + '"><b>' + (d == null ? '–' : (d >= 0 ? '+' : '−') + usd(Math.abs(d))) + '</b><span>Difference</span></div></div></div>';
+      }
+      h += '</div><div class="fo-col">';
+      // Actions
+      h += '<div class="ff-card"><h3 class="ff-h3">Fulfilment</h3>';
+      if (o.issue) {
+        h += '<div class="fo-issue"><b>Issue: ' + esc(o.issue.type) + '</b><br>' + esc(o.issue.note) + '<br><span class="ff-muted">' + esc(o.issue.raised_by) + ' · ' + esc(when(o.issue.raised_at)) + '</span>' +
+          '<div class="ff-field" style="margin-top:0.6rem"><label for="fResolveNote">Resolution note (optional)</label><input id="fResolveNote" maxlength="1000"></div>' +
+          '<div class="ff-actions"><button type="button" class="ff-btn ff-btn--ghost ff-btn--sm" id="fResolve">Mark issue resolved</button></div></div>';
+      }
+      if (NEXT[o.fulfilment_status]) h += '<button type="button" class="ff-btn ff-btn--block" id="fAdvance">' + NEXT[o.fulfilment_status] + '</button>';
+      else h += '<p class="ff-muted" style="margin:0">Delivered. Fulfilment complete.</p>';
+      h += '<div class="ff-error" id="foErr" hidden></div>';
+      if (own && idx > 0) {
+        h += '<div class="ff-field" style="margin-top:0.8rem"><label for="fBack">Owner: move back to</label><div style="display:flex;gap:0.5rem"><select id="fBack">' +
+          FLOW.slice(0, idx).map(function (f) { return '<option value="' + f + '">' + LABELS[f] + '</option>'; }).join('') + '</select><button type="button" class="ff-btn ff-btn--ghost ff-btn--sm" id="fBackBtn">Move</button></div></div>';
+      }
+      h += '<div class="ff-actions">' + (o.issue ? '' : '<button type="button" class="ff-btn ff-btn--ghost ff-btn--sm" id="fFlagToggle">Flag an issue</button>') + '</div>';
+      h += '<div id="fFlag" hidden style="margin-top:0.8rem"><div class="ff-form"><div class="ff-field ff-wide"><label for="fIssueType">Issue</label><select id="fIssueType">' +
+        state.issue_types.map(function (t) { return '<option>' + esc(t) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="ff-field ff-wide"><label for="fIssueNote">Details</label><textarea id="fIssueNote" rows="3" maxlength="1000" placeholder="What happened, and what you need from Maison Henius"></textarea></div></div>' +
+        '<div class="ff-error" id="fFlagErr" hidden></div><div class="ff-actions"><button type="button" class="ff-btn ff-btn--sm" id="fFlagSave">Raise issue</button></div></div>';
+      h += '</div>';
+      // Shipment
+      var locked = !own && idx >= FLOW.indexOf('dispatched');
+      h += '<div class="ff-card"><h3 class="ff-h3">Shipment details <small>' + (locked ? '&#128274; locked after dispatch' : 'entered by the warehouse') + '</small></h3><div class="ff-form' + (locked ? ' fo-locked' : '') + '">' +
+        fld('fCourier', 'Courier / shipping company', s.courier, 'e.g. Aramex, DHL') + fld('fMethod', 'Shipping method', s.shipping_method, 'e.g. Express') +
+        fld('fTracking', 'Tracking number', s.tracking_number) + fld('fRef', 'Shipment reference', s.shipment_ref) +
+        fld('fDispatch', 'Dispatch date', s.dispatch_date, '', 'date') + fld('fEta', 'Expected delivery', s.expected_delivery, 'e.g. 2–3 working days') +
+        fld('fActShip', 'Actual shipping cost (USD)', s.actual_shipping_cost, '0.00', 'number') + fld('fActAdd', 'Additional delivery costs (USD)', s.actual_additional_cost, '0.00', 'number') +
+        '</div><p class="ff-muted" style="margin:0.6rem 0 0">Additional costs: handling, remote-area, insurance or special packaging charged to Maison Henius.</p>' +
+        '<div class="ff-error" id="fShipErr" hidden></div>' +
+        (locked ? '<p class="ff-muted" style="margin:0.6rem 0 0">Need a correction? Add a comment below and Maison Henius will update it.</p>'
+                : '<div class="ff-actions"><button type="button" class="ff-btn ff-btn--ghost ff-btn--sm" id="fShipSave">Save shipment details</button></div>') + '</div>';
+      // Comment + history
+      h += '<div class="ff-card"><h3 class="ff-h3">History <small>permanent record</small></h3>' +
+        '<div class="ff-field"><label for="fComment">Add a comment</label><textarea id="fComment" rows="2" maxlength="1000"></textarea></div>' +
+        '<div class="ff-error" id="fCommentErr" hidden></div><div class="ff-actions" style="margin-bottom:1rem"><button type="button" class="ff-btn ff-btn--ghost ff-btn--sm" id="fCommentSave">Add comment</button></div>' +
+        '<ul class="fo-hist">' + (state.history.length ? state.history.slice().reverse().map(function (e) {
+          return '<li><time>' + esc(when(e.at)) + '</time><span><b>' + esc(e.who) + '</b> · ' + esc(e.summary || e.action) + '</span></li>';
+        }).join('') : '<li class="ff-muted">No history yet.</li>') + '</ul></div>';
+      h += '</div></div>';
+      root.innerHTML = h;
+      bind();
+    }
+
+    function fld(idAttr, label, v, ph, type) {
+      return '<div class="ff-field"><label for="' + idAttr + '">' + label + '</label><input id="' + idAttr + '" type="' + (type || 'text') + '"' +
+        (type === 'number' ? ' step="0.01" min="0" inputmode="decimal"' : ' maxlength="120"') + ' value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph || '') + '"></div>';
+    }
+
+    function bind() {
+      var o = state.order;
+      var adv = root.querySelector('#fAdvance');
+      if (adv) adv.addEventListener('click', function () {
+        var to = FLOW[FLOW.indexOf(o.fulfilment_status) + 1], payload = { action: 'status', to: to };
+        if (to === 'dispatched') payload.shipment = shipmentFromForm();
+        send(payload, 'Saved: ' + LABELS[to] + (to === 'dispatched' ? ' · customer emailed' : ''));
+      });
+      var back = root.querySelector('#fBackBtn');
+      if (back) back.addEventListener('click', function () { send({ action: 'status', to: val('#fBack') }, 'Moved back'); });
+      var ft = root.querySelector('#fFlagToggle');
+      if (ft) ft.addEventListener('click', function () { var f = root.querySelector('#fFlag'); f.hidden = !f.hidden; if (!f.hidden) root.querySelector('#fIssueNote').focus(); });
+      var fs = root.querySelector('#fFlagSave');
+      if (fs) fs.addEventListener('click', function () { send({ action: 'raise_issue', type: val('#fIssueType'), note: val('#fIssueNote') }, 'Issue raised', '#fFlagErr'); });
+      var rs = root.querySelector('#fResolve');
+      if (rs) rs.addEventListener('click', function () { send({ action: 'resolve_issue', note: val('#fResolveNote') }, 'Issue resolved'); });
+      root.querySelectorAll('.fo-locked input').forEach(function (i) { i.disabled = true; });
+      var shipSave = root.querySelector('#fShipSave');
+      if (shipSave) shipSave.addEventListener('click', function () { send({ action: 'shipment', shipment: shipmentFromForm() }, 'Shipment details saved', '#fShipErr'); });
+      root.querySelector('#fCommentSave').addEventListener('click', function () { send({ action: 'comment', text: val('#fComment') }, 'Comment added', '#fCommentErr'); });
+    }
+
+    load();
+  });
+})();
+</script>
+{% endblock %}

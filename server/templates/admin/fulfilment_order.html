@@ -157,6 +157,23 @@
           '<div><b>' + usd(o.costs.charged) + '</b><span>Charged</span></div><div><b>' + usd(o.costs.actual) + '</b><span>Actual (warehouse)</span></div>' +
           '<div class="' + (d == null ? '' : d >= 0 ? 'ff-pos' : 'ff-neg') + '"><b>' + (d == null ? '–' : (d >= 0 ? '+' : '−') + usd(Math.abs(d))) + '</b><span>Difference</span></div></div></div>';
       }
+      if (own && state.notifications) {
+        var wh = state.notifications.filter(function (n) { return n.kind === 'warehouse_new_order'; });
+        var lastSent = wh.filter(function (n) { return n.status === 'sent'; })[0];
+        var anyFail = wh.length && wh[0].status === 'failed';
+        var LBL = { warehouse_new_order: 'Warehouse new-order email', owner_issue: 'Issue alert to owners' };
+        h += '<div class="ff-card"><h3 class="ff-h3">Emails <small>owners only</small></h3>' +
+          '<p style="margin:0 0 0.7rem;font-size:0.82rem">' + (lastSent ? '<span class="ff-chip ff-chip--ok">Warehouse emailed</span> ' + esc(when(lastSent.created_at)) :
+            anyFail ? '<span class="ff-chip ff-chip--bad">Warehouse email failed</span> Press Resend.' :
+            (wh.length && wh[0].status === 'skipped') ? '<span class="ff-chip ff-chip--warn">Not sent</span> No recipients on Team access.' :
+            '<span class="ff-chip ff-chip--muted">No warehouse email yet</span>') + '</p>' +
+          (state.notifications.length ? '<ul class="fo-hist" style="margin-bottom:0.8rem">' + state.notifications.slice(0, 8).map(function (n) {
+            return '<li><time>' + esc(when(n.created_at)) + '</time><span><b>' + esc(LBL[n.kind] || n.kind) + '</b> · ' + esc(n.status) +
+              (n.recipient ? ' · ' + esc(n.recipient) : '') + (n.error ? ' · ' + esc(n.error) : '') + (n.triggered_by !== 'system' ? ' · resent' : '') + '</span></li>';
+          }).join('') + '</ul>' : '') +
+          (o.payment_status === 'Paid' ? '<button type="button" class="ff-btn ff-btn--ghost ff-btn--sm" id="fResendWh">' + (lastSent ? 'Resend warehouse email' : 'Send warehouse email') + '</button><div class="ff-error" id="fResendErr" hidden></div>' : '') +
+          '</div>';
+      }
       h += '</div><div class="fo-col">';
       // Actions
       h += '<div class="ff-card"><h3 class="ff-h3">Fulfilment</h3>';
@@ -208,6 +225,17 @@
 
     function bind() {
       var o = state.order;
+      var rw = root.querySelector('#fResendWh');
+      if (rw) rw.addEventListener('click', function () {
+        rw.disabled = true;
+        MH.fetch('/api/admin/orders/' + encodeURIComponent(id) + '/notify-warehouse', { method: 'POST', body: '{}' })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { rw.disabled = false; var e = root.querySelector('#fResendErr'); e.hidden = false; e.textContent = res.d.error || 'Could not send.'; return; }
+            toast('Warehouse email: sent to ' + res.d.sent + (res.d.failed ? ', ' + res.d.failed + ' failed' : ''));
+            load();
+          }).catch(function () { rw.disabled = false; });
+      });
       var adv = root.querySelector('#fAdvance');
       if (adv) adv.addEventListener('click', function () {
         var to = FLOW[FLOW.indexOf(o.fulfilment_status) + 1], payload = { action: 'status', to: to };

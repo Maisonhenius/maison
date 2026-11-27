@@ -42,6 +42,16 @@
     <p class="ff-muted" style="margin:0.8rem 0 0">They receive a Maison Henius email, choose their own password and link an authenticator app (Google Authenticator, Microsoft Authenticator or similar) for the 6-digit sign-in code. One account per person: please do not share accounts.</p>
   </div>
   <div class="ff-card">
+    <h3 class="ff-h3">New-order email recipients <small>emailed automatically when an order is paid</small></h3>
+    <table class="ff-table"><tbody id="tmRec"><tr><td class="ff-muted">Loading…</td></tr></tbody></table>
+    <form id="tmRecForm" class="ff-form" novalidate style="margin-top:0.9rem">
+      <div class="ff-field"><label for="tmRecEmail">Email</label><input id="tmRecEmail" type="email" maxlength="200" placeholder="orders@warehouse.com"></div>
+      <div class="ff-field"><label for="tmRecLabel">Label (optional)</label><input id="tmRecLabel" maxlength="120" placeholder="e.g. Orders desk"></div>
+      <div class="ff-wide"><button class="ff-btn ff-btn--sm" type="submit">Add recipient</button><div class="ff-error" id="tmRecErr" hidden></div></div>
+    </form>
+    <p class="ff-muted" style="margin:0.8rem 0 0">The email shows the order, products, codes, quantities, the customer's name, city and country, and the declared value. Phone, email and street address stay in the portal. Every email is logged on the order page, where you can also resend it.</p>
+  </div>
+  <div class="ff-card">
     <h3 class="ff-h3">Recent activity <small>sign-ins, order views, refused pages, team changes</small></h3>
     <div class="tm-log ff-scroll">
       <table class="ff-table"><tbody id="tmLog"><tr><td class="ff-muted">Loading…</td></tr></tbody></table>
@@ -66,7 +76,9 @@
     sign_in: 'Signed in', sign_in_failed: 'Sign-in refused', view_order: 'Viewed order', denied: 'Refused (not allowed)',
     password_set: 'Chose a password', password_changed: 'Changed password', account_activated: 'Finished set-up',
     team_invite: 'Invited', team_suspend: 'Suspended', team_revoke: 'Revoked', team_reactivate: 'Reactivated',
-    team_resend: 'Re-sent invitation to', team_reset: 'Sent new set-up link to'
+    team_resend: 'Re-sent invitation to', team_reset: 'Sent new set-up link to',
+    recipient_added: 'Added order-email recipient', recipient_removed: 'Removed order-email recipient',
+    recipient_on: 'Turned on order emails for', recipient_off: 'Paused order emails for'
   };
   var CONFIRM = {
     revoke: 'Revoke access? They are signed out at once and cannot sign in again unless you restore access.',
@@ -115,6 +127,7 @@
         td.appendChild(box); tr.appendChild(td);
         body.appendChild(tr);
       });
+      renderRecipients(d.recipients || []);
       log.innerHTML = '';
       if (!d.activity.length) log.innerHTML = '<tr><td class="ff-muted">No activity yet.</td></tr>';
       d.activity.forEach(function (a) {
@@ -125,6 +138,39 @@
         log.appendChild(tr);
       });
     }
+
+    function renderRecipients(list) {
+      var body = document.getElementById('tmRec');
+      body.innerHTML = '';
+      if (!list.length) { body.innerHTML = '<tr><td class="ff-muted">No recipients yet: new-order emails are not being sent. Add the warehouse address below.</td></tr>'; return; }
+      list.forEach(function (r) {
+        var tr = el('tr');
+        var td = el('td'); td.appendChild(el('div', null, r.email)); if (r.label) td.appendChild(el('span', 'ff-sub', r.label)); tr.appendChild(td);
+        td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--' + (r.active ? 'ok' : 'muted'), r.active ? 'Receiving' : 'Paused')); tr.appendChild(td);
+        td = el('td', 'ff-num');
+        var tog = el('button', 'ff-btn ff-btn--ghost ff-btn--sm', r.active ? 'Pause' : 'Resume'); tog.type = 'button';
+        var rm = el('button', 'ff-btn ff-btn--danger ff-btn--sm', 'Remove'); rm.type = 'button'; rm.style.marginLeft = '0.4rem';
+        tog.addEventListener('click', function () { tog.disabled = true; MH.fetch('/api/admin/team/recipients/' + r.id, { method: 'PATCH', body: JSON.stringify({ active: !r.active }) }).then(load); });
+        rm.addEventListener('click', function () {
+          if (rm.dataset.sure !== '1') { rm.dataset.sure = '1'; rm.textContent = 'Click again'; return; }
+          rm.disabled = true; MH.fetch('/api/admin/team/recipients/' + r.id, { method: 'DELETE' }).then(load);
+        });
+        td.appendChild(tog); td.appendChild(rm); tr.appendChild(td);
+        body.appendChild(tr);
+      });
+    }
+
+    document.getElementById('tmRecForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var err = document.getElementById('tmRecErr'); err.hidden = true;
+      MH.fetch('/api/admin/team/recipients', { method: 'POST', body: JSON.stringify({
+        email: document.getElementById('tmRecEmail').value.trim(), label: document.getElementById('tmRecLabel').value.trim() }) })
+        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+        .then(function (res) {
+          if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Could not add.'; return; }
+          document.getElementById('tmRecForm').reset(); load();
+        });
+    });
 
     function act(p, action, btn, label) {
       err.hidden = true;

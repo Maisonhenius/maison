@@ -873,6 +873,7 @@ async def _confirm_order(order: dict, source: str) -> dict:
     print(f"[{source}] Order {order_id} pending → confirmed")
     await _order_event(order_id, None, "payment", "pending", "confirmed",
                        {"summary": "Payment confirmed. The order is ready for the warehouse."})
+    _in_background(_notify_warehouse_safely(order_id))
     return order
 
 
@@ -994,6 +995,7 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
     print(f"[{source}] Order {order_id} created from session metadata (fallback path)")
     await _order_event(order_id, None, "payment", None, "confirmed",
                        {"summary": "Payment confirmed. The order is ready for the warehouse."})
+    _in_background(_notify_warehouse_safely(order_id))
     return order_data
 
 
@@ -1914,8 +1916,11 @@ async def _order_detail(order_id: str, staff: Staff) -> Optional[dict]:
         supabase.table("order_events").select("created_at,actor_name,actor_email,actor_role,action,details")
         .eq("order_id", order_id).order("created_at", desc=False).limit(300)
     )
-    return {"order": _order_view(o, staff), "history": [_event_view(e) for e in (ev.data or [])],
-            "role": staff.role, "issue_types": ISSUE_TYPES}
+    out = {"order": _order_view(o, staff), "history": [_event_view(e) for e in (ev.data or [])],
+           "role": staff.role, "issue_types": ISSUE_TYPES}
+    if staff.role in ("owner", "admin"):
+        out["notifications"] = await _notification_history(order_id)
+    return out
 
 
 def _clean_shipment(body: dict, current: dict):
@@ -2331,6 +2336,8 @@ async def fulfilment_update(order_id: str, request: Request):
             "issue_type": itype, "issue_note": note, "issue_raised_by": staff.label,
             "issue_raised_at": _now_iso(), "fulfilment_updated_at": _now_iso()}).eq("id", order_id))
         await _order_event(order_id, staff, "issue", None, itype, {"note": note, "summary": f"Issue raised: {itype}. {note}"})
+        if staff.role == "fulfilment":
+            _in_background(_notify_owners_issue(order_id, itype, note, staff.label))
 
     elif action == "resolve_issue":
         if not o.get("issue_type"):
@@ -2398,8 +2405,14 @@ async def admin_team(request: Request):
         _db(supabase.table("staff_accounts").select("*").order("invited_at", desc=True)),
         _db(supabase.table("staff_activity").select("*").order("created_at", desc=True).limit(100)),
     )
+    try:
+        rec = await _db(supabase.table("notification_recipients").select("*").order("created_at"))
+        recipients = [{k: r.get(k) for k in ("id", "email", "label", "active")} for r in (rec.data or [])]
+    except Exception:
+        recipients = []
     return JSONResponse({
         "owners": list(ALLOWED_EMAILS),
+        "recipients": recipients,
         "staff": [_staff_view(r) for r in (staff_rows.data or [])],
         "activity": [{k: a.get(k) for k in ("created_at", "staff_email", "role", "action", "detail")}
                      for a in (activity.data or [])],
@@ -2681,6 +2694,201 @@ async def stock_decision(move_id: str, request: Request):
             return JSONResponse({"error": "This request was already decided. Please refresh."}, status_code=409)
         await reload_products_cache()
     await _log_staff(owner, f"stock_request_{decision}d", f"{row.get('product_name')} {int(row['quantity']):+d}", request)
+    return JSONResponse({"success": True})
+
+
+# ── Step 2: automatic emails (migration 015) ──
+# 1. New paid order → email every active recipient on Team access (once per order;
+#    the webhook and the thank-you page may both confirm the same payment).
+# 2. Warehouse flags an issue → email the owners.
+# Every attempt is logged in notification_log; owners can resend from the order page.
+# Email detail follows the owner's choice: order, products, SKU, quantities, city,
+# country, declared value. Phone, email and street address stay in the portal.
+
+_COUNTRY_NAMES = {
+    "JO": "Jordan", "AE": "United Arab Emirates", "SA": "Saudi Arabia", "KW": "Kuwait", "BH": "Bahrain",
+    "OM": "Oman", "QA": "Qatar", "LB": "Lebanon", "EG": "Egypt", "US": "United States",
+    "GB": "United Kingdom", "FR": "France", "DE": "Germany",
+}
+_BACKGROUND_TASKS: set = set()  # keep references so background email tasks aren't garbage-collected
+
+
+def _in_background(coro) -> None:
+    task = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+
+
+class _WarehouseViewer:
+    """Builds the email from exactly what the warehouse may see (_order_view rules)."""
+    role = "fulfilment"
+
+
+async def _warehouse_recipients() -> list:
+    try:
+        res = await _db(supabase.table("notification_recipients").select("email").eq("active", True))
+        return [r["email"] for r in (res.data or []) if r.get("email")]
+    except Exception as e:
+        print(f"[notify] recipients lookup failed: {e}")
+        return []
+
+
+async def _log_notification(order_id, kind: str, recipient: str, status: str, error: str = "",
+                            provider_id: str = "", triggered_by: str = "system") -> None:
+    try:
+        await _db(supabase.table("notification_log").insert({
+            "order_id": order_id, "kind": kind, "recipient": recipient[:300], "status": status,
+            "error": (error or "")[:500], "provider_id": provider_id or "", "triggered_by": triggered_by,
+        }))
+    except Exception as e:
+        print(f"[notify] log write failed ({kind}, {order_id}): {e}")
+
+
+async def _send_with_retry(fn, *args):
+    """Send once, retry once after 2 s. Returns (ok, provider_id, error)."""
+    err = ""
+    for attempt in (1, 2):
+        try:
+            r = await _to_thread(fn, *args)
+            pid = r.get("id") if isinstance(r, dict) else getattr(r, "id", "")
+            return True, str(pid or ""), ""
+        except Exception as e:
+            err = str(e)[:300]
+            if attempt == 1:
+                await asyncio.sleep(2)
+    return False, "", err
+
+
+def _warehouse_email_data(o: dict) -> dict:
+    v = _order_view(o, _WarehouseViewer())
+    cc = v["destination"]["country"]
+    return {
+        "order_id": v["id"],
+        "paid_on": o.get("created_at") or "",
+        "items": [{"name": i["name"], "sku": i["sku"], "variant": i["variant"], "quantity": i["quantity"]} for i in v["items"]],
+        "customer_name": (v["customer"] or {}).get("name", ""),
+        "city": v["destination"]["city"],
+        "country": _COUNTRY_NAMES.get(cc, cc),
+        "declared_value": v["charges"]["declared_value"],
+        "has_instructions": bool((v["customer"] or {}).get("instructions")),
+    }
+
+
+async def notify_warehouse_new_order(order_id: str, manual_by: Optional[str] = None) -> dict:
+    """Email the warehouse about a paid order.
+
+    Automatic (manual_by=None): at most once per order, claimed atomically through
+    orders.warehouse_notified_at. Manual (owner pressed Resend): always sends.
+    """
+    kind = "warehouse_new_order"
+    trigger = manual_by or "system"
+    recipients = await _warehouse_recipients()
+    if not recipients:
+        await _log_notification(order_id, kind, "", "skipped", "No recipients set on Team access", triggered_by=trigger)
+        return {"sent": 0, "failed": 0, "skipped": "no_recipients"}
+    o = await _load_order(order_id)
+    if not o or o.get("status") not in FULFILMENT_ORDER_STATUSES:
+        return {"sent": 0, "failed": 0, "skipped": "not_paid"}
+    if not manual_by:
+        claim = await _db(supabase.table("orders").update({"warehouse_notified_at": _now_iso()})
+                          .eq("id", order_id).is_("warehouse_notified_at", "null"))
+        if not claim.data:
+            return {"sent": 0, "failed": 0, "skipped": "already_sent"}
+    data = _warehouse_email_data(o)
+    link = f"{SITE_URL}/admin/fulfilment/orders/{quote(order_id)}"
+    sent = failed = 0
+    for r in recipients:
+        ok, pid, err = await _send_with_retry(email_service.send_warehouse_new_order, r, data, link)
+        await _log_notification(order_id, kind, r, "sent" if ok else "failed", err, pid, trigger)
+        sent, failed = sent + ok, failed + (not ok)
+    summary = f"Warehouse email (new order) sent to {sent} of {len(recipients)} recipient(s)"
+    if failed:
+        summary += f", {failed} failed"
+    if manual_by:
+        summary += " · resent by the owner"
+    await _order_event(order_id, None, "email", None, "warehouse", {"summary": summary})
+    return {"sent": sent, "failed": failed}
+
+
+async def _notify_warehouse_safely(order_id: str) -> None:
+    try:
+        await notify_warehouse_new_order(order_id)
+    except Exception as e:
+        print(f"[notify] warehouse email for {order_id} failed: {e}")
+
+
+async def _notify_owners_issue(order_id: str, issue_type: str, note: str, by: str) -> None:
+    to = list(ALLOWED_EMAILS)
+    ok, pid, err = await _send_with_retry(
+        email_service.send_owner_issue_alert, to, order_id, issue_type, note, by,
+        f"{SITE_URL}/admin/fulfilment/orders/{quote(order_id)}")
+    await _log_notification(order_id, "owner_issue", ", ".join(to), "sent" if ok else "failed", err, pid)
+
+
+async def _notification_history(order_id: str) -> list:
+    try:
+        res = await _db(supabase.table("notification_log").select("*").eq("order_id", order_id)
+                        .order("created_at", desc=True).limit(50))
+        return [{k: r.get(k) for k in ("created_at", "kind", "recipient", "status", "error", "triggered_by")}
+                for r in (res.data or [])]
+    except Exception:
+        return []
+
+
+@app.post("/api/admin/orders/{order_id}/notify-warehouse")
+async def admin_resend_warehouse_email(order_id: str, request: Request):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    owner = await _resolve_staff(request)
+    o = await _load_order(order_id)
+    if not o or o.get("status") not in FULFILMENT_ORDER_STATUSES:
+        return JSONResponse({"error": "Only paid orders can be sent to the warehouse."}, status_code=400)
+    result = await notify_warehouse_new_order(order_id, manual_by=owner.email if owner else "owner")
+    if result.get("skipped") == "no_recipients":
+        return JSONResponse({"error": "Add at least one recipient on Team access first."}, status_code=400)
+    return JSONResponse(result)
+
+
+@app.post("/api/admin/team/recipients")
+async def admin_add_recipient(request: Request):
+    owner = await get_owner(request)
+    if not owner:
+        return JSONResponse({"error": "Owner access required"}, status_code=401)
+    body = await request.json()
+    email = str(body.get("email") or "").strip().lower()
+    if not _EMAIL_RE.match(email) or len(email) > 200:
+        return JSONResponse({"error": "Enter a valid email address."}, status_code=400)
+    existing = await _db(supabase.table("notification_recipients").select("id").eq("email", email).limit(1))
+    if existing.data:
+        return JSONResponse({"error": "This address is already on the list."}, status_code=409)
+    await _db(supabase.table("notification_recipients").insert({
+        "email": email, "label": str(body.get("label") or "").strip()[:120], "active": True, "added_by": owner.email}))
+    await _log_staff(owner, "recipient_added", email, request)
+    return JSONResponse({"success": True})
+
+
+@app.patch("/api/admin/team/recipients/{rid}")
+async def admin_toggle_recipient(rid: str, request: Request):
+    owner = await get_owner(request)
+    if not owner:
+        return JSONResponse({"error": "Owner access required"}, status_code=401)
+    body = await request.json()
+    res = await _db(supabase.table("notification_recipients").update({"active": bool(body.get("active"))}).eq("id", rid))
+    if not res.data:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    await _log_staff(owner, "recipient_on" if body.get("active") else "recipient_off", res.data[0].get("email", ""), request)
+    return JSONResponse({"success": True})
+
+
+@app.delete("/api/admin/team/recipients/{rid}")
+async def admin_remove_recipient(rid: str, request: Request):
+    owner = await get_owner(request)
+    if not owner:
+        return JSONResponse({"error": "Owner access required"}, status_code=401)
+    res = await _db(supabase.table("notification_recipients").delete().eq("id", rid))
+    if not res.data:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    await _log_staff(owner, "recipient_removed", res.data[0].get("email", ""), request)
     return JSONResponse({"success": True})
 
 

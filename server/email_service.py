@@ -285,3 +285,71 @@ def send_staff_ready(to_email: str, name: str, login_url: str):
             footer_note="Forgotten your password or changed phone? Ask Maison Henius to send you a new set-up link. Never share your password or codes.",
         ),
     })
+
+
+# --- Step 2: warehouse new-order email + owner issue alert ---
+
+def _when(iso: str) -> str:
+    from datetime import datetime
+    try:
+        d = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        return d.strftime("%d %b %Y, %H:%M UTC")
+    except Exception:
+        return str(iso or "")
+
+
+def send_warehouse_new_order(to_email: str, data: dict, link: str):
+    """New paid order for the warehouse. Owner's choice of detail: products, SKU,
+    quantities, name + city + country, declared value. No phone, email or street."""
+    e = html.escape
+    n = sum(int(i.get("quantity") or 1) for i in data.get("items", []))
+    lines = "".join(
+        f"&bull; <strong>{e(i['name'])}</strong> &times; {int(i['quantity'])}<br>"
+        f"<span style=\"color:rgba(250,249,246,0.5);font-size:12px;\">SKU {e(i['sku'])}"
+        + (f" &middot; {e(i['variant'])}" if i.get("variant") else "") + "</span><br>"
+        for i in data.get("items", []))
+    body = (
+        f"Order <strong>{e(data['order_id'])}</strong> &middot; paid {e(_when(data.get('paid_on')))}<br>"
+        "Payment status: <strong>Paid</strong><br><br>"
+        f"{lines}<br>"
+        f"Deliver to: <strong>{e(data.get('customer_name') or '')}</strong> &middot; "
+        f"{e(data.get('city') or '')}, {e(data.get('country') or '')}<br>"
+        "<span style=\"color:rgba(250,249,246,0.5);font-size:12px;\">The full address, phone and email are in the portal.</span><br>"
+        + ("Special delivery instructions: <strong>yes, see the portal</strong><br>" if data.get("has_instructions") else "")
+        + f"Declared value (customs &amp; insurance): <strong>USD {float(data.get('declared_value') or 0):,.2f}</strong><br><br>"
+        "Next steps: open the order, confirm receipt, prepare and pack, then enter the courier, "
+        "tracking number and actual shipping cost when you dispatch. Report any problem with &ldquo;Flag an issue&rdquo;."
+    )
+    return resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [to_email],
+        "subject": f"New order to fulfil · {data['order_id']} · {n} item{'s' if n != 1 else ''} · {data.get('country') or ''}",
+        "html": _base_html(
+            headline="New Order to Fulfil",
+            body_content=body,
+            cta_text="Open the Order",
+            cta_url=link,
+            footer_note="Secure link: you will be asked to sign in with your password and 6-digit code. You receive this email because Maison Henius added this address to its order notifications.",
+        ),
+    })
+
+
+def send_owner_issue_alert(to_emails: list, order_id: str, issue_type: str, note: str, by: str, link: str):
+    """Tell the owners the warehouse flagged a problem on an order."""
+    e = html.escape
+    body = (f"<strong>{e(by)}</strong> flagged an issue on order <strong>{e(order_id)}</strong>.<br><br>"
+            f"Issue: <strong>{e(issue_type)}</strong><br>"
+            f"Details: {e(note)}<br><br>"
+            "Open the order to see the details and reply with a comment.")
+    return resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": list(to_emails),
+        "subject": f"Issue on order {order_id}: {issue_type} — Maison Henius",
+        "html": _base_html(
+            headline="Fulfilment Issue",
+            body_content=body,
+            cta_text="Open the Order",
+            cta_url=link,
+            footer_note="Sent to the Maison Henius owners because the warehouse flagged an issue.",
+        ),
+    })

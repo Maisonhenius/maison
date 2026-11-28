@@ -442,6 +442,7 @@
       }
 
       addField(left, 'Shipping Address', fmtAddr(order.shipping_address));
+      if (order.shipping_address && order.shipping_address.instructions) addField(left, 'Delivery instructions', order.shipping_address.instructions);
       if (order.customer_phone) addField(left, 'Phone', order.customer_phone, 'margin-top:1rem');
       if (order.customer_email) addField(left, 'Email', order.customer_email, 'margin-top:1rem');
       if (order.created_at)     addField(left, 'Ordered', fmtFull(order.created_at), 'margin-top:1rem');
@@ -493,7 +494,11 @@
         sep.style.marginTop = '0.5rem';
         sep.style.paddingTop = '0.5rem';
         ul.appendChild(sep);
-        ul.appendChild(totalLine('Shipping', order.shipping));
+        ul.appendChild(totalLine('Shipping' + (order.shipping_zone ? ' (' + order.shipping_zone + ')' : ''), order.shipping));
+        if (parseFloat(order.door_to_door_fee || 0) > 0) ul.appendChild(totalLine('Door-to-door delivery', order.door_to_door_fee));
+        if (parseFloat(order.additional_fee || 0) > 0) ul.appendChild(totalLine(order.additional_label || 'Additional charges', order.additional_fee));
+        if (parseFloat(order.tax_amount || 0) > 0) ul.appendChild(totalLine('Taxes' + (order.tax_label ? ' (' + order.tax_label + ')' : ''), order.tax_amount));
+        if (parseFloat(order.discount_amount || 0) > 0) ul.appendChild(totalLine('Discounts', -parseFloat(order.discount_amount)));
         ul.appendChild(totalLine('Total', order.total, true));
       }
 

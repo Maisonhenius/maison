@@ -147,6 +147,14 @@
     }
 
     /* ── Error message ── */
+    .auth__notice { margin-top: 1rem; font-size: 0.75rem; line-height: 1.6; color: #e9db90; text-align: center; }
+    .auth__resend {
+      display: block; width: 100%; min-height: 48px; margin-top: 0.8rem; background: transparent; cursor: pointer;
+      border: 1px solid rgba(233, 219, 144, 0.4); color: #e9db90; font-family: 'Montserrat', sans-serif;
+      font-weight: 400; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase;
+    }
+    .auth__resend:hover { background: rgba(233, 219, 144, 0.08); }
+    .auth__resend[hidden], .auth__notice[hidden] { display: none; }
     .auth__error {
       font-weight: 300;
       font-size: 0.7rem;
@@ -229,6 +237,8 @@
     </form>
 
     <p class="auth__error" id="loginError"></p>
+    <p class="auth__notice" id="loginNotice" hidden></p>
+    <button type="button" class="auth__resend" id="resendBtn" hidden>Send a new confirmation email</button>
 
     <p class="auth__footer" style="margin-top: 1.2rem;"><a href="/forgot-password" class="auth__forgot">Forgot password?</a></p>
     <p class="auth__footer">Don't have an account? <a href="/signup" id="signupLink">Create one</a></p>
@@ -245,6 +255,9 @@
       // Read redirect destination from URL query params
       var urlParams = new URLSearchParams(window.location.search);
       var redirectTo = urlParams.get('redirect') || '/profile';
+      if (redirectTo.charAt(0) !== '/' || redirectTo.charAt(1) === '/' || redirectTo.indexOf('\\') >= 0) redirectTo = '/profile';
+      var noticeEl = document.getElementById('loginNotice');
+      var resendBtn = document.getElementById('resendBtn');
 
       // Pass redirect param through to signup link
       var signupLink = document.getElementById('signupLink');
@@ -252,27 +265,10 @@
         signupLink.href = '/signup?redirect=' + encodeURIComponent(redirectTo);
       }
 
-      form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        var email = form.querySelector('[name="email"]').value;
-        var password = form.querySelector('[name="password"]').value;
-
-        errorEl.style.display = 'none';
-        loginBtn.disabled = true;
-        loginBtn.textContent = 'SIGNING IN...';
-
-        try {
-          var res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email: email, password: password})
-          });
-          var data = await res.json();
-
-          if (data.success) {
+      function finishLogin(token, user) {
             localStorage.setItem('maison_auth', JSON.stringify({
-              access_token: data.access_token,
-              user: data.user
+              access_token: token,
+              user: user
             }));
             // Sync cart before redirect
             if (typeof MaisonCart !== 'undefined' && MaisonCart.sync) {
@@ -288,7 +284,7 @@
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + data.access_token
+                    'Authorization': 'Bearer ' + token
                   },
                   body: JSON.stringify({ items: localCart })
                 }).then(function(r) { return r.json(); }).then(function(syncData) {
@@ -304,9 +300,61 @@
                 window.location.href = redirectTo;
               }
             }
+      }
+
+      /* Arriving from the confirmation email: Supabase puts the session in the
+         address (#access_token=...). Sign the customer straight in. */
+      var hash = new URLSearchParams(window.location.hash.slice(1));
+      if (hash.get('access_token')) {
+        var tok = hash.get('access_token'), claims = {};
+        try { claims = JSON.parse(atob(tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch (e) {}
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+        document.querySelector('.auth__heading').textContent = 'Email Confirmed';
+        document.querySelector('.auth__sub').textContent = 'Welcome to Maison Henius. Signing you in…';
+        form.style.display = 'none';
+        finishLogin(tok, { id: claims.sub || '', email: claims.email || '' });
+      } else if (hash.get('error') || hash.get('error_code')) {
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+        noticeEl.textContent = 'This confirmation link has expired or was already used. Sign in below. If your email is not confirmed yet, we will offer to send you a new link.';
+        noticeEl.hidden = false;
+      }
+
+      resendBtn.addEventListener('click', function () {
+        var email = form.querySelector('[name="email"]').value.trim();
+        resendBtn.disabled = true;
+        fetch('/api/auth/resend-confirmation', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: email, redirect: redirectTo }) })
+          .then(function (r) { return r.json(); })
+          .then(function (d) { errorEl.style.display = 'none'; noticeEl.textContent = d.message; noticeEl.hidden = false; resendBtn.hidden = true; })
+          .catch(function () { errorEl.textContent = 'Something went wrong. Please try again.'; errorEl.style.display = 'block'; })
+          .finally(function () { resendBtn.disabled = false; });
+      });
+
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        var email = form.querySelector('[name="email"]').value;
+        var password = form.querySelector('[name="password"]').value;
+
+        errorEl.style.display = 'none';
+        noticeEl.hidden = true;
+        resendBtn.hidden = true;
+        loginBtn.disabled = true;
+        loginBtn.textContent = 'SIGNING IN...';
+
+        try {
+          var res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({email: email, password: password})
+          });
+          var data = await res.json();
+
+          if (data.success) {
+            finishLogin(data.access_token, data.user);
           } else {
-            errorEl.textContent = data.error || 'Invalid credentials';
+            errorEl.textContent = data.error || 'The email or password is incorrect.';
             errorEl.style.display = 'block';
+            resendBtn.hidden = data.code !== 'email_not_confirmed';
             loginBtn.disabled = false;
             loginBtn.textContent = 'SIGN IN';
           }
@@ -329,5 +377,6 @@
     })();
   </script>
 
+  {% include "_password_toggle.html" %}
 </body>
 </html>

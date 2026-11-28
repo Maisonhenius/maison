@@ -1,0 +1,226 @@
+{% extends "admin/layout.html" %}
+{% block title %}Shipping & taxes - Maison Henius{% endblock %}
+{% block nav_shipping %}admin__nav-item--active{% endblock %}
+{% block heading %}Shipping & taxes{% endblock %}
+
+{% block styles %}
+{% include "admin/_fulfilment_styles.html" %}
+<style>
+  .sh-zones { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr)); gap: 1rem; margin-top: 1rem; align-items: start; }
+  .sh-zone[data-off="1"] { opacity: 0.6; }
+  .sh-fees { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 0.6rem; margin: 0.6rem 0; }
+  .sh-countries { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.2rem 0.8rem; margin: 0.4rem 0 0.8rem; }
+  .sh-countries label, .sh-check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.82rem; min-height: 32px; cursor: pointer; }
+  .sh-countries input, .sh-check input { width: 18px; height: 18px; accent-color: #b8a44e; }
+  .sh-taken { opacity: 0.45; }
+  .sh-top { display: flex; gap: 0.6rem; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+  .sh-bar { display: flex; gap: 0.8rem; align-items: center; flex-wrap: wrap; padding: 0.9rem 0; margin-top: 1rem; background: inherit; }
+  .sh-rate { max-width: 90px; }
+  .sh-missing { margin-top: 1rem; }
+  .sh-example { font-size: 0.8rem; line-height: 1.7; }
+</style>
+{% endblock %}
+
+{% block content %}
+<p class="ff-intro">What customers pay for delivery, by delivery country. A <b>zone</b> is a group of countries with the same fees. Taxes are set per delivery country. The checkout, Stripe, the order, the emails and the admin pages all use these amounts. Changes apply to new checkouts only; orders already paid keep the amounts they were paid with.</p>
+
+<div class="ff-card sh-missing" id="shMissing" hidden></div>
+
+<div class="sh-top ff-mt">
+  <h3 class="ff-h3" style="margin:0">Delivery zones</h3>
+  <button class="ff-btn ff-btn--ghost ff-btn--sm" type="button" id="shAddZone">+ Add a zone</button>
+</div>
+<div class="sh-zones" id="shZones"><div class="ff-card ff-muted">Loading…</div></div>
+
+<div class="ff-card ff-mt ff-scroll">
+  <h3 class="ff-h3">Taxes by delivery country <small>0% = no tax line at checkout</small></h3>
+  <table class="ff-table">
+    <thead><tr><th>Country</th><th>Tax name</th><th>Rate %</th><th>Also on delivery charges</th></tr></thead>
+    <tbody id="shTaxes"><tr><td class="ff-muted" colspan="4">Loading…</td></tr></tbody>
+  </table>
+</div>
+
+<div class="ff-card ff-mt">
+  <h3 class="ff-h3">Example <small>what a customer would see</small></h3>
+  <div class="ff-filters">
+    <div class="ff-field"><label for="shExCountry">Delivery country</label><select id="shExCountry" class="ff-input"></select></div>
+    <div class="ff-field"><label for="shExAmount">Products (USD)</label><input id="shExAmount" class="ff-input" type="number" min="0" step="0.01" value="250"></div>
+  </div>
+  <div class="sh-example" id="shExample"></div>
+</div>
+
+<div class="sh-bar">
+  <button class="ff-btn" type="button" id="shSave">Save shipping & taxes</button>
+  <span class="ff-error" id="shErr" hidden></span>
+  <span class="ff-ok" id="shOk" hidden></span>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function () {
+  if (window._shippingBound) return;
+  window._shippingBound = true;
+
+  document.addEventListener('turbo:load', function () {
+    var zonesEl = document.getElementById('shZones');
+    if (!zonesEl) return;
+    var taxesEl = document.getElementById('shTaxes'), err = document.getElementById('shErr'), ok = document.getElementById('shOk');
+    var missingEl = document.getElementById('shMissing');
+    var state = { countries: [], zones: [], taxes: [] };
+    var names = {};
+
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function num(v) { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+    function money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function r2(n) { return Math.round((n + 1e-9) * 100) / 100; }
+    function field(label, input) { var f = el('div', 'ff-field'); var l = el('label', null, label); f.appendChild(l); f.appendChild(input); return f; }
+    function moneyInput(v, onChange) {
+      var i = el('input', 'ff-input'); i.type = 'number'; i.min = '0'; i.step = '0.01'; i.inputMode = 'decimal'; i.value = num(v).toFixed(2);
+      i.addEventListener('input', function () { onChange(i.value); refresh(); }); return i;
+    }
+
+    function zoneOf(code, except) {
+      for (var i = 0; i < state.zones.length; i++) {
+        var z = state.zones[i];
+        if (z !== except && z.active && z.countries.indexOf(code) >= 0) return z;
+      }
+      return null;
+    }
+
+    function renderZones() {
+      zonesEl.innerHTML = '';
+      if (!state.zones.length) zonesEl.appendChild(el('div', 'ff-card ff-muted', 'No zones yet: customers cannot check out. Add a zone.'));
+      state.zones.forEach(function (z, idx) {
+        var card = el('div', 'ff-card sh-zone'); card.dataset.off = z.active ? '0' : '1';
+        var head = el('div', 'sh-top');
+        var name = el('input', 'ff-input'); name.value = z.name || ''; name.maxLength = 80; name.placeholder = 'Zone name, e.g. Gulf';
+        name.setAttribute('aria-label', 'Zone name');
+        name.addEventListener('input', function () { z.name = name.value; refresh(); });
+        head.appendChild(name);
+        var del = el('button', 'ff-btn ff-btn--ghost ff-btn--sm ff-btn--danger', 'Remove'); del.type = 'button';
+        del.addEventListener('click', function () {
+          if (del.dataset.armed !== '1') { del.dataset.armed = '1'; del.textContent = 'Click again to remove'; return; }
+          state.zones.splice(idx, 1); renderZones(); refresh();
+        });
+        head.appendChild(del);
+        card.appendChild(head);
+
+        var fees = el('div', 'sh-fees');
+        fees.appendChild(field('Shipping (USD)', moneyInput(z.shipping_fee, function (v) { z.shipping_fee = v; })));
+        fees.appendChild(field('Door-to-door (USD)', moneyInput(z.door_to_door_fee, function (v) { z.door_to_door_fee = v; })));
+        fees.appendChild(field('Additional (USD)', moneyInput(z.additional_fee, function (v) { z.additional_fee = v; })));
+        var lab = el('input', 'ff-input'); lab.value = z.additional_label || 'Additional charges'; lab.maxLength = 60;
+        lab.addEventListener('input', function () { z.additional_label = lab.value; refresh(); });
+        fees.appendChild(field('Name of the additional charge', lab));
+        card.appendChild(fees);
+        card.appendChild(el('div', 'ff-label', 'Countries in this zone'));
+        var grid = el('div', 'sh-countries');
+        state.countries.forEach(function (c) {
+          var l = el('label'); var cb = document.createElement('input'); cb.type = 'checkbox';
+          cb.checked = z.countries.indexOf(c.code) >= 0;
+          var other = zoneOf(c.code, z);
+          if (other && !cb.checked) { l.className = 'sh-taken'; l.title = 'Already in ' + (other.name || 'another zone'); }
+          cb.addEventListener('change', function () {
+            if (cb.checked) { if (z.countries.indexOf(c.code) < 0) z.countries.push(c.code); }
+            else z.countries = z.countries.filter(function (x) { return x !== c.code; });
+            renderZones(); refresh();
+          });
+          l.appendChild(cb); l.appendChild(document.createTextNode(c.name + (other && !cb.checked ? ' (' + (other.name || 'other zone') + ')' : '')));
+          grid.appendChild(l);
+        });
+        card.appendChild(grid);
+        var act = el('label', 'sh-check'); var acb = document.createElement('input'); acb.type = 'checkbox'; acb.checked = !!z.active;
+        acb.addEventListener('change', function () { z.active = acb.checked; renderZones(); refresh(); });
+        act.appendChild(acb); act.appendChild(document.createTextNode('Active (customers can choose these countries)'));
+        card.appendChild(act);
+        zonesEl.appendChild(card);
+      });
+    }
+
+    function renderTaxes() {
+      taxesEl.innerHTML = '';
+      state.taxes.forEach(function (t) {
+        var tr = el('tr');
+        tr.appendChild(el('td', null, names[t.country] || t.country));
+        var n = el('input', 'ff-input'); n.value = t.tax_name || 'VAT'; n.maxLength = 30; n.setAttribute('aria-label', 'Tax name for ' + names[t.country]);
+        n.addEventListener('input', function () { t.tax_name = n.value; refresh(); });
+        var td1 = el('td'); td1.appendChild(n); tr.appendChild(td1);
+        var r = el('input', 'ff-input sh-rate'); r.type = 'number'; r.min = '0'; r.max = '100'; r.step = '0.01'; r.inputMode = 'decimal'; r.value = num(t.rate);
+        r.setAttribute('aria-label', 'Tax rate for ' + names[t.country]);
+        r.addEventListener('input', function () { t.rate = r.value; refresh(); });
+        var td2 = el('td'); td2.appendChild(r); tr.appendChild(td2);
+        var l = el('label', 'sh-check'); var cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!t.applies_to_delivery;
+        cb.addEventListener('change', function () { t.applies_to_delivery = cb.checked; refresh(); });
+        l.appendChild(cb); l.appendChild(document.createTextNode(cb.checked ? 'Yes' : 'No'));
+        cb.addEventListener('change', function () { l.lastChild.textContent = cb.checked ? 'Yes' : 'No'; });
+        var td3 = el('td'); td3.appendChild(l); tr.appendChild(td3);
+        taxesEl.appendChild(tr);
+      });
+    }
+
+    /* Same rule as the server's _checkout_quote (the server is what charges). */
+    function quote(code, subtotal) {
+      var z = zoneOf(code, null);
+      if (!z) return null;
+      var q = { zone: z.name, sub: r2(subtotal), ship: r2(num(z.shipping_fee)), d2d: r2(num(z.door_to_door_fee)), add: r2(num(z.additional_fee)), addLabel: z.additional_label || 'Additional charges', tax: 0, taxLabel: '' };
+      var t = state.taxes.filter(function (x) { return x.country === code; })[0];
+      if (t && num(t.rate) > 0) {
+        var base = q.sub + (t.applies_to_delivery ? q.ship + q.d2d + q.add : 0);
+        q.tax = r2(base * num(t.rate) / 100); q.taxLabel = (t.tax_name || 'Tax') + ' ' + num(t.rate) + '%' + (t.applies_to_delivery ? ', incl. delivery' : '');
+      }
+      q.total = r2(q.sub + q.ship + q.d2d + q.add + q.tax);
+      return q;
+    }
+
+    function refresh() {
+      ok.hidden = true;
+      var missing = state.countries.filter(function (c) { return !zoneOf(c.code, null); });
+      missingEl.hidden = !missing.length;
+      missingEl.innerHTML = '';
+      if (missing.length) {
+        missingEl.appendChild(el('b', null, 'No delivery yet to: '));
+        missingEl.appendChild(document.createTextNode(missing.map(function (c) { return c.name; }).join(', ') + '. Customers choosing these countries are told "We do not deliver to … yet" and cannot pay. Add them to an active zone to sell there.'));
+      }
+      var sel = document.getElementById('shExCountry'), box = document.getElementById('shExample');
+      var q = quote(sel.value, num(document.getElementById('shExAmount').value));
+      box.innerHTML = '';
+      if (!q) { box.appendChild(el('span', 'ff-muted', 'No delivery to this country (not in an active zone).')); return; }
+      [['Products', q.sub], ['Shipping (' + (q.zone || 'zone') + ')', q.ship], ['Door-to-door delivery', q.d2d]]
+        .concat(q.add > 0 ? [[q.addLabel, q.add]] : [])
+        .concat([['Taxes' + (q.taxLabel ? ' (' + q.taxLabel + ')' : ' (none)'), q.tax]])
+        .forEach(function (row) { var d = el('div'); d.textContent = row[0] + ': ' + money(row[1]); box.appendChild(d); });
+      var tot = el('div'); var b = el('b', null, 'Total: ' + money(q.total)); tot.appendChild(b); box.appendChild(tot);
+    }
+
+    function load() {
+      MH.fetch('/api/admin/shipping').then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Could not load.'); return d; }); })
+        .then(function (d) {
+          state.countries = d.countries; state.zones = d.zones.map(function (z) { z.countries = z.countries || []; return z; }); state.taxes = d.taxes;
+          d.countries.forEach(function (c) { names[c.code] = c.name; });
+          var sel = document.getElementById('shExCountry'); sel.innerHTML = '';
+          d.countries.forEach(function (c) { var o = el('option', null, c.name); o.value = c.code; sel.appendChild(o); });
+          renderZones(); renderTaxes(); refresh();
+        })
+        .catch(function (e) { zonesEl.innerHTML = ''; zonesEl.appendChild(el('div', 'ff-card ff-error', e.message)); });
+    }
+
+    document.getElementById('shExCountry').addEventListener('change', refresh);
+    document.getElementById('shExAmount').addEventListener('input', refresh);
+    document.getElementById('shAddZone').addEventListener('click', function () {
+      state.zones.push({ name: '', countries: [], shipping_fee: 0, door_to_door_fee: 0, additional_fee: 0, additional_label: 'Additional charges', active: true });
+      renderZones(); refresh();
+    });
+    document.getElementById('shSave').addEventListener('click', function () {
+      var btn = this; btn.disabled = true; err.hidden = true; ok.hidden = true;
+      MH.fetch('/api/admin/shipping', { method: 'PUT', body: JSON.stringify({ zones: state.zones, taxes: state.taxes }) })
+        .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.error || 'Could not save.'); return d; }); })
+        .then(function () { ok.textContent = 'Saved. New checkouts use these amounts now.'; ok.hidden = false; load(); })
+        .catch(function (e) { err.textContent = e.message; err.hidden = false; })
+        .finally(function () { btn.disabled = false; });
+    });
+    load();
+  });
+})();
+</script>
+{% endblock %}

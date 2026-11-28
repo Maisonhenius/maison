@@ -609,6 +609,58 @@ async def admin_login(request: Request):
 
 # --- Customer Auth API Routes ---
 
+def _safe_next(path) -> str:
+    """Only same-site paths ("/checkout"), never "//evil.com" or full URLs."""
+    path = str(path or "")
+    return path if path.startswith("/") and not path.startswith("//") and "\\" not in path and len(path) < 200 else "/profile"
+
+
+def _login_return_url(request: Request, next_path) -> str:
+    scheme = request.headers.get("x-forwarded-proto", "http")
+    host = request.headers.get("host", "localhost:3000")
+    return f"{scheme}://{host}/login?redirect={quote(_safe_next(next_path), safe='/')}"
+
+
+_CONFIRM_RESENT: dict = {}  # email -> last resend time (1 per minute per email)
+
+
+async def _resend_confirmation(request: Request, email: str, next_path) -> str:
+    """Email a fresh confirmation link to an account that exists but was never confirmed.
+    Returns "sent", "confirmed" (already confirmed: nothing sent), "none" or "wait".
+    A magic link confirms the email AND signs the customer in when clicked."""
+    now = time.time()
+    if now - _CONFIRM_RESENT.get(email, 0) < 60:
+        return "wait"
+    try:
+        link = await _to_thread(supabase.auth.admin.generate_link, {
+            "type": "magiclink", "email": email,
+            "options": {"redirect_to": _login_return_url(request, next_path)}})
+    except Exception:
+        return "none"
+    u = getattr(link, "user", None)
+    if not u:
+        return "none"
+    if getattr(u, "email_confirmed_at", None):
+        return "confirmed"
+    _CONFIRM_RESENT[email] = now
+    name = (getattr(u, "user_metadata", None) or {}).get("full_name", "")
+    await _to_thread(email_service.send_signup_confirmation, email, link.properties.action_link, name)
+    return "sent"
+
+
+@app.post("/api/auth/resend-confirmation")
+async def auth_resend_confirmation(request: Request):
+    body = await request.json()
+    email = str(body.get("email") or "").strip().lower()
+    if email:
+        try:
+            await _resend_confirmation(request, email, body.get("redirect"))
+        except Exception as e:
+            print(f"[auth] resend confirmation failed: {e}")
+    # Same answer whatever happened: never reveal whether an account exists.
+    return JSONResponse({"success": True, "message": "If this email has an account waiting for confirmation, we have sent a new link. Please check your inbox and spam folder."})
+
+
 @app.post("/api/auth/signup")
 async def auth_signup(request: Request):
     """Customer signup with email/password"""
@@ -636,14 +688,14 @@ async def auth_signup(request: Request):
                 "email": email
             }))
 
-            # Generate confirmation link without Supabase sending email
-            scheme = request.headers.get("x-forwarded-proto", "http")
-            host = request.headers.get("host", "localhost:3000")
+            # Generate confirmation link without Supabase sending email. Clicking it
+            # confirms the email and signs the customer straight in (login page reads
+            # the token), then continues to where they were going (e.g. /checkout).
             link_resp = await _to_thread(supabase.auth.admin.generate_link, {
                 "type": "signup",
                 "email": email,
                 "password": password,
-                "options": {"redirect_to": f"{scheme}://{host}/login"}
+                "options": {"redirect_to": _login_return_url(request, body.get("redirect"))}
             })
             action_link = link_resp.properties.action_link
 
@@ -661,8 +713,18 @@ async def auth_signup(request: Request):
         if "rate limit" in error_msg.lower():
             return JSONResponse({"error": error_msg}, status_code=429)
         if "already" in error_msg.lower() or "duplicate" in error_msg.lower() or "unique" in error_msg.lower():
-            return JSONResponse({"error": "An account with this email already exists"}, status_code=409)
-        return JSONResponse({"error": error_msg}, status_code=400)
+            # Registered before but never clicked the confirmation email: send a new
+            # one instead of leaving them stuck between "exists" and "can't sign in".
+            state = await _resend_confirmation(request, email.lower(), body.get("redirect"))
+            if state in ("sent", "wait"):
+                return JSONResponse({"success": True, "needs_confirmation": True, "resent": True,
+                                     "message": "This email is already registered but not yet confirmed. We have sent you a new confirmation link."})
+            return JSONResponse({"error": "An account with this email already exists. Please sign in, or use \"Forgot password?\" on the sign-in page.",
+                                 "code": "exists"}, status_code=409)
+        if "password" in error_msg.lower():
+            return JSONResponse({"error": "Please choose a stronger password (at least 8 characters)."}, status_code=400)
+        print(f"[auth] signup failed: {error_msg}")
+        return JSONResponse({"error": "We could not create your account. Please try again, or contact us."}, status_code=400)
 
 @app.post("/api/auth/login")
 async def auth_login(request: Request):
@@ -673,8 +735,9 @@ async def auth_login(request: Request):
 
     try:
         # Use anon client for auth (service role bypasses normal auth flows)
+        # A fresh client per sign-in: a shared one would mix customers' sessions.
         result = await _to_thread(
-            supabase_anon.auth.sign_in_with_password,
+            _anon_client().auth.sign_in_with_password,
             {"email": email, "password": password},
         )
         if result.user:
@@ -687,8 +750,11 @@ async def auth_login(request: Request):
         return JSONResponse({"error": "Invalid credentials"}, status_code=401)
     except Exception as e:
         error_msg = str(e)
+        if "not confirmed" in error_msg.lower():
+            return JSONResponse({"error": "Please confirm your email first: open the email we sent you and click the link. Can't find it? Check your spam folder, or send a new one below.",
+                                 "code": "email_not_confirmed"}, status_code=403)
         if "invalid" in error_msg.lower() or "credentials" in error_msg.lower():
-            return JSONResponse({"error": "Invalid credentials"}, status_code=401)
+            return JSONResponse({"error": "The email or password is incorrect."}, status_code=401)
         if "rate limit" in error_msg.lower():
             return JSONResponse({"error": error_msg}, status_code=429)
         return JSONResponse({"error": "Invalid credentials"}, status_code=401)
@@ -772,6 +838,22 @@ async def admin_auth_callback(request: Request):
     return templates.TemplateResponse(request=request, name="admin/auth-callback.html", context=get_context())
 
 # --- Stripe Checkout API ---
+
+_STEP3_ORDER_COLUMNS = ("door_to_door_fee", "additional_fee", "additional_label", "tax_amount",
+                        "tax_label", "discount_amount", "shipping_zone")
+
+
+async def _insert_order(row: dict):
+    """Insert an order; if the step-3 columns don't exist yet, retry without them
+    (a paid order must never be lost because a database update is pending)."""
+    try:
+        return await _db(supabase.table("orders").insert(row))
+    except Exception as e:
+        if any(c in str(e) for c in _STEP3_ORDER_COLUMNS):
+            print(f"[orders] step-3 columns missing, saving without them: {e}")
+            return await _db(supabase.table("orders").insert({k: v for k, v in row.items() if k not in _STEP3_ORDER_COLUMNS}))
+        raise
+
 
 async def _decrement_stock_for_items(items: list, source: str, order_id: Optional[str] = None) -> None:
     """Atomically reduce product stock for each line in a paid order.
@@ -874,6 +956,7 @@ async def _confirm_order(order: dict, source: str) -> dict:
     await _order_event(order_id, None, "payment", "pending", "confirmed",
                        {"summary": "Payment confirmed. The order is ready for the warehouse."})
     _in_background(_notify_warehouse_safely(order_id))
+    _in_background(_send_customer_confirmation(order_id))
     return order
 
 
@@ -941,8 +1024,14 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
     if not validated_items:
         return None
 
-    shipping = 25
-    order_id = "MH-" + str(int(datetime.now().timestamp()))
+    def _m(k, default=0.0):
+        try:
+            return _cents(meta.get(k, default))
+        except Exception:
+            return _cents(default)
+    shipping = _m("q_ship", LEGACY_FLAT_SHIPPING)
+    d2d, additional, tax = _m("q_d2d"), _m("q_add"), _m("q_tax")
+    order_id = _new_order_id()
 
     order_data = {
         "id": order_id,
@@ -957,16 +1046,23 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
             "state": meta.get("shipping_state", ""),
             "postal_code": meta.get("shipping_postal_code", ""),
             "country": meta.get("shipping_country", ""),
+            "instructions": meta.get("instructions", ""),
         },
         "items": validated_items,
         "subtotal": calculated_subtotal,
         "shipping": shipping,
-        "total": calculated_subtotal + shipping,
+        "door_to_door_fee": d2d,
+        "additional_fee": additional,
+        "additional_label": meta.get("q_add_label", ""),
+        "tax_amount": tax,
+        "tax_label": meta.get("q_tax_label", ""),
+        "shipping_zone": meta.get("q_zone", ""),
+        "total": _cents(calculated_subtotal + shipping + d2d + additional + tax),
         "status": "confirmed",
         "stripe_session_id": session_id,
     }
 
-    await _db(supabase.table("orders").insert(order_data))
+    await _insert_order(order_data)
 
     # Insert order_items for analytics — batched as one INSERT.
     rows = [
@@ -996,6 +1092,7 @@ async def _create_order_from_stripe_session(stripe_session, source: str = "webho
     await _order_event(order_id, None, "payment", None, "confirmed",
                        {"summary": "Payment confirmed. The order is ready for the warehouse."})
     _in_background(_notify_warehouse_safely(order_id))
+    _in_background(_send_customer_confirmation(order_id))
     return order_data
 
 
@@ -1069,6 +1166,19 @@ async def create_checkout_session(request: Request):
         return JSONResponse({"error": "Name and email are required"}, status_code=400)
 
     address = customer.get("address", {})
+    instructions = str(customer.get("instructions") or "").strip()[:300]
+
+    # Step 3: shipping, door-to-door, additional charges and tax for this country,
+    # worked out on the server (the same numbers the checkout page showed).
+    quote = await _checkout_quote(address.get("country", ""), calculated_subtotal)
+    if not quote.get("ok"):
+        return JSONResponse({"error": quote.get("error", "We cannot deliver to this country yet.")}, status_code=400)
+    for label, amount in (("Door-to-door delivery", quote["door_to_door"]),
+                          (quote["additional_label"], quote["additional"]),
+                          (quote["tax_label"] or "Tax", quote["tax"])):
+        if amount > 0:
+            line_items.append({"price_data": {"currency": "usd", "product_data": {"name": label},
+                                              "unit_amount": int(round(amount * 100))}, "quantity": 1})
 
     # Auto-save first checkout address to user's profile if they have none.
     # This way the next time they checkout, the address autofills from their saved
@@ -1113,6 +1223,14 @@ async def create_checkout_session(request: Request):
         "shipping_postal_code": address.get("postal_code", ""),
         "shipping_country": address.get("country", ""),
         "items_json": json.dumps([{"id": i["id"], "quantity": i["quantity"]} for i in validated_items]),
+        "instructions": instructions,
+        "q_zone": quote["zone"][:100],
+        "q_ship": f"{quote['shipping']:.2f}",
+        "q_d2d": f"{quote['door_to_door']:.2f}",
+        "q_add": f"{quote['additional']:.2f}",
+        "q_add_label": quote["additional_label"][:100],
+        "q_tax": f"{quote['tax']:.2f}",
+        "q_tax_label": quote["tax_label"][:100],
     }
 
     try:
@@ -1127,8 +1245,8 @@ async def create_checkout_session(request: Request):
                 "shipping_options": [{
                     "shipping_rate_data": {
                         "type": "fixed_amount",
-                        "fixed_amount": {"amount": 2500, "currency": "usd"},
-                        "display_name": "Standard Shipping",
+                        "fixed_amount": {"amount": int(round(quote["shipping"] * 100)), "currency": "usd"},
+                        "display_name": "Shipping" + (f" \u00b7 {quote['zone']}" if quote["zone"] else ""),
                     },
                 }],
                 "customer_email": customer["email"],
@@ -1149,10 +1267,9 @@ async def create_checkout_session(request: Request):
         # Non-fatal: if this insert fails the user can still pay, and the
         # fallback path in _create_order_from_stripe_session() will create the
         # order from session metadata after payment.
-        shipping_amount = 25
         try:
-            pending_order_id = "MH-" + str(int(datetime.now().timestamp()))
-            await _db(supabase.table("orders").insert({
+            pending_order_id = _new_order_id()
+            await _insert_order({
                 "id": pending_order_id,
                 "user_id": str(user.id),
                 "customer_name": customer["full_name"],
@@ -1165,14 +1282,21 @@ async def create_checkout_session(request: Request):
                     "state": address.get("state", ""),
                     "postal_code": address.get("postal_code", ""),
                     "country": address.get("country", ""),
+                    "instructions": instructions,
                 },
                 "items": validated_items,
                 "subtotal": calculated_subtotal,
-                "shipping": shipping_amount,
-                "total": calculated_subtotal + shipping_amount,
+                "shipping": quote["shipping"],
+                "door_to_door_fee": quote["door_to_door"],
+                "additional_fee": quote["additional"],
+                "additional_label": quote["additional_label"],
+                "tax_amount": quote["tax"],
+                "tax_label": quote["tax_label"],
+                "shipping_zone": quote["zone"],
+                "total": quote["total"],
                 "status": "pending",
                 "stripe_session_id": session.id,
-            }))
+            })
             print(f"[create-session] Pending order {pending_order_id} pre-created for session {session.id}")
         except Exception as e:
             print(f"[create-session] Pre-create pending order failed (non-fatal): {e}")
@@ -1636,13 +1760,7 @@ STAFF_PASSWORD_MIN = 10
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 _BAN_FOREVER = "876000h"  # ~100 years: banned users cannot sign in or refresh
 
-_ORDER_FIELDS = (
-    "id,created_at,status,fulfilment_status,customer_name,customer_email,customer_phone,"
-    "shipping_address,items,subtotal,shipping,total,courier,shipping_method,tracking_number,"
-    "shipment_ref,dispatch_date,expected_delivery,actual_shipping_cost,actual_additional_cost,"
-    "issue_type,issue_note,issue_raised_by,issue_raised_at,dispatched_at,delivered_at,"
-    "fulfilment_updated_at"
-)
+_ORDER_FIELDS = "*"  # _order_view() is the whitelist of what leaves the server
 _SHIPMENT_TEXT_FIELDS = ("courier", "shipping_method", "tracking_number", "shipment_ref", "expected_delivery")
 _SHIPMENT_MONEY_FIELDS = ("actual_shipping_cost", "actual_additional_cost")
 _SHIPMENT_LABELS = {
@@ -1837,10 +1955,12 @@ def _order_view(o: dict, staff: Staff) -> dict:
     charges = {
         "subtotal": float(o.get("subtotal") or 0),
         "shipping": shipping,
-        "door_to_door": 0.0,   # step 3 (shipping rates) adds these as stored amounts
-        "additional": 0.0,
-        "tax": 0.0,
-        "discount": 0.0,
+        "door_to_door": float(o.get("door_to_door_fee") or 0),
+        "additional": float(o.get("additional_fee") or 0),
+        "additional_label": o.get("additional_label") or "Additional charges",
+        "tax": float(o.get("tax_amount") or 0),
+        "tax_label": o.get("tax_label") or "",
+        "discount": float(o.get("discount_amount") or 0),
         "total": float(o.get("total") or 0),
     }
     view = {
@@ -2859,6 +2979,19 @@ async def _notify_warehouse_safely(order_id: str) -> None:
         print(f"[notify] warehouse email for {order_id} failed: {e}")
 
 
+async def _send_customer_confirmation(order_id: str) -> None:
+    """Order Confirmed email to the customer, with the itemised total (step 3)."""
+    try:
+        o = await _load_order(order_id)
+        if not o or not o.get("customer_email"):
+            return
+        ok, pid, err = await _send_with_retry(email_service.send_order_confirmation, o["customer_email"],
+                                              o.get("customer_name", ""), o, f"{SITE_URL}/profile")
+        await _log_notification(order_id, "customer_confirmation", o["customer_email"], "sent" if ok else "failed", err, pid)
+    except Exception as e:
+        print(f"[notify] customer confirmation for {order_id} failed: {e}")
+
+
 async def _notify_owners_issue(order_id: str, issue_type: str, note: str, by: str) -> None:
     to = list(ALLOWED_EMAILS)
     ok, pid, err = await _send_with_retry(
@@ -2909,6 +3042,182 @@ async def admin_set_order_emails(staff_id: str, request: Request):
         await _db(supabase.table("notification_recipients").insert(
             {"email": email, "active": mode == "on", "label": "team override", "added_by": owner.email}))
     await _log_staff(owner, f"order_emails_{mode}", email, request)
+    return JSONResponse({"success": True})
+
+
+# ── Step 3: shipping zones, door-to-door fee, taxes per delivery country (migration 016) ──
+# ONE function prices every checkout (_checkout_quote): the checkout page shows it,
+# create-session charges it through Stripe, and the order stores it. The browser's
+# numbers are never trusted. Owners edit zones + taxes on /admin/shipping.
+
+CHECKOUT_COUNTRIES = ["JO", "AE", "SA", "KW", "BH", "OM", "QA", "LB", "EG", "US", "GB", "FR", "DE"]
+LEGACY_FLAT_SHIPPING = 25.0  # used only if the shipping tables are not set up yet
+
+
+def _cents(x) -> float:
+    """Round half-up to cents (money is never rounded with banker's rounding)."""
+    from decimal import Decimal, ROUND_HALF_UP
+    return float(Decimal(str(x or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+async def _shipping_config():
+    """(zones, taxes) or (None, None) when the migration hasn't been run yet."""
+    try:
+        zones_res, tax_res = await asyncio.gather(
+            _db(supabase.table("shipping_zones").select("*").order("sort")),
+            _db(supabase.table("country_taxes").select("*")),
+        )
+        return (zones_res.data or []), {r["country"]: r for r in (tax_res.data or [])}
+    except Exception as e:
+        print(f"[shipping] config unavailable, using the flat rate: {e}")
+        return None, None
+
+
+async def _checkout_quote(country: str, subtotal: float) -> dict:
+    """Everything the customer pays for delivery to `country`, itemised."""
+    country = (country or "").upper()
+    zones, taxes = await _shipping_config()
+    q = {"ok": True, "country": country, "zone": "", "subtotal": _cents(subtotal), "shipping": 0.0,
+         "door_to_door": 0.0, "additional": 0.0, "additional_label": "Additional charges",
+         "tax": 0.0, "tax_label": "", "tax_rate": 0.0, "tax_on_delivery": False, "discount": 0.0}
+    if zones is None:  # tables not created yet: behave exactly like before step 3
+        q.update(shipping=LEGACY_FLAT_SHIPPING, zone="Standard")
+    else:
+        zone = next((z for z in zones if z.get("active") and country in (z.get("countries") or [])), None)
+        if not zone:
+            name = _COUNTRY_NAMES.get(country, country or "this country")
+            return {"ok": False, "country": country,
+                    "error": f"We do not deliver to {name} yet. Please choose another delivery country, or contact us."}
+        q.update(zone=zone.get("name", ""), shipping=_cents(zone.get("shipping_fee")),
+                 door_to_door=_cents(zone.get("door_to_door_fee")), additional=_cents(zone.get("additional_fee")),
+                 additional_label=zone.get("additional_label") or "Additional charges")
+        t = (taxes or {}).get(country)
+        if t and float(t.get("rate") or 0) > 0:
+            rate = float(t["rate"])
+            on_delivery = bool(t.get("applies_to_delivery"))
+            base = q["subtotal"] + ((q["shipping"] + q["door_to_door"] + q["additional"]) if on_delivery else 0)
+            q.update(tax=_cents(base * rate / 100), tax_rate=rate, tax_on_delivery=on_delivery,
+                     tax_label=f"{t.get('tax_name') or 'Tax'} {rate:g}%")
+    q["total"] = _cents(q["subtotal"] + q["shipping"] + q["door_to_door"] + q["additional"] + q["tax"] - q["discount"])
+    return q
+
+
+def _new_order_id() -> str:
+    """MH-YYYYMMDD-XXXX: readable, and two orders in the same second can't clash."""
+    import secrets
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "MH-" + datetime.now(timezone.utc).strftime("%Y%m%d") + "-" + "".join(secrets.choice(alphabet) for _ in range(4))
+
+
+@app.post("/api/checkout/quote")
+async def checkout_quote(request: Request):
+    """Itemised total for the checkout page (prices from the server's catalogue)."""
+    body = await request.json()
+    subtotal = 0.0
+    for item in body.get("items", []) or []:
+        p = get_product(str(item.get("id") or ""))
+        if p:
+            subtotal += p["price"] * max(1, min(int(item.get("quantity") or 1), 99))
+    return JSONResponse(await _checkout_quote(str(body.get("country") or ""), subtotal))
+
+
+# ── Admin: Shipping & taxes page (owners) ──
+
+@app.get("/admin/shipping", response_class=HTMLResponse)
+async def admin_shipping_page(request: Request):
+    return templates.TemplateResponse(request=request, name="admin/shipping.html", context=get_context())
+
+
+@app.get("/api/admin/shipping")
+async def admin_shipping_get(request: Request):
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    zones, taxes = await _shipping_config()
+    if zones is None:
+        return JSONResponse({"error": "The shipping tables are not set up yet (database update 016)."}, status_code=503)
+    return JSONResponse({
+        "countries": [{"code": c, "name": _COUNTRY_NAMES.get(c, c)} for c in CHECKOUT_COUNTRIES],
+        "zones": [{k: z.get(k) for k in ("id", "name", "countries", "shipping_fee", "door_to_door_fee",
+                                         "additional_fee", "additional_label", "active", "sort")} for z in zones],
+        "taxes": [{"country": c, "tax_name": (taxes.get(c) or {}).get("tax_name", "VAT"),
+                   "rate": float((taxes.get(c) or {}).get("rate") or 0),
+                   "applies_to_delivery": bool((taxes.get(c) or {}).get("applies_to_delivery", True))}
+                  for c in CHECKOUT_COUNTRIES],
+    })
+
+
+def _money_in(v, what: str):
+    try:
+        x = _cents(v)
+    except Exception:
+        raise ValueError(f"{what} must be an amount.")
+    if x < 0 or x > 100000:
+        raise ValueError(f"{what} must be between 0 and 100,000.")
+    return x
+
+
+@app.put("/api/admin/shipping")
+async def admin_shipping_save(request: Request):
+    """Save all zones + taxes at once (the page sends the whole table)."""
+    if not await get_admin_user(request):
+        return JSONResponse({"error": "Admin access required"}, status_code=401)
+    owner = await _resolve_staff(request)
+    who = owner.email if owner else ""
+    body = await request.json()
+    zones_in, taxes_in = body.get("zones") or [], body.get("taxes") or []
+    zones, seen = [], {}
+    try:
+        for i, z in enumerate(zones_in):
+            name = str(z.get("name") or "").strip()[:80]
+            if not name:
+                raise ValueError("Every zone needs a name.")
+            countries = sorted({str(c).upper() for c in (z.get("countries") or []) if str(c).upper() in CHECKOUT_COUNTRIES})
+            active = bool(z.get("active", True))
+            if active:
+                for c in countries:
+                    if c in seen:
+                        raise ValueError(f"{_COUNTRY_NAMES.get(c, c)} is in two active zones ({seen[c]} and {name}).")
+                    seen[c] = name
+            row = {"name": name, "countries": countries, "active": active, "sort": i, "updated_by": who,
+                   "updated_at": _now_iso(),
+                   "shipping_fee": _money_in(z.get("shipping_fee"), f"{name}: shipping fee"),
+                   "door_to_door_fee": _money_in(z.get("door_to_door_fee"), f"{name}: door-to-door fee"),
+                   "additional_fee": _money_in(z.get("additional_fee"), f"{name}: additional charges"),
+                   "additional_label": (str(z.get("additional_label") or "").strip() or "Additional charges")[:60]}
+            if z.get("id"):
+                row["id"] = str(z["id"])
+            zones.append(row)
+        taxes = []
+        for t in taxes_in:
+            c = str(t.get("country") or "").upper()
+            if c not in CHECKOUT_COUNTRIES:
+                continue
+            try:
+                rate = float(t.get("rate") or 0)
+            except (TypeError, ValueError):
+                raise ValueError(f"{_COUNTRY_NAMES.get(c, c)}: the tax rate must be a number.")
+            if rate < 0 or rate > 100:
+                raise ValueError(f"{_COUNTRY_NAMES.get(c, c)}: the tax rate must be between 0 and 100.")
+            taxes.append({"country": c, "tax_name": (str(t.get("tax_name") or "").strip() or "VAT")[:30],
+                          "rate": round(rate, 2), "applies_to_delivery": bool(t.get("applies_to_delivery", True)),
+                          "updated_by": who, "updated_at": _now_iso()})
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=400)
+    current, _ = await _shipping_config()
+    if current is None:
+        return JSONResponse({"error": "The shipping tables are not set up yet (database update 016)."}, status_code=503)
+    keep = {z["id"] for z in zones if z.get("id")}
+    for old in current:
+        if old["id"] not in keep:
+            await _db(supabase.table("shipping_zones").delete().eq("id", old["id"]))
+    for z in zones:
+        if z.get("id"):
+            await _db(supabase.table("shipping_zones").update(z).eq("id", z["id"]))
+        else:
+            await _db(supabase.table("shipping_zones").insert(z))
+    if taxes:
+        await _db(supabase.table("country_taxes").upsert(taxes))
+    await _log_staff(owner or who, "shipping_saved", f"{len(zones)} zone(s)", request)
     return JSONResponse({"success": True})
 
 

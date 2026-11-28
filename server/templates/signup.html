@@ -286,7 +286,7 @@
           var res = await fetch('/api/auth/signup', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({email: email, password: password, full_name: full_name})
+            body: JSON.stringify({email: email, password: password, full_name: full_name, redirect: redirectTo})
           });
           var data = await res.json();
 
@@ -299,10 +299,11 @@
             if (footerEl) footerEl.style.display = 'none';
 
             document.querySelector('.auth__heading').textContent = 'Check Your Email';
-            document.querySelector('.auth__sub').textContent = 'We sent a confirmation link to ' + email + '. Click the link to activate your account, then sign in.';
+            document.querySelector('.auth__sub').textContent = (data.resent ? 'This email is already registered but not yet confirmed. ' : '') +
+              'We sent a confirmation link to ' + email + '. Click the link in the email to activate your account: you will be signed in automatically. Not there? Please check your spam folder.';
 
             var loginBtn = document.createElement('a');
-            loginBtn.href = '/login';
+            loginBtn.href = '/login' + (redirectTo !== '/profile' ? '?redirect=' + encodeURIComponent(redirectTo) : '');
             loginBtn.textContent = 'Go to Sign In';
             loginBtn.style.cssText = 'display:inline-block;margin-top:2rem;background:#e9db90;border:1px solid #e9db90;padding:1rem 2.5rem;font-family:Montserrat,sans-serif;font-weight:400;font-size:0.65rem;letter-spacing:0.2em;text-transform:uppercase;color:#0a0a08;text-decoration:none;transition:background 0.3s ease,color 0.3s ease;';
             authEl.appendChild(loginBtn);
@@ -344,5 +345,6 @@
     })();
   </script>
 
+  {% include "_password_toggle.html" %}
 </body>
 </html>

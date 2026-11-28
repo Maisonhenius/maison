@@ -353,3 +353,43 @@ def send_owner_issue_alert(to_emails: list, order_id: str, issue_type: str, note
             footer_note="Sent to the Maison Henius owners because the warehouse flagged an issue.",
         ),
     })
+
+
+# --- Step 3: customer order confirmation with the itemised total ---
+
+def send_order_confirmation(to_email: str, name: str, order: dict, profile_url: str):
+    """Branded 'Order Confirmed' email: products and every charge the customer paid."""
+    e = html.escape
+    money = lambda v: f"USD {float(v or 0):,.2f}"
+    rows = "".join(
+        f"{e(str(i.get('name', '')))} &times; {int(i.get('quantity') or 1)} &mdash; {money(float(i.get('price') or 0) * int(i.get('quantity') or 1))}<br>"
+        for i in (order.get("items") or []))
+    lines = [("Products", order.get("subtotal")), ("Shipping", order.get("shipping")),
+             ("Door-to-door delivery", order.get("door_to_door_fee"))]
+    if float(order.get("additional_fee") or 0) > 0:
+        lines.append((order.get("additional_label") or "Additional charges", order.get("additional_fee")))
+    if float(order.get("tax_amount") or 0) > 0:
+        lines.append((order.get("tax_label") or "Tax", order.get("tax_amount")))
+    if float(order.get("discount_amount") or 0) > 0:
+        lines.append(("Discount", -float(order.get("discount_amount"))))
+    breakdown = "".join(f"{e(str(label))}: {money(v)}<br>" for label, v in lines)
+    a = order.get("shipping_address") or {}
+    where = ", ".join(x for x in (a.get("city"), a.get("country")) if x)
+    body = ((f"Dear {e(name)},<br><br>" if name else "")
+            + f"Thank you. Your order <strong>{e(str(order.get('id', '')))}</strong> is confirmed and is being prepared.<br><br>"
+            + rows + "<br>" + breakdown
+            + f"<strong>Total paid: {money(order.get('total'))}</strong><br><br>"
+            + (f"Delivering to {e(where)}. " if where else "")
+            + "We will email you again when it ships, with the courier and tracking number.")
+    return resend.Emails.send({
+        "from": FROM_EMAIL,
+        "to": [to_email],
+        "subject": f"Order Confirmed — {order.get('id', '')} — Maison Henius",
+        "html": _base_html(
+            headline="Order Confirmed",
+            body_content=body,
+            cta_text="View Your Order",
+            cta_url=profile_url,
+            footer_note="Keep this email as your record of the order. Questions? Reply through the contact form on our website.",
+        ),
+    })

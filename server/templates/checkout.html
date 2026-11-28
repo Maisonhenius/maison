@@ -265,6 +265,11 @@
     letter-spacing: 0.03em;
   }
 
+  .order-summary__row[hidden], .order-summary__notice[hidden] { display: none !important; }
+  .checkout-form__submit:disabled { opacity: 0.45; cursor: not-allowed; }
+  .order-summary__note { display: block; font-size: 0.7em; opacity: 0.6; letter-spacing: 0.02em; }
+  .order-summary__notice { margin: 0.6rem 0; padding: 0.7rem 0.8rem; font-size: 0.78rem; line-height: 1.5; color: #b23b2a; background: rgba(212, 97, 75, 0.08); border-left: 2px solid #d4614b; }
+  .checkout-form__textarea { resize: vertical; min-height: 3.2rem; font-family: inherit; }
   .order-summary__row--total {
     margin-top: 1rem;
     padding-top: 0.8rem;
@@ -558,6 +563,11 @@
               </select>
             </div>
           </div>
+
+          <div class="checkout-form__group">
+            <label class="checkout-form__label" for="instructions">Delivery instructions <span class="checkout-form__optional">(optional)</span></label>
+            <textarea class="checkout-form__input checkout-form__textarea" id="instructions" name="instructions" rows="2" maxlength="300" placeholder="e.g. Please call before delivery"></textarea>
+          </div>
         </div>
 
         <!-- RIGHT: Order Summary -->
@@ -567,13 +577,26 @@
             <ul class="order-summary__items" id="summaryItems"></ul>
             <div class="order-summary__totals">
               <div class="order-summary__row">
-                <span class="order-summary__label">Subtotal</span>
+                <span class="order-summary__label">Products</span>
                 <span class="order-summary__value" id="summarySubtotal">$0</span>
               </div>
               <div class="order-summary__row">
-                <span class="order-summary__label">Shipping</span>
-                <span class="order-summary__value" id="summaryShipping">$25</span>
+                <span class="order-summary__label">Shipping <span class="order-summary__note" id="summaryZone"></span></span>
+                <span class="order-summary__value" id="summaryShipping">…</span>
               </div>
+              <div class="order-summary__row">
+                <span class="order-summary__label">Door-to-door delivery</span>
+                <span class="order-summary__value" id="summaryD2d">…</span>
+              </div>
+              <div class="order-summary__row" id="summaryAddRow" hidden>
+                <span class="order-summary__label" id="summaryAddLabel">Additional charges</span>
+                <span class="order-summary__value" id="summaryAdd">$0</span>
+              </div>
+              <div class="order-summary__row">
+                <span class="order-summary__label">Taxes <span class="order-summary__note" id="summaryTaxLabel"></span></span>
+                <span class="order-summary__value" id="summaryTax">…</span>
+              </div>
+              <p class="order-summary__notice" id="summaryNotice" hidden></p>
               <div class="order-summary__row order-summary__row--total">
                 <span class="order-summary__label">Total</span>
                 <span class="order-summary__value" id="summaryTotal">$0</span>
@@ -613,7 +636,8 @@
   if (window._checkoutInitBound) return;
   window._checkoutInitBound = true;
 
-  var SHIPPING = 25;
+  /* Step 3: shipping, door-to-door, additional charges and tax come from the
+     server (/api/checkout/quote) for the chosen delivery country. */
 
   document.addEventListener("turbo:load", function initCheckoutPage() {
     var formEl      = document.getElementById('checkoutForm');
@@ -662,6 +686,48 @@
       return li;
     }
 
+    var quoteOk = true, quoteSeq = 0;
+    function money(n) { return '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function updateQuote() {
+      var cart = MaisonCart.getCart();
+      var sel = formEl.querySelector('[name="country"]');
+      var notice = document.getElementById('summaryNotice');
+      var btn = formEl.querySelector('.checkout-form__submit');
+      var seq = ++quoteSeq;
+      if (!sel || !sel.value) {
+        quoteOk = false; notice.hidden = false; notice.textContent = 'Choose the delivery country to see the delivery charges and the total.';
+        totalEl.textContent = '…'; if (btn) btn.disabled = true; return;
+      }
+      fetch('/api/checkout/quote', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: sel.value, items: cart.map(function (i) { return { id: i.id, quantity: i.quantity }; }) }) })
+        .then(function (r) { return r.json(); })
+        .then(function (q) {
+          if (seq !== quoteSeq) return;  // a newer country choice is on its way
+          quoteOk = !!q.ok;
+          if (btn) btn.disabled = !quoteOk;
+          notice.hidden = quoteOk;
+          if (!quoteOk) {
+            notice.textContent = q.error || 'We cannot deliver to this country yet.';
+            ['summaryShipping', 'summaryD2d', 'summaryTax'].forEach(function (id) { document.getElementById(id).textContent = '–'; });
+            document.getElementById('summaryZone').textContent = ''; document.getElementById('summaryTaxLabel').textContent = '';
+            document.getElementById('summaryAddRow').hidden = true;
+            totalEl.textContent = '–';
+            return;
+          }
+          document.getElementById('summaryZone').textContent = q.zone || '';
+          document.getElementById('summaryShipping').textContent = money(q.shipping);
+          document.getElementById('summaryD2d').textContent = money(q.door_to_door);
+          document.getElementById('summaryAddRow').hidden = !(q.additional > 0);
+          document.getElementById('summaryAddLabel').textContent = q.additional_label || 'Additional charges';
+          document.getElementById('summaryAdd').textContent = money(q.additional);
+          document.getElementById('summaryTaxLabel').textContent = q.tax > 0 ? (q.tax_label + (q.tax_on_delivery ? ', incl. delivery' : '')) : 'none for this country';
+          document.getElementById('summaryTax').textContent = money(q.tax);
+          subtotalEl.textContent = money(q.subtotal);
+          totalEl.textContent = money(q.total);
+        })
+        .catch(function () { if (seq === quoteSeq) { notice.hidden = false; notice.textContent = 'Could not work out the delivery charges. Please check your connection and try again.'; } });
+    }
+
     function renderCheckout() {
       var cart = MaisonCart.getCart();
       var subtotal = MaisonCart.getTotal();
@@ -689,9 +755,9 @@
         itemsEl.appendChild(buildSummaryItem(item));
       });
 
-      /* Update totals (subtotal + $25 shipping) */
+      /* Totals: products here, delivery + tax from the server for the country */
       subtotalEl.textContent = formatPrice(subtotal);
-      totalEl.textContent = formatPrice(subtotal + SHIPPING);
+      updateQuote();
 
       /* Entrance animations */
       if (typeof gsap !== 'undefined' && !window.prefersReducedMotion) {
@@ -804,6 +870,7 @@
     }
     if (countrySelect && postalInput) {
       countrySelect.addEventListener('change', syncPostalRequired);
+      countrySelect.addEventListener('change', updateQuote);
       syncPostalRequired();
     }
 
@@ -811,6 +878,7 @@
     formEl.addEventListener('submit', function(e) {
       e.preventDefault();
       if (COMING_SOON) { openComingSoon(); return; }  // pre-launch gate, no payment
+      if (!quoteOk) { updateQuote(); return; }        // no delivery to this country
       var cart = MaisonCart.getCart();
       if (!cart.length) return;
 
@@ -839,7 +907,8 @@
             state: formEl.querySelector('[name="state"]').value || '',
             postal_code: formEl.querySelector('[name="postal_code"]').value,
             country: formEl.querySelector('[name="country"]').value,
-          }
+          },
+          instructions: (formEl.querySelector('[name="instructions"]') || {}).value || ''
         }
       };
 

@@ -148,8 +148,8 @@
       } else
       h += '<div class="ff-card"><h3 class="ff-h3">Charged to the customer <small>&#128274; set at payment · read-only</small></h3><table class="fo-money"><tbody>' +
         '<tr><td>Products</td><td>' + usd(c.subtotal) + '</td></tr><tr><td>Shipping fee</td><td>' + usd(c.shipping) + '</td></tr>' +
-        '<tr><td>Door-to-door delivery</td><td>' + usd(c.door_to_door) + '</td></tr><tr><td>Additional charges</td><td>' + usd(c.additional) + '</td></tr>' +
-        '<tr><td>Taxes</td><td>' + usd(c.tax) + '</td></tr><tr><td>Discounts</td><td>−' + usd(c.discount) + '</td></tr>' +
+        '<tr><td>Door-to-door delivery</td><td>' + usd(c.door_to_door) + '</td></tr><tr><td>' + esc(c.additional_label || 'Additional charges') + '</td><td>' + usd(c.additional) + '</td></tr>' +
+        '<tr><td>Taxes' + (c.tax_label ? ' (' + esc(c.tax_label) + ')' : '') + '</td><td>' + usd(c.tax) + '</td></tr><tr><td>Discounts</td><td>−' + usd(c.discount) + '</td></tr>' +
         '<tr class="tot"><td>Total paid</td><td>' + usd(c.total) + '</td></tr></tbody></table></div>';
       if (own && o.costs) {
         var d = o.costs.difference;
@@ -161,7 +161,7 @@
         var wh = state.notifications.filter(function (n) { return n.kind === 'warehouse_new_order'; });
         var lastSent = wh.filter(function (n) { return n.status === 'sent'; })[0];
         var anyFail = wh.length && wh[0].status === 'failed';
-        var LBL = { warehouse_new_order: 'Warehouse new-order email', owner_issue: 'Issue alert to owners' };
+        var LBL = { warehouse_new_order: 'Warehouse new-order email', owner_issue: 'Issue alert to owners', customer_confirmation: 'Order confirmation to the customer' };
         h += '<div class="ff-card"><h3 class="ff-h3">Emails <small>owners only</small></h3>' +
           '<p style="margin:0 0 0.7rem;font-size:0.82rem">' + (lastSent ? '<span class="ff-chip ff-chip--ok">Warehouse emailed</span> ' + esc(when(lastSent.created_at)) :
             anyFail ? '<span class="ff-chip ff-chip--bad">Warehouse email failed</span> Press Resend.' :

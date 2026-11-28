@@ -250,17 +250,25 @@
         {% endfor %}
 
         <div class="success-order__totals">
+          {% set lines = [("Products", order.subtotal), ("Shipping", order.shipping)] %}
+          {% if (order.door_to_door_fee or 0)|float > 0 %}{% set lines = lines + [("Door-to-door delivery", order.door_to_door_fee)] %}{% endif %}
+          {% if (order.additional_fee or 0)|float > 0 %}{% set lines = lines + [(order.additional_label or "Additional charges", order.additional_fee)] %}{% endif %}
+          {% if (order.tax_amount or 0)|float > 0 %}{% set lines = lines + [("Taxes" ~ (" (" ~ order.tax_label ~ ")" if order.tax_label else ""), order.tax_amount)] %}{% endif %}
+          {% for label, amount in lines %}
           <div class="success-order__row">
-            <span class="success-order__label">Subtotal</span>
-            <span class="success-order__value">${{ order.subtotal }}</span>
+            <span class="success-order__label">{{ label }}</span>
+            <span class="success-order__value">${{ "%.2f"|format((amount or 0)|float) }}</span>
           </div>
+          {% endfor %}
+          {% if (order.discount_amount or 0)|float > 0 %}
           <div class="success-order__row">
-            <span class="success-order__label">Shipping</span>
-            <span class="success-order__value">${{ order.shipping }}</span>
+            <span class="success-order__label">Discounts</span>
+            <span class="success-order__value">−${{ "%.2f"|format(order.discount_amount|float) }}</span>
           </div>
+          {% endif %}
           <div class="success-order__row success-order__row--total">
-            <span class="success-order__label">Total</span>
-            <span class="success-order__value">${{ order.total }}</span>
+            <span class="success-order__label">Total paid</span>
+            <span class="success-order__value">${{ "%.2f"|format((order.total or 0)|float) }}</span>
           </div>
         </div>
       </div>

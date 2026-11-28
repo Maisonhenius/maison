@@ -165,7 +165,7 @@
         h += '<div class="ff-card"><h3 class="ff-h3">Emails <small>owners only</small></h3>' +
           '<p style="margin:0 0 0.7rem;font-size:0.82rem">' + (lastSent ? '<span class="ff-chip ff-chip--ok">Warehouse emailed</span> ' + esc(when(lastSent.created_at)) :
             anyFail ? '<span class="ff-chip ff-chip--bad">Warehouse email failed</span> Press Resend.' :
-            (wh.length && wh[0].status === 'skipped') ? '<span class="ff-chip ff-chip--warn">Not sent</span> No recipients on Team access.' :
+            (wh.length && wh[0].status === 'skipped') ? '<span class="ff-chip ff-chip--warn">Not sent</span> No active warehouse team member.' :
             '<span class="ff-chip ff-chip--muted">No warehouse email yet</span>') + '</p>' +
           (state.notifications.length ? '<ul class="fo-hist" style="margin-bottom:0.8rem">' + state.notifications.slice(0, 8).map(function (n) {
             return '<li><time>' + esc(when(n.created_at)) + '</time><span><b>' + esc(LBL[n.kind] || n.kind) + '</b> · ' + esc(n.status) +

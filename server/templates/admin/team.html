@@ -18,8 +18,8 @@
 <div class="ff-card ff-scroll">
   <h3 class="ff-h3">People with access</h3>
   <table class="ff-table">
-    <thead><tr><th>Person</th><th>Access</th><th>Status</th><th>Last active</th><th></th></tr></thead>
-    <tbody id="tmBody"><tr><td class="ff-muted" colspan="5">Loading…</td></tr></tbody>
+    <thead><tr><th>Person</th><th>Access</th><th>Status</th><th>Order emails</th><th>Last active</th><th></th></tr></thead>
+    <tbody id="tmBody"><tr><td class="ff-muted" colspan="6">Loading…</td></tr></tbody>
   </table>
   <div class="ff-error" id="tmErr" hidden></div>
 </div>
@@ -29,7 +29,7 @@
     <h3 class="ff-h3">Invite the warehouse company</h3>
     <form id="tmInvite" class="ff-form" novalidate>
       <div class="ff-field"><label for="tmName">Name</label><input id="tmName" maxlength="120" placeholder="Person or desk name"></div>
-      <div class="ff-field"><label for="tmCompany">Company</label><input id="tmCompany" maxlength="120"></div>
+      <div class="ff-field"><label for="tmCompany">Warehouse company</label><input id="tmCompany" maxlength="120" list="tmCompanies" required placeholder="e.g. Example Logistics"><datalist id="tmCompanies"></datalist></div>
       <div class="ff-field ff-wide"><label for="tmEmail">Work email</label><input id="tmEmail" type="email" maxlength="200" placeholder="name@company.com" required></div>
       <div class="ff-field"><label for="tmRole">Access</label><input id="tmRole" value="Fulfilment only" readonly></div>
       <div class="ff-field"><label for="tmMfa">2-step code</label><input id="tmMfa" value="Required" readonly></div>
@@ -39,17 +39,7 @@
         <div class="ff-ok" id="tmInvOk" hidden></div>
       </div>
     </form>
-    <p class="ff-muted" style="margin:0.8rem 0 0">They receive a Maison Henius email, choose their own password and link an authenticator app (Google Authenticator, Microsoft Authenticator or similar) for the 6-digit sign-in code. One account per person: please do not share accounts.</p>
-  </div>
-  <div class="ff-card">
-    <h3 class="ff-h3">New-order email recipients <small>emailed automatically when an order is paid</small></h3>
-    <table class="ff-table"><tbody id="tmRec"><tr><td class="ff-muted">Loading…</td></tr></tbody></table>
-    <form id="tmRecForm" class="ff-form" novalidate style="margin-top:0.9rem">
-      <div class="ff-field"><label for="tmRecEmail">Email</label><input id="tmRecEmail" type="email" maxlength="200" placeholder="orders@warehouse.com"></div>
-      <div class="ff-field"><label for="tmRecLabel">Label (optional)</label><input id="tmRecLabel" maxlength="120" placeholder="e.g. Orders desk"></div>
-      <div class="ff-wide"><button class="ff-btn ff-btn--sm" type="submit">Add recipient</button><div class="ff-error" id="tmRecErr" hidden></div></div>
-    </form>
-    <p class="ff-muted" style="margin:0.8rem 0 0">The email shows the order, products, codes, quantities, the customer's name, city and country, and the declared value. Phone, email and street address stay in the portal. Every email is logged on the order page, where you can also resend it.</p>
+    <p class="ff-muted" style="margin:0.8rem 0 0"><b>Order emails:</b> the first person you add for each warehouse company receives the "New Order to Fulfil" emails automatically, once they have finished their set-up. If they are suspended, the next person of the same company takes over. You can change this per person in the Order emails column.<br><br>They receive a Maison Henius email, choose their own password and link an authenticator app (Google Authenticator, Microsoft Authenticator or similar) for the 6-digit sign-in code. One account per person: please do not share accounts.</p>
   </div>
   <div class="ff-card">
     <h3 class="ff-h3">Recent activity <small>sign-ins, order views, refused pages, team changes</small></h3>
@@ -77,8 +67,8 @@
     password_set: 'Chose a password', password_changed: 'Changed password', account_activated: 'Finished set-up',
     team_invite: 'Invited', team_suspend: 'Suspended', team_revoke: 'Revoked', team_reactivate: 'Reactivated',
     team_resend: 'Re-sent invitation to', team_reset: 'Sent new set-up link to',
-    recipient_added: 'Added order-email recipient', recipient_removed: 'Removed order-email recipient',
-    recipient_on: 'Turned on order emails for', recipient_off: 'Paused order emails for'
+    order_emails_auto: 'Order emails set to automatic for', order_emails_on: 'Order emails always on for',
+    order_emails_off: 'Order emails turned off for'
   };
   var CONFIRM = {
     revoke: 'Revoke access? They are signed out at once and cannot sign in again unless you restore access.',
@@ -107,6 +97,7 @@
         var td = el('td'); td.appendChild(el('div', null, 'Maison Henius')); td.appendChild(el('span', 'ff-sub', email)); tr.appendChild(td);
         td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--gold', 'Owner · full access')); tr.appendChild(td);
         td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--ok', 'Active')); tr.appendChild(td);
+        tr.appendChild(el('td', 'ff-muted', 'Issue alerts'));
         tr.appendChild(el('td', 'ff-muted', 'Email-link sign-in'));
         tr.appendChild(el('td', 'ff-muted', 'Set in the website code'));
         body.appendChild(tr);
@@ -116,6 +107,17 @@
         var td = el('td'); td.appendChild(el('div', null, p.full_name || p.email)); td.appendChild(el('span', 'ff-sub', [p.company, p.email].filter(Boolean).join(' · '))); tr.appendChild(td);
         td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--muted', 'Fulfilment only')); td.appendChild(el('span', 'ff-sub', '2-step code required')); tr.appendChild(td);
         td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--' + st[0], st[1])); tr.appendChild(td);
+        td = el('td'); var oe = p.order_emails || {};
+        var why = oe.receives ? (oe.override === 'on' ? 'Receiving · added by you' : 'Receiving · first of ' + (p.company || 'company'))
+                : oe.override === 'off' ? 'Off · turned off by you'
+                : p.status !== 'active' ? (oe.auto || oe.override === 'on' ? 'Starts once set-up is done' : 'Not receiving')
+                : 'Not receiving';
+        td.appendChild(el('span', 'ff-chip ff-chip--' + (oe.receives ? 'ok' : 'muted'), why));
+        var sel = el('select', 'ff-input'); sel.style.cssText = 'margin-top:0.35rem;padding:0.3rem 0.5rem;font-size:0.72rem;width:auto';
+        sel.setAttribute('aria-label', 'Order emails for ' + (p.full_name || p.email));
+        [['auto', 'Automatic'], ['on', 'Always'], ['off', 'Never']].forEach(function (x) { var o = el('option', null, x[1]); o.value = x[0]; if ((oe.override || 'auto') === x[0]) o.selected = true; sel.appendChild(o); });
+        sel.addEventListener('change', function () { sel.disabled = true; MH.fetch('/api/admin/team/' + encodeURIComponent(p.id) + '/order-emails', { method: 'PATCH', body: JSON.stringify({ mode: sel.value }) }).then(load); });
+        td.appendChild(el('br')); td.appendChild(sel); tr.appendChild(td);
         tr.appendChild(el('td', 'ff-muted', p.last_seen_at ? when(p.last_seen_at) : (p.status === 'invited' ? 'Invited ' + when(p.invited_at) : '–')));
         td = el('td'); var box = el('div', 'tm-act');
         (ACTIONS[p.status] || []).forEach(function (a) {
@@ -127,7 +129,8 @@
         td.appendChild(box); tr.appendChild(td);
         body.appendChild(tr);
       });
-      renderRecipients(d.recipients || []);
+      var dl = document.getElementById('tmCompanies'); dl.innerHTML = '';
+      (d.companies || []).forEach(function (c) { var o = el('option'); o.value = c; dl.appendChild(o); });
       log.innerHTML = '';
       if (!d.activity.length) log.innerHTML = '<tr><td class="ff-muted">No activity yet.</td></tr>';
       d.activity.forEach(function (a) {
@@ -138,39 +141,6 @@
         log.appendChild(tr);
       });
     }
-
-    function renderRecipients(list) {
-      var body = document.getElementById('tmRec');
-      body.innerHTML = '';
-      if (!list.length) { body.innerHTML = '<tr><td class="ff-muted">No recipients yet: new-order emails are not being sent. Add the warehouse address below.</td></tr>'; return; }
-      list.forEach(function (r) {
-        var tr = el('tr');
-        var td = el('td'); td.appendChild(el('div', null, r.email)); if (r.label) td.appendChild(el('span', 'ff-sub', r.label)); tr.appendChild(td);
-        td = el('td'); td.appendChild(el('span', 'ff-chip ff-chip--' + (r.active ? 'ok' : 'muted'), r.active ? 'Receiving' : 'Paused')); tr.appendChild(td);
-        td = el('td', 'ff-num');
-        var tog = el('button', 'ff-btn ff-btn--ghost ff-btn--sm', r.active ? 'Pause' : 'Resume'); tog.type = 'button';
-        var rm = el('button', 'ff-btn ff-btn--danger ff-btn--sm', 'Remove'); rm.type = 'button'; rm.style.marginLeft = '0.4rem';
-        tog.addEventListener('click', function () { tog.disabled = true; MH.fetch('/api/admin/team/recipients/' + r.id, { method: 'PATCH', body: JSON.stringify({ active: !r.active }) }).then(load); });
-        rm.addEventListener('click', function () {
-          if (rm.dataset.sure !== '1') { rm.dataset.sure = '1'; rm.textContent = 'Click again'; return; }
-          rm.disabled = true; MH.fetch('/api/admin/team/recipients/' + r.id, { method: 'DELETE' }).then(load);
-        });
-        td.appendChild(tog); td.appendChild(rm); tr.appendChild(td);
-        body.appendChild(tr);
-      });
-    }
-
-    document.getElementById('tmRecForm').addEventListener('submit', function (e) {
-      e.preventDefault();
-      var err = document.getElementById('tmRecErr'); err.hidden = true;
-      MH.fetch('/api/admin/team/recipients', { method: 'POST', body: JSON.stringify({
-        email: document.getElementById('tmRecEmail').value.trim(), label: document.getElementById('tmRecLabel').value.trim() }) })
-        .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-        .then(function (res) {
-          if (!res.ok) { err.hidden = false; err.textContent = res.d.error || 'Could not add.'; return; }
-          document.getElementById('tmRecForm').reset(); load();
-        });
-    });
 
     function act(p, action, btn, label) {
       err.hidden = true;
@@ -198,6 +168,7 @@
       invErr.hidden = true; ok.hidden = true;
       var email = document.getElementById('tmEmail').value.trim();
       if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { invErr.hidden = false; invErr.textContent = 'Enter a valid work email address.'; return; }
+      if (!document.getElementById('tmCompany').value.trim()) { invErr.hidden = false; invErr.textContent = 'Enter the warehouse company name.'; return; }
       send.disabled = true;
       MH.fetch('/api/admin/team/invite', { method: 'POST', body: JSON.stringify({
         email: email, full_name: document.getElementById('tmName').value.trim(), company: document.getElementById('tmCompany').value.trim()

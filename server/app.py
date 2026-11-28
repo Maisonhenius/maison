@@ -2406,14 +2406,20 @@ async def admin_team(request: Request):
         _db(supabase.table("staff_activity").select("*").order("created_at", desc=True).limit(100)),
     )
     try:
-        rec = await _db(supabase.table("notification_recipients").select("*").order("created_at"))
-        recipients = [{k: r.get(k) for k in ("id", "email", "label", "active")} for r in (rec.data or [])]
-    except Exception:
-        recipients = []
+        _, plan = await _order_email_plan()
+    except Exception as e:
+        print(f"[team] order-email plan failed: {e}")
+        plan = {}
+    staff_out = []
+    for r in (staff_rows.data or []):
+        v = _staff_view(r)
+        v["order_emails"] = plan.get(str(r.get("email", "")).lower(), {"auto": False, "override": "auto", "receives": False})
+        staff_out.append(v)
+    companies = sorted({(r.get("company") or "").strip() for r in (staff_rows.data or []) if (r.get("company") or "").strip()})
     return JSONResponse({
         "owners": list(ALLOWED_EMAILS),
-        "recipients": recipients,
-        "staff": [_staff_view(r) for r in (staff_rows.data or [])],
+        "companies": companies,
+        "staff": staff_out,
         "activity": [{k: a.get(k) for k in ("created_at", "staff_email", "role", "action", "detail")}
                      for a in (activity.data or [])],
     })
@@ -2432,6 +2438,8 @@ async def admin_team_invite(request: Request):
         return JSONResponse({"error": "Enter a valid work email address."}, status_code=400)
     if email in ALLOWED_EMAILS:
         return JSONResponse({"error": "This is an owner address."}, status_code=400)
+    if not company:
+        return JSONResponse({"error": "Enter the warehouse company name (it decides who receives the order emails)."}, status_code=400)
     existing = await _db(supabase.table("staff_accounts").select("id,status").eq("email", email).limit(1))
     if existing.data:
         return JSONResponse({"error": "This person is already on the team list. Use the buttons on their row."}, status_code=409)
@@ -2724,10 +2732,44 @@ class _WarehouseViewer:
     role = "fulfilment"
 
 
+def _company_key(c) -> str:
+    return " ".join(str(c or "").lower().split())
+
+
+async def _order_email_plan():
+    """Who receives new-order emails, worked out from the warehouse team (owner request).
+
+    Rule: per warehouse company, the FIRST person added who is Active (set-up done)
+    receives them automatically; if they're suspended/revoked the next Active person
+    of that company takes over. Owners can override per person ("on" = also include,
+    "off" = never) — stored as notification_recipients rows (active true/false) keyed
+    by the person's email. Returns (staff_rows, {email: info}).
+    """
+    staff_res, ovr_res = await asyncio.gather(
+        _db(supabase.table("staff_accounts").select("id,email,full_name,company,status,role,invited_at")
+            .eq("role", "fulfilment").order("invited_at", desc=False)),
+        _db(supabase.table("notification_recipients").select("email,active")),
+    )
+    overrides = {str(r["email"]).lower(): bool(r.get("active")) for r in (ovr_res.data or []) if r.get("email")}
+    auto, plan = {}, {}
+    rows = staff_res.data or []
+    for r in rows:
+        if r.get("status") == "active":
+            auto.setdefault(_company_key(r.get("company")), str(r["email"]).lower())
+    for r in rows:
+        email = str(r["email"]).lower()
+        is_auto = auto.get(_company_key(r.get("company"))) == email
+        ovr = overrides.get(email)
+        receives = r.get("status") == "active" and (ovr is True or (is_auto and ovr is not False))
+        plan[email] = {"auto": is_auto, "override": "on" if ovr is True else "off" if ovr is False else "auto",
+                       "receives": receives}
+    return rows, plan
+
+
 async def _warehouse_recipients() -> list:
     try:
-        res = await _db(supabase.table("notification_recipients").select("email").eq("active", True))
-        return [r["email"] for r in (res.data or []) if r.get("email")]
+        _, plan = await _order_email_plan()
+        return [email for email, p in plan.items() if p["receives"]]
     except Exception as e:
         print(f"[notify] recipients lookup failed: {e}")
         return []
@@ -2784,7 +2826,7 @@ async def notify_warehouse_new_order(order_id: str, manual_by: Optional[str] = N
     trigger = manual_by or "system"
     recipients = await _warehouse_recipients()
     if not recipients:
-        await _log_notification(order_id, kind, "", "skipped", "No recipients set on Team access", triggered_by=trigger)
+        await _log_notification(order_id, kind, "", "skipped", "No active warehouse team member to email", triggered_by=trigger)
         return {"sent": 0, "failed": 0, "skipped": "no_recipients"}
     o = await _load_order(order_id)
     if not o or o.get("status") not in FULFILMENT_ORDER_STATUSES:
@@ -2845,50 +2887,28 @@ async def admin_resend_warehouse_email(order_id: str, request: Request):
         return JSONResponse({"error": "Only paid orders can be sent to the warehouse."}, status_code=400)
     result = await notify_warehouse_new_order(order_id, manual_by=owner.email if owner else "owner")
     if result.get("skipped") == "no_recipients":
-        return JSONResponse({"error": "Add at least one recipient on Team access first."}, status_code=400)
+        return JSONResponse({"error": "No active warehouse team member to email. Invite the warehouse on Team access first."}, status_code=400)
     return JSONResponse(result)
 
 
-@app.post("/api/admin/team/recipients")
-async def admin_add_recipient(request: Request):
+@app.patch("/api/admin/team/{staff_id}/order-emails")
+async def admin_set_order_emails(staff_id: str, request: Request):
+    """Per-person override of the automatic rule: auto | on (also include) | off (never)."""
     owner = await get_owner(request)
     if not owner:
         return JSONResponse({"error": "Owner access required"}, status_code=401)
-    body = await request.json()
-    email = str(body.get("email") or "").strip().lower()
-    if not _EMAIL_RE.match(email) or len(email) > 200:
-        return JSONResponse({"error": "Enter a valid email address."}, status_code=400)
-    existing = await _db(supabase.table("notification_recipients").select("id").eq("email", email).limit(1))
-    if existing.data:
-        return JSONResponse({"error": "This address is already on the list."}, status_code=409)
-    await _db(supabase.table("notification_recipients").insert({
-        "email": email, "label": str(body.get("label") or "").strip()[:120], "active": True, "added_by": owner.email}))
-    await _log_staff(owner, "recipient_added", email, request)
-    return JSONResponse({"success": True})
-
-
-@app.patch("/api/admin/team/recipients/{rid}")
-async def admin_toggle_recipient(rid: str, request: Request):
-    owner = await get_owner(request)
-    if not owner:
-        return JSONResponse({"error": "Owner access required"}, status_code=401)
-    body = await request.json()
-    res = await _db(supabase.table("notification_recipients").update({"active": bool(body.get("active"))}).eq("id", rid))
+    mode = (await request.json()).get("mode")
+    if mode not in ("auto", "on", "off"):
+        return JSONResponse({"error": "Choose automatic, always or never."}, status_code=400)
+    res = await _db(supabase.table("staff_accounts").select("email").eq("id", staff_id).limit(1))
     if not res.data:
         return JSONResponse({"error": "Not found"}, status_code=404)
-    await _log_staff(owner, "recipient_on" if body.get("active") else "recipient_off", res.data[0].get("email", ""), request)
-    return JSONResponse({"success": True})
-
-
-@app.delete("/api/admin/team/recipients/{rid}")
-async def admin_remove_recipient(rid: str, request: Request):
-    owner = await get_owner(request)
-    if not owner:
-        return JSONResponse({"error": "Owner access required"}, status_code=401)
-    res = await _db(supabase.table("notification_recipients").delete().eq("id", rid))
-    if not res.data:
-        return JSONResponse({"error": "Not found"}, status_code=404)
-    await _log_staff(owner, "recipient_removed", res.data[0].get("email", ""), request)
+    email = str(res.data[0]["email"]).lower()
+    await _db(supabase.table("notification_recipients").delete().eq("email", email))
+    if mode != "auto":
+        await _db(supabase.table("notification_recipients").insert(
+            {"email": email, "active": mode == "on", "label": "team override", "added_by": owner.email}))
+    await _log_staff(owner, f"order_emails_{mode}", email, request)
     return JSONResponse({"success": True})
 
 
